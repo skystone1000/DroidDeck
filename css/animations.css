@@ -1,0 +1,192 @@
+/* ==========================================================================
+   Animations — reveal states, diagram drawing, theme crossfades.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Card reveal — cards start hidden; GSAP (or the .revealed fallback) shows them
+   -------------------------------------------------------------------------- */
+
+.question-card {
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.question-card.revealed {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity var(--transition-slow), transform var(--transition-slow);
+}
+
+@keyframes cardReveal {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.question-card.reveal-fallback {
+    animation: cardReveal var(--transition-slow) forwards;
+}
+
+/* --------------------------------------------------------------------------
+   Topic transitions
+   -------------------------------------------------------------------------- */
+
+.topic-container {
+    transition: opacity var(--transition-fast);
+}
+
+.topic-container.topic-transitioning {
+    opacity: 0;
+}
+
+.topic-header,
+.key-topics-section {
+    animation: fadeIn var(--transition-slow) both;
+}
+
+.key-topics-section {
+    animation-delay: 60ms;
+}
+
+/* --------------------------------------------------------------------------
+   Diagrams
+   -------------------------------------------------------------------------- */
+
+@keyframes drawLine {
+    from { stroke-dashoffset: 1000; }
+    to   { stroke-dashoffset: 0; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes flowDash {
+    to { stroke-dashoffset: -24; }
+}
+
+.diagram-animated .diagram-line {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: drawLine 2s ease forwards;
+}
+
+.diagram-animated .diagram-node {
+    opacity: 0;
+    animation: fadeIn 0.5s ease forwards;
+}
+
+.diagram-animated .diagram-node:nth-child(1)  { animation-delay: 0.2s; }
+.diagram-animated .diagram-node:nth-child(2)  { animation-delay: 0.4s; }
+.diagram-animated .diagram-node:nth-child(3)  { animation-delay: 0.6s; }
+.diagram-animated .diagram-node:nth-child(4)  { animation-delay: 0.8s; }
+.diagram-animated .diagram-node:nth-child(5)  { animation-delay: 1.0s; }
+.diagram-animated .diagram-node:nth-child(6)  { animation-delay: 1.2s; }
+.diagram-animated .diagram-node:nth-child(7)  { animation-delay: 1.4s; }
+.diagram-animated .diagram-node:nth-child(8)  { animation-delay: 1.6s; }
+.diagram-animated .diagram-node:nth-child(9)  { animation-delay: 1.8s; }
+.diagram-animated .diagram-node:nth-child(10) { animation-delay: 2.0s; }
+
+.flow-arrow {
+    stroke-dasharray: 6 6;
+    animation: flowDash 1s linear infinite;
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar & search
+   -------------------------------------------------------------------------- */
+
+.sidebar {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.search-results:not([hidden]) {
+    animation: slideDown var(--transition-base) ease;
+}
+
+/* --------------------------------------------------------------------------
+   Theme crossfade
+   -------------------------------------------------------------------------- */
+
+body,
+.header,
+.sidebar,
+.question-card,
+.code-block,
+.key-topics-section,
+.search-results {
+    transition: background-color var(--transition-base), color var(--transition-base),
+                border-color var(--transition-base);
+}
+
+/* --------------------------------------------------------------------------
+   Skeleton placeholder
+   -------------------------------------------------------------------------- */
+
+@keyframes shimmer {
+    from { background-position: -400px 0; }
+    to   { background-position: 400px 0; }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
+    background-size: 800px 100%;
+    border-radius: var(--radius-sm);
+    animation: shimmer 1.4s linear infinite;
+}
+
+/* --------------------------------------------------------------------------
+   Hamburger → X
+   -------------------------------------------------------------------------- */
+
+.hamburger-btn.active .hamburger-line:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+
+.hamburger-btn.active .hamburger-line:nth-child(2) {
+    opacity: 0;
+}
+
+.hamburger-btn.active .hamburger-line:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+}
+
+/* --------------------------------------------------------------------------
+   Active nav glow
+   -------------------------------------------------------------------------- */
+
+@keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; }
+    50%      { box-shadow: 0 0 16px -2px var(--accent-glow); }
+}
+
+.nav-item.active {
+    animation: glowPulse 3s ease-in-out infinite;
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+    .question-card {
+        opacity: 1;
+        transform: none;
+    }
+
+    .diagram-animated .diagram-line,
+    .diagram-animated .diagram-node,
+    .flow-arrow,
+    .nav-item.active,
+    .skeleton {
+        animation: none;
+    }
+
+    .diagram-animated .diagram-line { stroke-dashoffset: 0; }
+    .diagram-animated .diagram-node { opacity: 1; }
+}
