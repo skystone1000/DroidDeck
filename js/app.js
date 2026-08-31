@@ -419,7 +419,14 @@ function revealCards(cards) {
         return;
     }
 
-    gsap.fromTo(cards,
+    // Drop GSAP's inline styles when we're done so the stylesheet regains
+    // control — leftover transforms otherwise fight the card's hover state.
+    const settle = () => cards.forEach((card) => {
+        gsap.set(card, { clearProps: 'all' });
+        card.classList.add('revealed');
+    });
+
+    const tween = gsap.fromTo(cards,
         { opacity: 0, y: 20, scale: 0.98 },
         {
             opacity: 1,
@@ -427,15 +434,24 @@ function revealCards(cards) {
             scale: 1,
             duration: 0.4,
             ease: 'power2.out',
-            stagger: 0.04,
-            // The CSS keeps cards hidden by default; hand control back to the
-            // stylesheet once GSAP is done so hover transitions still work.
-            onComplete: () => cards.forEach((card) => {
-                gsap.set(card, { clearProps: 'all' });
-                card.classList.add('revealed');
-            })
+            // Distribute the stagger across a fixed budget rather than paying
+            // a flat delay per card: Android renders 135 cards, and 0.04s each
+            // would leave the last one waiting five seconds.
+            stagger: { amount: Math.min(cards.length * 0.04, 0.6) },
+            onComplete: settle
         }
     );
+
+    // Watchdog. The tween's from-state hides every card synchronously, but it
+    // is driven by requestAnimationFrame, which does not run in a background or
+    // throttled tab. If the animation has not advanced, force the finished
+    // state — a stalled decoration must never leave the content unreadable.
+    setTimeout(() => {
+        if (tween.progress() < 1) {
+            tween.kill();
+            settle();
+        }
+    }, 2000);
 }
 
 /* --------------------------------------------------------------------------

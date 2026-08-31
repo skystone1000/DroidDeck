@@ -3,13 +3,14 @@
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
-   Card reveal — cards start hidden; GSAP (or the .revealed fallback) shows them
-   -------------------------------------------------------------------------- */
+   Card reveal
 
-.question-card {
-    opacity: 0;
-    transform: translateY(20px);
-}
+   Cards are VISIBLE by default. The reveal animation hides them with inline
+   styles immediately before animating (see revealCards() in app.js), which
+   means a missing, stalled or throttled GSAP can never leave content
+   permanently invisible. Hiding them here instead would make readability
+   depend on a purely decorative animation completing.
+   -------------------------------------------------------------------------- */
 
 .question-card.revealed {
     opacity: 1;
@@ -174,11 +175,6 @@ body,
    -------------------------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {
-    .question-card {
-        opacity: 1;
-        transform: none;
-    }
-
     .diagram-animated .diagram-line,
     .diagram-animated .diagram-node,
     .flow-arrow,
