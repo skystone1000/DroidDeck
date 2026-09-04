@@ -22,12 +22,70 @@ const CHEVRON_SVG =
    Sidebar
    -------------------------------------------------------------------------- */
 
+/* The sidebar shows one mode at a time. Which one is derived from the hash, so
+   arriving on a theory deep link puts the sidebar in theory mode without the
+   reader having to flip anything. */
+let sidebarMode = 'questions';
+let sidebarTopics = [];
+
 function renderSidebar(topicsList) {
+    if (topicsList) sidebarTopics = topicsList;
+
     const nav = document.getElementById('sidebarNav');
     if (!nav) return;
     nav.innerHTML = '';
 
-    topicsList.forEach((topic) => {
+    nav.appendChild(buildModeSwitch());
+
+    if (sidebarMode === 'theory') {
+        buildTheoryNav(nav);
+    } else {
+        buildQuestionNav(nav);
+    }
+}
+
+function setSidebarMode(mode) {
+    if (mode === sidebarMode) return;
+    sidebarMode = mode;
+    renderSidebar();
+}
+
+function buildModeSwitch() {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'mode-switch';
+    wrapper.setAttribute('role', 'tablist');
+
+    const modes = [
+        { id: 'questions', label: 'Questions' },
+        { id: 'theory', label: 'Theory' }
+    ];
+
+    modes.forEach((mode) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'mode-switch-option';
+        button.textContent = mode.label;
+        button.setAttribute('role', 'tab');
+        button.setAttribute('aria-selected', String(sidebarMode === mode.id));
+        if (sidebarMode === mode.id) button.classList.add('active');
+
+        button.addEventListener('click', () => {
+            if (sidebarMode === mode.id) return;
+            // Navigating is what flips the mode — the hash stays the source of
+            // truth, so the switch and the back button never disagree.
+            window.location.hash = mode.id === 'theory'
+                ? generateTheoryHash(null)
+                : generateHash(sidebarTopics.length ? sidebarTopics[0].id : '');
+        });
+
+        wrapper.appendChild(button);
+    });
+
+    return wrapper;
+}
+
+function buildQuestionNav(nav) {
+    sidebarTopics.forEach((topic) => {
         const icon = topicIcons[topic.id] || '📄';
         const count = (topic.questions || []).length;
 
@@ -36,6 +94,92 @@ function renderSidebar(topicsList) {
         } else {
             nav.appendChild(buildTopicLink(topic, icon, count));
         }
+    });
+}
+
+/* Tracks map onto the group/subsection markup the question sidebar already
+   uses, which is why modules are sized the way they are — no third level. */
+function buildTheoryNav(nav) {
+    const tracks = (typeof theoryTracks === 'undefined') ? [] : theoryTracks;
+    const modules = (typeof theoryModules === 'undefined') ? [] : theoryModules;
+
+    tracks
+        .slice()
+        .sort((a, b) => a.order - b.order)
+        .forEach((track) => {
+            const inTrack = modules
+                .filter((mod) => mod.trackId === track.id)
+                .sort((a, b) => a.order - b.order);
+            nav.appendChild(buildTrackGroup(track, inTrack));
+        });
+}
+
+function buildTrackGroup(track, modules) {
+    const group = document.createElement('div');
+    group.className = 'nav-item-group';
+    group.dataset.trackId = track.id;
+
+    const parent = document.createElement('button');
+    parent.type = 'button';
+    parent.className = 'nav-item nav-item-parent';
+    parent.dataset.trackId = track.id;
+    parent.setAttribute('aria-expanded', 'false');
+    parent.innerHTML =
+        `<span class="nav-icon">${track.icon}</span>` +
+        `<span class="nav-label">${escapeAttr(track.title)}</span>` +
+        `<span class="nav-count">${modules.length}</span>` +
+        CHEVRON_SVG;
+
+    parent.addEventListener('click', () => {
+        const expanded = group.classList.toggle('expanded');
+        parent.setAttribute('aria-expanded', String(expanded));
+    });
+
+    const list = document.createElement('div');
+    list.className = 'nav-subsections';
+
+    if (!modules.length) {
+        const empty = document.createElement('span');
+        empty.className = 'nav-subsection nav-subsection-empty';
+        empty.textContent = 'Not written yet';
+        list.appendChild(empty);
+    }
+
+    modules.forEach((mod) => {
+        const link = document.createElement('a');
+        link.className = 'nav-subsection';
+        link.href = generateTheoryHash(mod.id);
+        link.dataset.moduleId = mod.id;
+        link.textContent = `${mod.order}. ${mod.title}`;
+        link.addEventListener('click', closeMobileMenu);
+        list.appendChild(link);
+    });
+
+    group.appendChild(parent);
+    group.appendChild(list);
+    return group;
+}
+
+/** Highlights the open module and keeps only its track expanded. */
+function setActiveTheory(moduleId) {
+    document.querySelectorAll('.nav-item, .nav-subsection').forEach((node) => {
+        node.classList.remove('active');
+    });
+
+    const mod = moduleId && typeof theoryModules !== 'undefined'
+        ? theoryModules.find((m) => m.id === moduleId)
+        : null;
+
+    if (mod) {
+        const link = document.querySelector(`.nav-subsection[data-module-id="${mod.id}"]`);
+        if (link) link.classList.add('active');
+    }
+
+    document.querySelectorAll('.nav-item-group[data-track-id]').forEach((group) => {
+        const isActive = Boolean(mod) && group.dataset.trackId === mod.trackId;
+        group.classList.toggle('expanded', isActive);
+        const parent = group.querySelector('.nav-item-parent');
+        if (parent) parent.setAttribute('aria-expanded', String(isActive));
     });
 }
 
@@ -184,6 +328,7 @@ function parseHash(hash) {
 
 function handleRouteChange() {
     const route = parseHash(window.location.hash);
+    setSidebarMode(route.mode);
 
     if (route.mode === 'theory') {
         if (route.moduleId) {

@@ -42,6 +42,19 @@
     background: var(--accent-light);
 }
 
+/* A track with no modules yet still shows its row, so the shape of the
+   curriculum is visible before it is written. */
+.nav-subsection-empty {
+    color: var(--text-muted);
+    font-style: italic;
+    cursor: default;
+}
+
+.nav-subsection-empty:hover {
+    background: transparent;
+    color: var(--text-muted);
+}
+
 /* --------------------------------------------------------------------------
    Overview
    -------------------------------------------------------------------------- */
