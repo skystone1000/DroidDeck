@@ -60,6 +60,12 @@
     --diagram-node: rgba(139, 92, 246, 0.2);
     --diagram-text: #a78bfa;
     --diagram-arrow: #8b5cf6;
+    /* Theory importance tiers. Their own tokens rather than reuses of
+       --error-color/--warning-color: a must-know badge is not an error, and
+       the two meanings must be free to diverge. */
+    --importance-must: #f87171;
+    --importance-should: #fbbf24;
+    --importance-good: #6b6b80;
 }
 
 [data-theme="light"] {
@@ -107,6 +113,9 @@
     --diagram-node: rgba(124, 58, 237, 0.1);
     --diagram-text: #4f46e5;
     --diagram-arrow: #7c3aed;
+    --importance-must: #dc2626;
+    --importance-should: #d97706;
+    --importance-good: #6b7280;
 }
 
 /* Scrollbar */

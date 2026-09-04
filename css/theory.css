@@ -1,0 +1,652 @@
+/* ==========================================================================
+   Theory — curriculum overview, module pages, chapters and content blocks.
+
+   Everything themable comes from the tokens in themes.css. The three
+   --importance-* tokens are the only ones this file introduces.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Mode switch
+   -------------------------------------------------------------------------- */
+
+.mode-switch {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    margin: 0 0 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+}
+
+.mode-switch-option {
+    flex: 1 1 0;
+    padding: 7px 10px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.mode-switch-option:hover {
+    color: var(--text-primary);
+}
+
+.mode-switch-option.active {
+    color: var(--accent-hover);
+    background: var(--accent-light);
+}
+
+/* --------------------------------------------------------------------------
+   Overview
+   -------------------------------------------------------------------------- */
+
+.theory-overview-blurb {
+    max-width: 62ch;
+    margin: 10px 0 0;
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: var(--text-secondary);
+}
+
+.theory-track {
+    margin-top: 34px;
+}
+
+.theory-empty {
+    padding: 18px;
+    font-size: 13.5px;
+    color: var(--text-muted);
+    background: var(--bg-glass);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.theory-module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+.theory-module-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 18px;
+    text-decoration: none;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    transition: transform var(--transition-fast),
+                border-color var(--transition-fast),
+                box-shadow var(--transition-fast);
+}
+
+.theory-module-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-color);
+    box-shadow: var(--shadow-md);
+}
+
+.theory-module-card-top {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.theory-module-number {
+    flex: 0 0 auto;
+    min-width: 22px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-color);
+}
+
+.theory-module-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.theory-module-tagline {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-secondary);
+}
+
+.theory-module-tagline-large {
+    max-width: 62ch;
+    margin-top: 8px;
+    font-size: 15px;
+}
+
+.theory-module-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 6px;
+}
+
+/* --------------------------------------------------------------------------
+   Module header
+   -------------------------------------------------------------------------- */
+
+.theory-breadcrumb {
+    display: inline-block;
+    margin-bottom: 10px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-decoration: none;
+}
+
+.theory-breadcrumb:hover {
+    color: var(--accent-hover);
+}
+
+.theory-prerequisites,
+.theory-dochub,
+.theory-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.theory-prerequisites-label,
+.theory-docs-label,
+.theory-related-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.theory-prerequisite {
+    padding: 5px 11px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.theory-prerequisite:hover {
+    color: var(--accent-hover);
+    border-color: var(--accent-color);
+}
+
+.theory-dochub-link {
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent-hover);
+    text-decoration: none;
+    background: var(--accent-light);
+    border: 1px solid var(--accent-color);
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+}
+
+.theory-dochub-link:hover {
+    background: var(--bg-card-hover);
+}
+
+.theory-control {
+    padding: 7px 13px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.theory-control:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-color);
+}
+
+.theory-control.active {
+    color: var(--accent-hover);
+    background: var(--accent-light);
+    border-color: var(--accent-color);
+}
+
+/* --------------------------------------------------------------------------
+   Chapter rail
+   -------------------------------------------------------------------------- */
+
+.theory-rail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 22px 0 8px;
+    padding: 14px 16px;
+    background: var(--bg-key-topics);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+}
+
+.theory-rail-item {
+    position: relative;
+    padding: 5px 11px 5px 18px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.theory-rail-item::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    transform: translateY(-50%);
+    background: var(--importance-good);
+}
+
+.theory-rail-item.importance-must::before   { background: var(--importance-must); }
+.theory-rail-item.importance-should::before { background: var(--importance-should); }
+
+.theory-rail-item:hover {
+    color: var(--accent-hover);
+    border-color: var(--accent-color);
+}
+
+/* --------------------------------------------------------------------------
+   Chapter
+   -------------------------------------------------------------------------- */
+
+.theory-chapter {
+    margin-bottom: 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--importance-good);
+    border-radius: var(--radius-md);
+    scroll-margin-top: 90px;
+}
+
+.theory-chapter.importance-must   { border-left-color: var(--importance-must); }
+.theory-chapter.importance-should { border-left-color: var(--importance-should); }
+
+.theory-chapter-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px 20px;
+    cursor: pointer;
+}
+
+.theory-chapter-header:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: -2px;
+    border-radius: var(--radius-md);
+}
+
+.theory-chapter-number {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-hover);
+    background: var(--accent-light);
+    border-radius: 8px;
+}
+
+.theory-chapter-heading {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.theory-chapter-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--text-primary);
+}
+
+.theory-chapter-summary {
+    margin: 5px 0 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--text-secondary);
+}
+
+.theory-importance {
+    flex: 0 0 auto;
+    padding: 3px 9px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    border-radius: 999px;
+    color: var(--importance-good);
+    background: var(--bg-glass);
+    border: 1px solid currentColor;
+}
+
+.theory-importance.importance-must   { color: var(--importance-must); }
+.theory-importance.importance-should { color: var(--importance-should); }
+
+.theory-chapter-body {
+    padding: 0 20px 20px;
+}
+
+.theory-chapter.collapsed .theory-chapter-body {
+    display: none;
+}
+
+/* Cram filter — hide everything that is not must-know. */
+#topicContainer.cram-mode .theory-chapter:not(.importance-must),
+#topicContainer.cram-mode .theory-rail-item:not(.importance-must) {
+    display: none;
+}
+
+/* --------------------------------------------------------------------------
+   Blocks
+   -------------------------------------------------------------------------- */
+
+.theory-angle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    background: var(--bg-glass);
+    border-radius: var(--radius-sm);
+}
+
+.theory-angle-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-hover);
+}
+
+.theory-block-title {
+    margin: 20px 0 8px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.theory-prose {
+    font-size: 14.5px;
+    line-height: 1.75;
+    color: var(--text-secondary);
+}
+
+.theory-prose p { margin: 0 0 12px; }
+.theory-prose ul,
+.theory-prose ol { margin: 0 0 12px; padding-left: 22px; }
+.theory-prose li { margin-bottom: 6px; }
+.theory-prose strong { color: var(--text-primary); font-weight: 600; }
+.theory-prose code,
+.theory-definition code,
+.theory-types code,
+.theory-callout code,
+.theory-table code {
+    padding: 1px 5px;
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    color: var(--text-code);
+    background: var(--bg-code-inline);
+    border-radius: 4px;
+}
+
+.theory-prose a,
+.theory-callout a,
+.theory-definition a {
+    color: var(--accent-hover);
+}
+
+/* Definition */
+.theory-definition {
+    margin: 16px 0;
+    padding: 14px 16px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.theory-definition.is-important {
+    border-color: var(--accent-color);
+    box-shadow: var(--shadow-glow);
+}
+
+.theory-definition-term {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent-hover);
+}
+
+.theory-definition-aka {
+    font-family: var(--font-sans);
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.theory-definition-body {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+}
+
+.theory-definition-body p:last-child { margin-bottom: 0; }
+
+/* Types */
+.theory-types-list {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.theory-types-item {
+    margin-bottom: 14px;
+    padding-left: 8px;
+    border-left: 2px solid var(--border-color);
+}
+
+.theory-types-name {
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.theory-types-body {
+    margin-top: 4px;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--text-secondary);
+}
+
+.theory-types-when {
+    margin-top: 5px;
+    font-size: 12.5px;
+    font-style: italic;
+    color: var(--text-muted);
+}
+
+/* Syntax */
+.theory-syntax { margin: 16px 0; }
+
+.theory-syntax-notes {
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text-muted);
+}
+
+/* Tables */
+.theory-table-wrap {
+    margin: 16px 0;
+    overflow-x: auto;
+}
+
+.theory-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+}
+
+.theory-table th,
+.theory-table td {
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: top;
+    border: 1px solid var(--border-color);
+}
+
+.theory-table thead th {
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--bg-key-topics);
+}
+
+.theory-table td {
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.theory-comparison-aspect {
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--bg-glass);
+    white-space: nowrap;
+}
+
+/* Callouts */
+.theory-callout {
+    margin: 16px 0;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--accent-color);
+    background: var(--bg-glass);
+}
+
+.theory-callout-pitfall { border-left-color: var(--warning-color); }
+.theory-callout-tip     { border-left-color: var(--accent-color); }
+
+.theory-callout-label {
+    margin-bottom: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.theory-callout-pitfall .theory-callout-label { color: var(--warning-color); }
+.theory-callout-tip .theory-callout-label     { color: var(--accent-hover); }
+
+.theory-callout-body {
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+}
+
+.theory-callout-body p:last-child { margin-bottom: 0; }
+
+/* --------------------------------------------------------------------------
+   Chapter footer — docs and related questions
+   -------------------------------------------------------------------------- */
+
+.theory-docs,
+.theory-related {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.theory-doc-link,
+.theory-related-link {
+    padding: 5px 11px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.theory-doc-link:hover,
+.theory-related-link:hover {
+    color: var(--accent-hover);
+    border-color: var(--accent-color);
+}
+
+.theory-doc-link.doc-kind-api {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+}
+
+/* --------------------------------------------------------------------------
+   Narrow screens
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 768px) {
+    .theory-module-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .theory-chapter-header {
+        flex-wrap: wrap;
+        padding: 14px 16px;
+    }
+
+    .theory-chapter-body {
+        padding: 0 16px 16px;
+    }
+
+    .theory-importance {
+        order: 3;
+    }
+}

@@ -368,23 +368,46 @@ function setupEventListeners() {
  * using replaceState so it never fires hashchange and re-renders the page.
  */
 function updateHashFromScroll() {
-    const headers = document.querySelectorAll('.subsection-header');
-    if (!headers.length) return;
+    const route = parseHash(window.location.hash);
 
-    const midpoint = window.innerHeight / 2;
-    let current = null;
+    if (route.mode === 'theory') {
+        // The overview has nothing to track — its track headings are landmarks,
+        // not routes. Only a module page has addressable chapters.
+        if (route.moduleId) updateHashFromTheoryScroll(route.moduleId);
+        return;
+    }
 
-    headers.forEach((header) => {
-        if (header.getBoundingClientRect().top <= midpoint) current = header;
-    });
+    const current = topmostPassed('.subsection-header');
     if (!current) return;
 
-    const { topicId } = parseHash(window.location.hash);
-    const nextHash = generateHash(topicId, current.dataset.subsectionId);
+    const nextHash = generateHash(route.topicId, current.dataset.subsectionId);
     if (nextHash === window.location.hash) return;
 
     history.replaceState(null, '', nextHash);
-    setActiveTopic(topicId, current.dataset.subsectionId);
+    setActiveTopic(route.topicId, current.dataset.subsectionId);
+}
+
+function updateHashFromTheoryScroll(moduleId) {
+    const current = topmostPassed('.theory-chapter');
+    if (!current) return;
+
+    const nextHash = generateTheoryHash(moduleId, current.dataset.chapterId);
+    if (nextHash === window.location.hash) return;
+
+    history.replaceState(null, '', nextHash);
+}
+
+/** The last element of `selector` whose top has scrolled past the midpoint. */
+function topmostPassed(selector) {
+    const nodes = document.querySelectorAll(selector);
+    if (!nodes.length) return null;
+
+    const midpoint = window.innerHeight / 2;
+    let current = null;
+    nodes.forEach((node) => {
+        if (node.getBoundingClientRect().top <= midpoint) current = node;
+    });
+    return current;
 }
 
 /* --------------------------------------------------------------------------

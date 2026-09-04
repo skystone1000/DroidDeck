@@ -137,21 +137,64 @@ function setActiveTopic(topicId, subsectionId) {
    Routing
    -------------------------------------------------------------------------- */
 
+/* `theory` is reserved as the first segment so the two modes cannot collide:
+   `#android/services` is a subsection, `#theory/services` would have been
+   ambiguous if theory were addressed as `#topicId/theory` instead. */
+const THEORY_ROUTE = 'theory';
+
 function generateHash(topicId, subsectionId) {
     return subsectionId ? `#${topicId}/${subsectionId}` : `#${topicId}`;
 }
 
+function generateTheoryHash(moduleId, chapterId) {
+    if (!moduleId) return `#${THEORY_ROUTE}`;
+    return chapterId
+        ? `#${THEORY_ROUTE}/${moduleId}/${chapterId}`
+        : `#${THEORY_ROUTE}/${moduleId}`;
+}
+
+/**
+ * Returns `{ mode, topicId, subsectionId, moduleId, chapterId }`.
+ * Question routes parse exactly as they always have; only a leading `theory`
+ * segment changes the shape.
+ */
 function parseHash(hash) {
     const raw = (hash || '').replace(/^#/, '');
+    const segments = raw.split('/').filter(Boolean);
+
+    if (segments[0] === THEORY_ROUTE) {
+        return {
+            mode: 'theory',
+            topicId: null,
+            subsectionId: null,
+            moduleId: segments[1] || null,
+            chapterId: segments[2] || null
+        };
+    }
+
     const fallback = (typeof topics !== 'undefined' && topics.length) ? topics[0].id : null;
-    if (!raw) return { topicId: fallback, subsectionId: null };
-    const [topicId, subsectionId] = raw.split('/');
-    return { topicId: topicId || fallback, subsectionId: subsectionId || null };
+    return {
+        mode: 'questions',
+        topicId: segments[0] || fallback,
+        subsectionId: segments[1] || null,
+        moduleId: null,
+        chapterId: null
+    };
 }
 
 function handleRouteChange() {
-    const { topicId, subsectionId } = parseHash(window.location.hash);
-    renderTopic(topicId, subsectionId);
+    const route = parseHash(window.location.hash);
+
+    if (route.mode === 'theory') {
+        if (route.moduleId) {
+            renderTheoryModule(route.moduleId, route.chapterId);
+        } else {
+            renderTheoryOverview();
+        }
+        return;
+    }
+
+    renderTopic(route.topicId, route.subsectionId);
 }
 
 /* --------------------------------------------------------------------------
