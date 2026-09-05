@@ -24,6 +24,7 @@ const theoryTracks = [
 
 /* Ordered by the reading path. Appended to as each module is authored. */
 const theoryModules = [
+    androidThreadingModelModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
