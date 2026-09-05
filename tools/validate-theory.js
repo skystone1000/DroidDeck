@@ -98,12 +98,18 @@ function checkModules(theoryModules, theoryTracks) {
         }
     }
 
-    // 2 — orders form 1..N with no gaps
+    // 2 — orders are unique positions on the reading path. Gaps are expected
+    // while the curriculum is authored a track at a time — an order is a slot
+    // in the finished path, not an index into what happens to exist today — so
+    // holes are reported as a warning and only uniqueness is an error.
     if (theoryModules.length) {
         const orders = [...seenOrders.keys()].sort((a, b) => a - b);
-        const expected = orders.length;
-        if (orders[0] !== 1 || orders[orders.length - 1] !== expected) {
-            error('registry', `module orders must run 1..${expected}, found ${orders[0]}..${orders[orders.length - 1]}`);
+        const gaps = [];
+        for (let i = orders[0]; i < orders[orders.length - 1]; i += 1) {
+            if (!seenOrders.has(i)) gaps.push(i);
+        }
+        if (gaps.length) {
+            warn('registry', `reading path has unwritten positions: ${gaps.join(', ')}`);
         }
     }
 
@@ -314,10 +320,15 @@ function checkCoverage(topics, theoryModules) {
         }
     }
 
-    if (missing.length) {
-        warn('coverage', `${missing.length} keyTopics have no match anywhere in the theory corpus:`);
-        missing.forEach((m) => warnings.push(`    ${m}`));
-    }
+    if (!missing.length) return;
+
+    // Until the curriculum is finished most keyTopics are legitimately
+    // unwritten, so listing all of them every run buries the errors. The full
+    // list is what matters at the end of a phase, not on every commit.
+    const showAll = process.argv.includes('--coverage');
+    warn('coverage', `${missing.length} keyTopics have no match in the theory corpus yet` +
+        (showAll ? ':' : ' (run with --coverage to list them)'));
+    if (showAll) missing.forEach((m) => warnings.push(`    ${m}`));
 }
 
 /* --------------------------------------------------------------------------

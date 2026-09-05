@@ -63,6 +63,17 @@ function collectLinks({ theoryModules }) {
 
 function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
+/** True when two URLs address the same page, ignoring the `hl` locale param. */
+function sameDocument(from, to) {
+    try {
+        const a = new URL(from);
+        const b = new URL(to, from);
+        return a.origin === b.origin && a.pathname.replace(/\/$/, '') === b.pathname.replace(/\/$/, '');
+    } catch {
+        return false;
+    }
+}
+
 /**
  * A HEAD that does not follow redirects, so a 301 is visible rather than
  * silently resolved. Some doc hosts reject HEAD; those fall back to a ranged
@@ -97,11 +108,20 @@ async function probe(url) {
     const { status } = response;
 
     if (status >= 300 && status < 400) {
-        const location = response.headers.get('location') || '(no Location header)';
+        const location = response.headers.get('location');
+        if (!location) return { ok: false, status, note: 'redirects with no Location header' };
+
+        // developer.android.com bounces every request to a locale-qualified URL
+        // (?hl=ko, ?hl=it) based on where the request came from. That is not a
+        // relocation, and following it would pin readers to whichever language
+        // the checker happened to be geolocated into. Only a change of path is
+        // a real move.
+        if (sameDocument(url, location)) return { ok: true, status };
+
         return {
             ok: false,
             status,
-            note: `redirects to ${location} — store the destination instead`
+            note: `moved to ${location} — store the destination instead`
         };
     }
     if (status >= 400) {
