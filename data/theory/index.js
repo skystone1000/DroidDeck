@@ -26,7 +26,8 @@ const theoryTracks = [
 const theoryModules = [
     androidThreadingModelModule,
     coroutinesFundamentalsModule,
-    structuredConcurrencyModule
+    structuredConcurrencyModule,
+    flowFundamentalsModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
