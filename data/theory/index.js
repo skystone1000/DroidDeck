@@ -30,7 +30,8 @@ const theoryModules = [
     flowFundamentalsModule,
     reactiveStateModule,
     kotlinEssentialsModule,
-    kotlinFunctionsModule
+    kotlinFunctionsModule,
+    kotlinClassesModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
