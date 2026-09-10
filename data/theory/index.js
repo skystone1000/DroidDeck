@@ -32,7 +32,8 @@ const theoryModules = [
     kotlinEssentialsModule,
     kotlinFunctionsModule,
     kotlinClassesModule,
-    kotlinCollectionsModule
+    kotlinCollectionsModule,
+    kotlinGenericsDelegationModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
