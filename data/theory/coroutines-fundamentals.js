@@ -12,7 +12,9 @@ const coroutinesFundamentalsModule = {
     title: 'Coroutines Fundamentals',
     tagline: 'Suspend, don’t block.',
     estimatedMinutes: 35,
-    prerequisites: ['android-threading-model'],
+    // kotlin-functions because every builder here is a higher-order function
+    // taking a trailing lambda — launch { } is that syntax, not special form.
+    prerequisites: ['kotlin-functions', 'android-threading-model'],
     docHub: {
         title: 'Kotlin coroutines on Android',
         path: '/kotlin/coroutines'
