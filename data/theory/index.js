@@ -36,7 +36,8 @@ const theoryModules = [
     kotlinGenericsDelegationModule,
     jvmFoundationsModule,
     composeMentalModelModule,
-    composeStateModule
+    composeStateModule,
+    composeSideEffectsModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
