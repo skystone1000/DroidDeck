@@ -38,7 +38,8 @@ const theoryModules = [
     composeMentalModelModule,
     composeStateModule,
     composeSideEffectsModule,
-    composeLayoutModule
+    composeLayoutModule,
+    composeListsPerformanceModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
