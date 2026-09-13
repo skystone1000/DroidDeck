@@ -957,7 +957,7 @@ current form.
 | Compose phases | `/develop/ui/compose/phases` |
 | Architectural layering | `/develop/ui/compose/layering` |
 | Performance | `/develop/ui/compose/performance` |
-| Semantics | `/develop/ui/compose/semantics` |
+| Semantics | `/develop/ui/compose/accessibility/semantics` |
 | CompositionLocal | `/develop/ui/compose/compositionlocal` |
 | Layouts | `/develop/ui/compose/layouts` · `/layouts/basics` · `/layouts/custom` · `/layouts/intrinsic-measurements` · `/layouts/constraintlayout` |
 | Lists and grids | `/develop/ui/compose/lists` |

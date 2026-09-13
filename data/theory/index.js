@@ -39,7 +39,8 @@ const theoryModules = [
     composeStateModule,
     composeSideEffectsModule,
     composeLayoutModule,
-    composeListsPerformanceModule
+    composeListsPerformanceModule,
+    composeThemingModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
