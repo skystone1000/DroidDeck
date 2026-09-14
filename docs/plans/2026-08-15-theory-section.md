@@ -962,7 +962,7 @@ current form.
 | Layouts | `/develop/ui/compose/layouts` · `/layouts/basics` · `/layouts/custom` · `/layouts/intrinsic-measurements` · `/layouts/constraintlayout` |
 | Lists and grids | `/develop/ui/compose/lists` |
 | Design systems | `/develop/ui/compose/designsystems` · `/designsystems/material3` · `/designsystems/anatomy` |
-| Migration | `/develop/ui/compose/migrate` · `/migrate/strategy` · `/migrate/interoperability-apis` |
+| Migration | `/develop/ui/compose/migrate/migrate-xml-views-to-jetpack-compose` · `/migrate/strategy` · `/migrate/interoperability-apis` |
 | Compose testing | `/develop/ui/compose/testing` · `/develop/ui/compose/testing-cheatsheet` |
 | Accessibility | `/develop/ui/compose/accessibility` |
 | Adaptive apps | `/develop/adaptive-apps` · `/develop/adaptive-apps/guides/canonical-layouts` |
