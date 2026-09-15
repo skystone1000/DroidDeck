@@ -35,6 +35,7 @@ const theoryModules = [
     kotlinCollectionsModule,
     kotlinGenericsDelegationModule,
     jvmFoundationsModule,
+    platformArchitectureModule,
     composeMentalModelModule,
     composeStateModule,
     composeSideEffectsModule,
