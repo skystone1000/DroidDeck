@@ -37,6 +37,7 @@ const theoryModules = [
     jvmFoundationsModule,
     platformArchitectureModule,
     activitiesLifecycleModule,
+    fragmentsModule,
     composeMentalModelModule,
     composeStateModule,
     composeSideEffectsModule,
