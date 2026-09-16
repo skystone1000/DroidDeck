@@ -38,6 +38,7 @@ const theoryModules = [
     platformArchitectureModule,
     activitiesLifecycleModule,
     fragmentsModule,
+    intentsDeepLinksModule,
     composeMentalModelModule,
     composeStateModule,
     composeSideEffectsModule,
