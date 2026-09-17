@@ -40,6 +40,7 @@ const theoryModules = [
     fragmentsModule,
     intentsDeepLinksModule,
     contextResourcesModule,
+    permissionsPrivacyModule,
     composeMentalModelModule,
     composeStateModule,
     composeSideEffectsModule,
