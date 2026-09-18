@@ -49,7 +49,8 @@ const theoryModules = [
     composeThemingModule,
     navigationModule,
     viewSystemModule,
-    dataLayerModule
+    dataLayerModule,
+    localPersistenceModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
