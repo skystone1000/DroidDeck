@@ -51,7 +51,8 @@ const theoryModules = [
     viewSystemModule,
     dataLayerModule,
     localPersistenceModule,
-    networkingModule
+    networkingModule,
+    offlineFirstModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
