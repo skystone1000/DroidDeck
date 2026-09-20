@@ -53,7 +53,8 @@ const theoryModules = [
     localPersistenceModule,
     networkingModule,
     offlineFirstModule,
-    backgroundWorkModule
+    backgroundWorkModule,
+    servicesModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
