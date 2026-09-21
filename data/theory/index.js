@@ -54,7 +54,8 @@ const theoryModules = [
     networkingModule,
     offlineFirstModule,
     backgroundWorkModule,
-    servicesModule
+    servicesModule,
+    architecturePrinciplesModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
