@@ -55,7 +55,8 @@ const theoryModules = [
     offlineFirstModule,
     backgroundWorkModule,
     servicesModule,
-    architecturePrinciplesModule
+    architecturePrinciplesModule,
+    viewModelModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
