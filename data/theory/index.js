@@ -57,7 +57,8 @@ const theoryModules = [
     servicesModule,
     architecturePrinciplesModule,
     viewModelModule,
-    uiStateModule
+    uiStateModule,
+    architecturePatternsModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
