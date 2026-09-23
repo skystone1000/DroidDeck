@@ -58,7 +58,8 @@ const theoryModules = [
     architecturePrinciplesModule,
     viewModelModule,
     uiStateModule,
-    architecturePatternsModule
+    architecturePatternsModule,
+    dependencyInjectionModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
