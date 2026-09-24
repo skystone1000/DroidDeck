@@ -626,8 +626,13 @@ expedited work; `AlarmManager` and exact alarms; broadcasts (manifest vs
 context-registered) and the background execution limits; Doze, app standby
 buckets, battery optimisation.
 **M31** started vs bound services; foreground service types and the modern
-restrictions; the service lifecycle; IPC — Binder, AIDL, `Messenger`,
-`ContentProvider`, and the 1MB transaction limit.
+restrictions; the service lifecycle; binding, and a pointer to M15 for
+cross-process work.
+
+> **As built (Phase 5):** cross-app IPC — Binder, AIDL, `Messenger`,
+> `ContentProvider`, the 1MB transaction limit — landed in **M15** instead,
+> next to the Binder and sandbox material it depends on. M31 covers binding
+> as a service concern and links there rather than repeating it.
 
 ### Track 6 — Architecture & Design
 
@@ -638,8 +643,12 @@ restrictions; the service lifecycle; IPC — Binder, AIDL, `Messenger`,
 | 34 | UI state and unidirectional data flow | `[M]` | `/topic/architecture/ui-layer` |
 | 35 | Architecture patterns — MVC, MVP, MVVM, MVI | `[M]` | `/topic/architecture/recommendations` |
 | 36 | Dependency injection | `[M]` | `/training/dependency-injection` |
-| 37 | Design patterns in Android | `[S]` | — (GoF; no first-party hub) |
+| 37 | Design patterns in Android | `[S]` | `/topic/architecture/recommendations` † |
 | 38 | Modularization | `[S]` | `/topic/modularization` |
+
+† No first-party page covers GoF patterns, and §9 requires a first-party
+`docHub`, so M37 points at the nearest one. The patterns themselves are taught
+through the framework and library classes that implement them.
 
 **M32** separation of concerns, drive UI from data models, single source of
 truth, UDF; the three layers and the dependency rule; SOLID taught *here*, where
@@ -767,6 +776,12 @@ Interview prep dies on stale sources.
   so a dead link is still identifiable.
 - Version-sensitive statements carry their version inline ("stable since Kotlin
   2.4"), because a bare "recently" ages into a lie.
+- A third-party link is dropped rather than followed through an **ownership
+  change**. Verified 2026-09-19: `square.github.io` returns 404 for both
+  Retrofit and OkHttp, and `github.com/square/{retrofit,okhttp}` now redirect to
+  a different organisation. M28 therefore cites first-party pages only. The
+  chapters do not depend on those links; a reader following a moved repository
+  is the risk not worth taking on a public site.
 
 As of this plan: Kotlin **2.4.0** is current stable (context parameters, explicit
 backing fields now stable); the Compose compiler ships from the Kotlin
@@ -963,7 +978,7 @@ current form.
 | Lists and grids | `/develop/ui/compose/lists` |
 | Design systems | `/develop/ui/compose/designsystems` · `/designsystems/material3` · `/designsystems/anatomy` |
 | Migration | `/develop/ui/compose/migrate/migrate-xml-views-to-jetpack-compose` · `/migrate/strategy` · `/migrate/interoperability-apis` |
-| Compose testing | `/develop/ui/compose/testing` · `/develop/ui/compose/testing-cheatsheet` |
+| Compose testing | `/develop/ui/compose/testing` · `/develop/ui/compose/testing/testing-cheatsheet` |
 | Accessibility | `/develop/ui/compose/accessibility` |
 | Adaptive apps | `/develop/adaptive-apps` · `/develop/adaptive-apps/guides/canonical-layouts` |
 | Compose samples | `https://github.com/android/compose-samples` |
