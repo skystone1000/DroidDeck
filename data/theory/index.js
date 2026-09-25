@@ -61,7 +61,8 @@ const theoryModules = [
     architecturePatternsModule,
     dependencyInjectionModule,
     designPatternsModule,
-    modularizationModule
+    modularizationModule,
+    testingFundamentalsModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
