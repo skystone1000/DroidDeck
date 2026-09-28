@@ -709,13 +709,13 @@ App Bundles and Play delivery.
 | # | Module | Tier | Doc hub |
 |---|---|---|---|
 | 44 | Data structures and algorithms for Android | `[M]` | `kotlinlang.org/docs/collections-overview` ‡ |
-| 45 | Mobile system design | `[M]` | — (see M42, M29) |
+| 45 | Mobile system design | `[M]` | `/topic/architecture` ‡ |
 | 46 | The rest of the loop | `[S]` | `/distribute` |
 
 ‡ §9 requires a first-party `docHub` and the validator requires one on every
 module, so the two modules planned without a hub take the nearest first-party
 page. M44 uses Kotlin's collections documentation, which covers the
-Android-relevant half of the material. Compare the M37 footnote in Track 6.
+Android-relevant half of the material; M45 uses the architecture hub. Compare the M37 footnote in Track 6.
 
 These three are synthesis rather than new material: they compose what the earlier
 seven tracks established, which is why they close the path and why M45 leans on

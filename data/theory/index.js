@@ -67,7 +67,8 @@ const theoryModules = [
     uiTestingModule,
     performanceModule,
     buildAndToolingModule,
-    algorithmsModule
+    algorithmsModule,
+    systemDesignModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {
