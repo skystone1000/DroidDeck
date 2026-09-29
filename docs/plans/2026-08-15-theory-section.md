@@ -1,6 +1,6 @@
 # Plan — Theory Section
 
-**Status:** proposed (revision 2)
+**Status:** revision 2 — Phases 0–7 built; Phase 8 outstanding
 **Date:** 2026-08-15
 **Scope:** a learning-ordered theory curriculum, structured independently of the
 question bank, with every unit anchored to official Android/Kotlin documentation.
@@ -853,6 +853,15 @@ usable as a complete senior-level revision path.
 
 **Done when:** all 46 modules exist and validator check 14 reports no unmatched
 `keyTopics`.
+
+> **Met (2026-09-29).** 46 modules, 165 chapters, and the validator runs with
+> zero warnings. Closing the last three took a real addition rather than a
+> phrasing tweak: `synchronized` and `volatile` had no home anywhere in the
+> curriculum, because §8.1 assigned `java`'s concurrency subsection to M6 and
+> M6 was written without a concurrency chapter. M6 gained one — the JVM memory
+> model, visibility versus atomicity, and the atomics — which also gives M40's
+> dispatcher material and M42's GC pauses something to point back to. The
+> coverage check found a genuine gap, which is what it is for.
 
 ### Phase 8 — Cross-cutting features
 

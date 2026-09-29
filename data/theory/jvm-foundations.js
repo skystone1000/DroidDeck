@@ -50,7 +50,7 @@ const jvmFoundationsModule = {
                 },
                 {
                     type: 'prose',
-                    html: '<p>Collectors are generational, on the observation that most objects die young. New objects are allocated in a young generation and collected cheaply and often; survivors are promoted to an older generation collected rarely and more expensively.</p><p>This is the mechanism behind the advice not to allocate in <code>onBindViewHolder</code> or a composable body. The allocation is cheap; the collection pause it eventually causes lands inside a frame, and M7’s 16ms budget has no room for it.</p>'
+                    html: '<p>Collectors are generational — the heap is split into <strong>generations</strong>, on the observation that most objects die young. New objects are allocated in a young generation and collected cheaply and often; survivors are promoted to an older generation collected rarely and more expensively.</p><p>This is the mechanism behind the advice not to allocate in <code>onBindViewHolder</code> or a composable body. The allocation is cheap; the collection pause it eventually causes lands inside a frame, and M7’s 16ms budget has no room for it.</p>'
                 },
                 {
                     type: 'types',
@@ -73,6 +73,105 @@ const jvmFoundationsModule = {
             relatedQuestions: [
                 { topicId: 'java', questionId: 'garbage-collector' },
                 { topicId: 'java', questionId: 'pass-by-reference-or-value' }
+            ]
+        },
+
+        {
+            id: 'memory-model',
+            title: 'The memory model: synchronized, volatile and atomics',
+            importance: 'should-know',
+            summary: 'Two threads, two caches, and no guarantee either sees the other\'s writes without help.',
+            interviewAngle: 'The volatile question is really "do you know visibility and atomicity are different problems?"',
+            buildsOn: ['runtime-and-memory'],
+            blocks: [
+                {
+                    type: 'prose',
+                    html: '<p>Coroutines (M8) hide most of this, and it still shows through — in a shared cache, a lazily-initialised singleton, or any Java library you call. The JVM permits each thread to keep its own view of memory and permits the compiler and CPU to reorder instructions, so without explicit synchronisation a write on one thread may simply never become visible on another.</p>'
+                },
+                {
+                    type: 'types',
+                    title: 'The two problems, which are not the same',
+                    items: [
+                        {
+                            name: 'Visibility',
+                            html: '<p>Thread A writes a field; thread B keeps reading the old value indefinitely, because it is reading a cached copy. Nothing crashes and nothing is corrupt — B is simply looking at stale memory.</p>'
+                        },
+                        {
+                            name: 'Atomicity',
+                            html: '<p><code>count++</code> is three operations — read, add, write. Two threads interleaving them lose an increment. Every value involved is fresh; the sequence is what broke.</p>'
+                        }
+                    ]
+                },
+                {
+                    type: 'table',
+                    title: 'What each tool actually gives you',
+                    headers: ['', 'Visibility', 'Atomicity', 'Blocks?', 'Use for'],
+                    rows: [
+                        ['<code>volatile</code>', 'Yes', 'No', 'No', 'A flag one thread writes and others read'],
+                        ['<code>synchronized</code>', 'Yes', 'Yes', 'Yes', 'A compound operation on shared state'],
+                        ['<code>AtomicInteger</code> etc.', 'Yes', 'Yes', 'No', 'A counter or a reference swap'],
+                        ['Immutable data', 'N/A', 'N/A', 'No', 'Everything else — the preferred answer']
+                    ]
+                },
+                {
+                    type: 'prose',
+                    html: '<p>The single most useful sentence here: <strong><code>volatile</code> fixes visibility and does nothing for atomicity.</strong> Marking a counter <code>volatile</code> guarantees every thread sees the latest value and still loses increments, because <code>++</code> was never one operation. That distinction is the whole question.</p>'
+                },
+                {
+                    type: 'syntax',
+                    language: 'kotlin',
+                    title: 'Each in its place',
+                    code: `// volatile — a flag. One writer, many readers, no compound update.
+@Volatile private var cancelled = false          // Kotlin's @Volatile
+
+// synchronized — a compound operation that must not interleave.
+private val lock = Any()
+fun transfer(amount: Int) = synchronized(lock) {
+    from -= amount                                // read-modify-write, twice,
+    to += amount                                  // and both must land together
+}
+
+// atomics — lock-free, for a single variable.
+private val hits = AtomicInteger(0)
+fun record() { hits.incrementAndGet() }
+
+// compareAndSet: swap only if the value is what you last saw. This is what
+// lock-free algorithms are built from, and what StateFlow.update uses.
+private val state = AtomicReference(Config.default)
+fun apply(change: (Config) -> Config) {
+    while (true) {
+        val current = state.get()
+        if (state.compareAndSet(current, change(current))) return
+    }
+}`,
+                    notes: 'Kotlin has no <code>synchronized</code> keyword — it has a <code>synchronized(lock) { }</code> function and a <code>@Synchronized</code> annotation, which compile to the same JVM monitor.'
+                },
+                {
+                    type: 'types',
+                    title: 'The rest of the vocabulary',
+                    items: [
+                        { name: 'Object versus class lock', html: '<p>An instance method’s monitor is the instance, so two instances do not contend. A <code>static</code> synchronized method locks the <em>class</em>, so all instances share one lock — which is why mixing the two protects nothing.</p>' },
+                        { name: 'Concurrency versus parallelism', html: '<p>Concurrency is structuring work so it can be interleaved; parallelism is running it at the same instant. A single-core device runs concurrent code with no parallelism at all — and M8’s coroutines are a concurrency mechanism first.</p>' },
+                        { name: 'ThreadPoolExecutor', html: '<p>A pool with a core size, a maximum, a keep-alive and a queue. Worth knowing because <code>Dispatchers.IO</code> and <code>Dispatchers.Default</code> (M7) are backed by one, and the parameters explain their behaviour under load.</p>' },
+                        { name: 'lazySet and weakCompareAndSet', html: '<p>Relaxed atomic operations that trade a visibility guarantee for speed. Correct only when you can prove you do not need the ordering — which is rarely, and is why they are rarely the right answer.</p>' }
+                    ]
+                },
+                {
+                    type: 'tip',
+                    html: '<p>The answer that ends the topic well is that the best synchronisation is none: immutable data shared between threads needs no visibility guarantee, because nothing changes. That is why Kotlin defaults to <code>val</code>, why UI state is a <code>data class</code> (M34), and why most Android code never reaches for any of this.</p>'
+                }
+            ],
+            docs: [
+                { title: 'Processes and threads overview', path: '/guide/components/processes-and-threads', kind: 'guide' },
+                { title: 'Shared mutable state and concurrency', url: 'https://kotlinlang.org/docs/shared-mutable-state-and-concurrency.html', kind: 'guide' }
+            ],
+            relatedQuestions: [
+                { topicId: 'java', questionId: 'synchronized-keyword' },
+                { topicId: 'java', questionId: 'volatile-modifier' },
+                { topicId: 'java', questionId: 'object-level-vs-class-level-lock' },
+                { topicId: 'java', questionId: 'concurrency-vs-parallelism' },
+                { topicId: 'java', questionId: 'atomic-operations' },
+                { topicId: 'java', questionId: 'threadpoolexecutor' }
             ]
         },
 
