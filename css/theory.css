@@ -663,3 +663,43 @@
         order: 3;
     }
 }
+
+/* --------------------------------------------------------------------------
+   Glossary — #theory/glossary
+
+   Reuses the definition card wholesale, so a term looks the same here as it
+   does in the chapter that introduced it. The only addition is the back-link.
+   -------------------------------------------------------------------------- */
+
+.theory-glossary-link {
+    margin-top: 14px;
+}
+
+/* A–Z jump bar. The rail's own layout already wraps and scrolls; letters just
+   need to stop stretching to fill it. */
+.theory-glossary-index .theory-rail-item {
+    min-width: 30px;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-weight: 600;
+}
+
+.theory-glossary-entry {
+    margin: 12px 0;
+}
+
+.theory-glossary-source {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-bottom: 1px dashed var(--border-color);
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.theory-glossary-source:hover {
+    color: var(--accent-hover);
+    border-bottom-color: var(--accent-hover);
+}

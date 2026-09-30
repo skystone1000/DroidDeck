@@ -112,6 +112,18 @@ function buildTheoryNav(nav) {
                 .sort((a, b) => a.order - b.order);
             nav.appendChild(buildTrackGroup(track, inTrack));
         });
+
+    // Sits below the tracks because it is a reference, not a step on the path.
+    const glossary = document.createElement('a');
+    glossary.className = 'nav-item';
+    glossary.href = generateTheoryHash(GLOSSARY_ROUTE);
+    glossary.dataset.moduleId = GLOSSARY_ROUTE;
+    glossary.innerHTML =
+        '<span class="nav-icon">📖</span>' +
+        '<span class="nav-label">Glossary</span>' +
+        `<span class="nav-count">${collectGlossaryEntries().length}</span>`;
+    glossary.addEventListener('click', closeMobileMenu);
+    nav.appendChild(glossary);
 }
 
 function buildTrackGroup(track, modules) {
@@ -166,14 +178,16 @@ function setActiveTheory(moduleId) {
         node.classList.remove('active');
     });
 
+    // Matches both a module inside a track group and the flat glossary entry,
+    // which is why this queries by data attribute rather than by class.
+    if (moduleId) {
+        const link = document.querySelector(`[data-module-id="${moduleId}"]`);
+        if (link) link.classList.add('active');
+    }
+
     const mod = moduleId && typeof theoryModules !== 'undefined'
         ? theoryModules.find((m) => m.id === moduleId)
         : null;
-
-    if (mod) {
-        const link = document.querySelector(`.nav-subsection[data-module-id="${mod.id}"]`);
-        if (link) link.classList.add('active');
-    }
 
     document.querySelectorAll('.nav-item-group[data-track-id]').forEach((group) => {
         const isActive = Boolean(mod) && group.dataset.trackId === mod.trackId;
@@ -331,7 +345,9 @@ function handleRouteChange() {
     setSidebarMode(route.mode);
 
     if (route.mode === 'theory') {
-        if (route.moduleId) {
+        if (route.moduleId === GLOSSARY_ROUTE) {
+            renderTheoryGlossary();
+        } else if (route.moduleId) {
             renderTheoryModule(route.moduleId, route.chapterId);
         } else {
             renderTheoryOverview();

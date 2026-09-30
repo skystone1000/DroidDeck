@@ -81,6 +81,14 @@ function renderTheoryOverview() {
         header.appendChild(title);
         header.appendChild(blurb);
         header.appendChild(stats);
+
+        const glossaryLink = document.createElement('a');
+        glossaryLink.className = 'theory-dochub-link theory-glossary-link';
+        glossaryLink.href = generateTheoryHash(GLOSSARY_ROUTE);
+        glossaryLink.textContent =
+            `📖 Glossary — ${collectGlossaryEntries().length} terms defined across the path`;
+        header.appendChild(glossaryLink);
+
         container.appendChild(header);
 
         tracks
@@ -175,6 +183,193 @@ function moduleImportance(mod) {
     if (tiers.includes('must-know')) return 'must-know';
     if (tiers.includes('should-know')) return 'should-know';
     return 'good-to-know';
+}
+
+/* --------------------------------------------------------------------------
+   Glossary — #theory/glossary
+
+   Harvested rather than authored. Every `definition` block already names a
+   term and explains it in the one chapter that earns the right to; a second
+   hand-written list would drift from those within a month. `glossary` is a
+   reserved id (the validator enforces it), so no module can shadow this route.
+   -------------------------------------------------------------------------- */
+
+const GLOSSARY_ROUTE = 'glossary';
+
+/** Every definition block in the corpus, with the chapter that owns it. */
+function collectGlossaryEntries() {
+    const modules = (typeof theoryModules === 'undefined') ? [] : theoryModules;
+    const entries = [];
+
+    modules.forEach((mod) => {
+        (mod.chapters || []).forEach((chapter) => {
+            (chapter.blocks || []).forEach((block) => {
+                if (block.type !== 'definition' || !block.term) return;
+                entries.push({
+                    term: block.term,
+                    aka: block.aka || null,
+                    html: block.html || '',
+                    important: Boolean(block.important),
+                    moduleId: mod.id,
+                    moduleOrder: mod.order,
+                    moduleTitle: mod.title,
+                    chapterId: chapter.id,
+                    chapterTitle: chapter.title
+                });
+            });
+        });
+    });
+
+    return entries.sort((a, b) => sortKey(a.term).localeCompare(sortKey(b.term)));
+}
+
+/* Sorts on the first alphanumeric character, so `@Composable` files under C
+   rather than ahead of everything. */
+function sortKey(term) {
+    return String(term).replace(/^[^a-z0-9]+/i, '').toLowerCase();
+}
+
+function glossaryLetter(term) {
+    const key = sortKey(term);
+    return key ? key[0].toUpperCase() : '#';
+}
+
+function renderTheoryGlossary() {
+    const container = document.getElementById('topicContainer');
+    if (!container) return;
+
+    container.classList.add('topic-transitioning');
+
+    setTimeout(() => {
+        container.innerHTML = '';
+
+        const entries = collectGlossaryEntries();
+
+        const header = document.createElement('header');
+        header.className = 'topic-header';
+
+        const eyebrow = document.createElement('a');
+        eyebrow.className = 'theory-breadcrumb';
+        eyebrow.href = generateTheoryHash(null);
+        eyebrow.textContent = '← Theory';
+
+        const title = document.createElement('h2');
+        title.className = 'topic-title';
+        title.textContent = 'Glossary';
+
+        const blurb = document.createElement('p');
+        blurb.className = 'theory-overview-blurb';
+        blurb.textContent =
+            'Every term the curriculum defines, in one list. Each links back to ' +
+            'the chapter that introduces it, where it arrives with its context.';
+
+        const stats = document.createElement('div');
+        stats.className = 'topic-stats';
+        stats.appendChild(makeStat('📖', `${entries.length} terms`));
+
+        header.appendChild(eyebrow);
+        header.appendChild(title);
+        header.appendChild(blurb);
+        header.appendChild(stats);
+        container.appendChild(header);
+
+        if (!entries.length) {
+            const empty = document.createElement('p');
+            empty.className = 'theory-empty';
+            empty.textContent = 'No terms defined yet.';
+            container.appendChild(empty);
+        } else {
+            const letters = [...new Set(entries.map((e) => glossaryLetter(e.term)))];
+            container.appendChild(renderGlossaryIndex(letters));
+
+            letters.forEach((letter) => {
+                container.appendChild(renderGlossarySection(
+                    letter,
+                    entries.filter((e) => glossaryLetter(e.term) === letter)
+                ));
+            });
+        }
+
+        container.classList.remove('topic-transitioning');
+        if (typeof setActiveTheory === 'function') setActiveTheory(GLOSSARY_ROUTE);
+        history.replaceState(null, '', generateTheoryHash(GLOSSARY_ROUTE));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, TOPIC_TRANSITION_MS);
+}
+
+function renderGlossaryIndex(letters) {
+    const nav = document.createElement('nav');
+    nav.className = 'theory-rail theory-glossary-index';
+    nav.setAttribute('aria-label', 'Jump to a letter');
+
+    letters.forEach((letter) => {
+        const link = document.createElement('a');
+        link.className = 'theory-rail-item';
+        link.href = `#${THEORY_ROUTE}/${GLOSSARY_ROUTE}`;
+        link.textContent = letter;
+        link.addEventListener('click', (event) => {
+            event.preventDefault();
+            const target = document.getElementById(`glossary-${letter}`);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        nav.appendChild(link);
+    });
+
+    return nav;
+}
+
+function renderGlossarySection(letter, entries) {
+    const section = document.createElement('section');
+    section.className = 'theory-track';
+
+    const heading = document.createElement('div');
+    heading.className = 'subsection-header';
+    heading.id = `glossary-${letter}`;
+
+    const title = document.createElement('h3');
+    title.className = 'subsection-title';
+    title.textContent = letter;
+
+    const rule = document.createElement('span');
+    rule.className = 'subsection-rule';
+
+    heading.appendChild(title);
+    heading.appendChild(rule);
+    section.appendChild(heading);
+
+    entries.forEach((entry) => section.appendChild(renderGlossaryEntry(entry)));
+    return section;
+}
+
+function renderGlossaryEntry(entry) {
+    const node = document.createElement('div');
+    node.className = 'theory-definition theory-glossary-entry';
+    if (entry.important) node.classList.add('is-important');
+
+    const term = document.createElement('div');
+    term.className = 'theory-definition-term';
+    term.textContent = entry.term;
+
+    if (entry.aka) {
+        const aka = document.createElement('span');
+        aka.className = 'theory-definition-aka';
+        aka.textContent = `also: ${entry.aka}`;
+        term.appendChild(aka);
+    }
+
+    const body = document.createElement('div');
+    body.className = 'theory-definition-body';
+    body.innerHTML = entry.html;
+
+    const source = document.createElement('a');
+    source.className = 'theory-glossary-source';
+    source.href = generateTheoryHash(entry.moduleId, entry.chapterId);
+    source.textContent = `${entry.moduleOrder}. ${entry.moduleTitle} › ${entry.chapterTitle}`;
+
+    node.appendChild(term);
+    node.appendChild(body);
+    node.appendChild(source);
+    return node;
 }
 
 /* --------------------------------------------------------------------------
