@@ -16,7 +16,7 @@ let scrollDebounceId = null;
 function initApp() {
     initTheme();
     renderSidebar(topics);
-    setupSearch(topics);
+    setupSearch(topics, typeof theoryModules === 'undefined' ? [] : theoryModules);
     setupEventListeners();
     setupLazyLoading();
     handleRouteChange();

@@ -1,9 +1,14 @@
 /* ==========================================================================
    Client-side search.
 
-   The whole corpus is flattened into a single array once at startup, then
-   scored per keystroke. A few hundred entries is small enough that a linear
-   scan behind a 200ms debounce stays comfortably interactive.
+   Two corpora, one index. Questions and theory chapters are both flattened
+   into a single array once at startup, then scored per keystroke. A thousand
+   entries is small enough that a linear scan behind a 200ms debounce stays
+   comfortably interactive.
+
+   Every entry carries `kind`, `title` and `context`; everything the renderer
+   and the navigator need is on the entry, so neither has to know which corpus
+   an entry came from beyond choosing a badge and a destination.
    ========================================================================== */
 
 const SEARCH_DEBOUNCE_MS = 200;
@@ -16,7 +21,14 @@ let searchDebounceId = null;
    Index
    -------------------------------------------------------------------------- */
 
-function buildSearchIndex(topicsList) {
+function buildSearchIndex(topicsList, modulesList) {
+    return [
+        ...indexQuestions(topicsList),
+        ...indexChapters(modulesList)
+    ];
+}
+
+function indexQuestions(topicsList) {
     const index = [];
 
     (topicsList || []).forEach((topic) => {
@@ -26,15 +38,16 @@ function buildSearchIndex(topicsList) {
         (topic.questions || []).forEach((question) => {
             const tags = question.tags || [];
             // Answers are HTML; strip tags so markup can never match a query.
-            const answerText = String(question.answer || '').replace(/<[^>]*>/g, ' ');
+            const answerText = stripHtml(question.answer);
+            const subsectionTitle = subsectionTitles[question.subsection] || null;
 
             index.push({
+                kind: 'question',
+                title: question.question,
+                context: subsectionTitle ? `${topic.title} › ${subsectionTitle}` : topic.title,
                 topicId: topic.id,
-                topicTitle: topic.title,
                 subsectionId: question.subsection || null,
-                subsectionTitle: subsectionTitles[question.subsection] || null,
                 questionId: question.id,
-                question: question.question,
                 tags: tags,
                 searchText: [question.question, answerText, tags.join(' '), topic.title]
                     .join(' ')
@@ -44,6 +57,82 @@ function buildSearchIndex(topicsList) {
     });
 
     return index;
+}
+
+function indexChapters(modulesList) {
+    const modules = modulesList || (typeof theoryModules === 'undefined' ? [] : theoryModules);
+    const tracks = (typeof theoryTracks === 'undefined') ? [] : theoryTracks;
+    const trackTitles = {};
+    tracks.forEach((track) => { trackTitles[track.id] = track.title; });
+
+    const index = [];
+
+    modules.forEach((mod) => {
+        (mod.chapters || []).forEach((chapter) => {
+            index.push({
+                kind: 'chapter',
+                title: chapter.title,
+                context: `${trackTitles[mod.trackId] || 'Theory'} › ${mod.order}. ${mod.title}`,
+                moduleId: mod.id,
+                chapterId: chapter.id,
+                importance: chapter.importance,
+                // Chapters have no tags; the module title is the nearest thing
+                // to one, so a search for "coroutines" surfaces its chapters.
+                tags: [mod.title],
+                searchText: [
+                    chapter.title,
+                    chapter.summary,
+                    chapter.interviewAngle,
+                    mod.title,
+                    mod.tagline,
+                    blockText(chapter.blocks)
+                ].join(' ').toLowerCase()
+            });
+        });
+    });
+
+    return index;
+}
+
+/** Everything readable in a chapter's blocks, flattened for matching. */
+function blockText(blocks) {
+    return (blocks || []).map((block) => {
+        switch (block.type) {
+            case 'prose':
+            case 'pitfall':
+            case 'tip':
+                return stripHtml(block.html);
+            case 'definition':
+                return `${block.term} ${block.aka || ''} ${stripHtml(block.html)}`;
+            case 'types':
+                return [
+                    block.title,
+                    ...(block.items || []).map((item) =>
+                        `${item.name} ${stripHtml(item.html)} ${item.whenToUse || ''}`)
+                ].join(' ');
+            case 'syntax':
+                // Code is indexed deliberately: an API name is often the query.
+                return `${block.title || ''} ${block.code || ''} ${stripHtml(block.notes)}`;
+            case 'table':
+                return [
+                    block.title,
+                    ...(block.headers || []),
+                    ...(block.rows || []).map((row) => row.map(stripHtml).join(' '))
+                ].join(' ');
+            case 'comparison':
+                return [
+                    block.title, block.left, block.right,
+                    ...(block.rows || []).map((row) =>
+                        `${row.aspect} ${stripHtml(row.left)} ${stripHtml(row.right)}`)
+                ].join(' ');
+            default:
+                return '';
+        }
+    }).join(' ');
+}
+
+function stripHtml(value) {
+    return String(value == null ? '' : value).replace(/<[^>]*>/g, ' ');
 }
 
 /* --------------------------------------------------------------------------
@@ -57,35 +146,39 @@ function search(query) {
     const results = [];
 
     for (const entry of searchIndex) {
-        const questionText = entry.question.toLowerCase();
+        const titleText = entry.title.toLowerCase();
         let score = 0;
         let matchedAll = true;
 
         for (const term of terms) {
-            const inQuestion = questionText.indexOf(term);
+            const inTitle = titleText.indexOf(term);
             const inBody = entry.searchText.indexOf(term);
 
-            if (inQuestion === -1 && inBody === -1) {
+            if (inTitle === -1 && inBody === -1) {
                 matchedAll = false;
                 break;
             }
 
-            // A hit in the question itself is worth far more than one buried
-            // in the answer body.
-            if (inQuestion !== -1) {
+            // A hit in the title itself is worth far more than one buried in
+            // the body.
+            if (inTitle !== -1) {
                 score += 10;
-                if (inQuestion === 0) score += 5;                       // prefix match
-                if (new RegExp(`\\b${escapeRegex(term)}`).test(questionText)) score += 3;
+                if (inTitle === 0) score += 5;                          // prefix match
+                if (new RegExp(`\\b${escapeRegex(term)}`).test(titleText)) score += 3;
             }
             if (inBody !== -1) score += 1;
             if (entry.tags.some((tag) => tag.toLowerCase().includes(term))) score += 4;
         }
 
+        // Deliberately no per-kind weighting. Chapters already place well on
+        // score alone — they discuss a concept where a question merely names
+        // it — and a constant thumb on the scale would only promote weak
+        // body-only chapter matches over stronger question matches.
         if (matchedAll) results.push({ entry, score });
     }
 
     return results
-        .sort((a, b) => b.score - a.score || a.entry.question.length - b.entry.question.length)
+        .sort((a, b) => b.score - a.score || a.entry.title.length - b.entry.title.length)
         .slice(0, MAX_RESULTS)
         .map((result) => result.entry);
 }
@@ -107,7 +200,7 @@ function renderSearchResults(results, query) {
     if (!results.length) {
         const empty = document.createElement('div');
         empty.className = 'search-empty';
-        empty.textContent = `No questions match “${query}”`;
+        empty.textContent = `Nothing matches “${query}”`;
         container.appendChild(empty);
         showSearchResults();
         return;
@@ -115,19 +208,27 @@ function renderSearchResults(results, query) {
 
     results.forEach((entry) => {
         const item = document.createElement('div');
-        item.className = 'search-result-item';
+        item.className = `search-result-item search-result-${entry.kind}`;
         item.setAttribute('role', 'option');
         item.tabIndex = 0;
 
         const label = document.createElement('div');
         label.className = 'search-result-topic';
-        label.textContent = entry.subsectionTitle
-            ? `${entry.topicTitle} › ${entry.subsectionTitle}`
-            : entry.topicTitle;
+
+        if (entry.kind === 'chapter') {
+            const badge = document.createElement('span');
+            badge.className = 'search-result-badge';
+            badge.textContent = 'Theory';
+            label.appendChild(badge);
+        }
+
+        const context = document.createElement('span');
+        context.textContent = entry.context;
+        label.appendChild(context);
 
         const text = document.createElement('div');
         text.className = 'search-result-question';
-        text.innerHTML = highlightTerms(entry.question, query);
+        text.innerHTML = highlightTerms(entry.title, query);
 
         item.appendChild(label);
         item.appendChild(text);
@@ -164,6 +265,13 @@ function navigateToResult(entry) {
     const input = document.getElementById('searchInput');
     hideSearchResults();
     if (input) input.value = '';
+
+    if (entry.kind === 'chapter') {
+        // The chapter route scrolls to the chapter itself, so there is nothing
+        // to do after the hash change.
+        window.location.hash = generateTheoryHash(entry.moduleId, entry.chapterId);
+        return;
+    }
 
     window.location.hash = generateHash(entry.topicId, entry.subsectionId);
 
@@ -205,8 +313,8 @@ function handleSearchInput(event) {
     }, SEARCH_DEBOUNCE_MS);
 }
 
-function setupSearch(topicsList) {
-    searchIndex = buildSearchIndex(topicsList);
+function setupSearch(topicsList, modulesList) {
+    searchIndex = buildSearchIndex(topicsList, modulesList);
 
     const input = document.getElementById('searchInput');
     if (!input) return;
