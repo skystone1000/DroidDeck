@@ -378,9 +378,26 @@
     display: none;
 }
 
-/* Cram filter — hide everything that is not must-know. */
+/* Cram filter — hide everything that is not must-know, at every level the
+   reader can be looking at: module cards on the overview, chapters and their
+   rail on a module page, and terms in the glossary. One tier class, one rule. */
 #topicContainer.cram-mode .theory-chapter:not(.importance-must),
-#topicContainer.cram-mode .theory-rail-item:not(.importance-must) {
+#topicContainer.cram-mode .theory-module-card:not(.importance-must),
+#topicContainer.cram-mode .theory-glossary-entry:not(.importance-must) {
+    display: none;
+}
+
+/* The chapter rail is filtered with its chapters. The glossary's A–Z bar
+   shares the rail's markup but carries no tier, so it is excluded explicitly —
+   otherwise cram mode empties the jump bar it needs most. */
+#topicContainer.cram-mode .theory-rail:not(.theory-glossary-index)
+    .theory-rail-item:not(.importance-must) {
+    display: none;
+}
+
+/* A track or letter section left with nothing visible would otherwise show as
+   a heading over empty space. */
+#topicContainer.cram-mode .theory-track:not(:has(.importance-must)) {
     display: none;
 }
 

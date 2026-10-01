@@ -51,6 +51,7 @@ function renderTheoryOverview() {
 
     setTimeout(() => {
         container.innerHTML = '';
+        container.classList.toggle('cram-mode', theoryCramMode);
 
         const modules = (typeof theoryModules === 'undefined') ? [] : theoryModules;
         const tracks = (typeof theoryTracks === 'undefined') ? [] : theoryTracks;
@@ -88,6 +89,7 @@ function renderTheoryOverview() {
         glossaryLink.textContent =
             `📖 Glossary — ${collectGlossaryEntries().length} terms defined across the path`;
         header.appendChild(glossaryLink);
+        header.appendChild(renderCramToggle({ collapseAll: false }));
 
         container.appendChild(header);
 
@@ -143,8 +145,12 @@ function renderTrackSection(track, modules) {
 }
 
 function renderModuleCard(mod) {
+    const tier = IMPORTANCE[moduleImportance(mod)] || IMPORTANCE['good-to-know'];
+
     const card = document.createElement('a');
-    card.className = 'theory-module-card';
+    // The tier class is what cram mode filters on, exactly as it does for
+    // chapters — one rule, both levels.
+    card.className = `theory-module-card importance-${tier.modifier}`;
     card.href = generateTheoryHash(mod.id);
 
     const top = document.createElement('div');
@@ -242,6 +248,7 @@ function renderTheoryGlossary() {
 
     setTimeout(() => {
         container.innerHTML = '';
+        container.classList.toggle('cram-mode', theoryCramMode);
 
         const entries = collectGlossaryEntries();
 
@@ -263,14 +270,18 @@ function renderTheoryGlossary() {
             'Every term the curriculum defines, in one list. Each links back to ' +
             'the chapter that introduces it, where it arrives with its context.';
 
+        const important = entries.filter((e) => e.important).length;
+
         const stats = document.createElement('div');
         stats.className = 'topic-stats';
         stats.appendChild(makeStat('📖', `${entries.length} terms`));
+        stats.appendChild(makeStat('🔥', `${important} must know`));
 
         header.appendChild(eyebrow);
         header.appendChild(title);
         header.appendChild(blurb);
         header.appendChild(stats);
+        header.appendChild(renderCramToggle({ collapseAll: false }));
         container.appendChild(header);
 
         if (!entries.length) {
@@ -343,8 +354,10 @@ function renderGlossarySection(letter, entries) {
 
 function renderGlossaryEntry(entry) {
     const node = document.createElement('div');
-    node.className = 'theory-definition theory-glossary-entry';
-    if (entry.important) node.classList.add('is-important');
+    // `importance-must` rather than a glossary-specific class, so cram mode
+    // filters definitions with the same rule it uses for chapters and cards.
+    const tierClass = entry.important ? ' is-important importance-must' : '';
+    node.className = `theory-definition theory-glossary-entry${tierClass}`;
 
     const term = document.createElement('div');
     term.className = 'theory-definition-term';
@@ -390,6 +403,7 @@ function renderTheoryModule(moduleId, scrollToChapter) {
 
     setTimeout(() => {
         container.innerHTML = '';
+        container.classList.toggle('cram-mode', theoryCramMode);
         container.appendChild(renderModuleHeader(mod));
 
         const chapters = mod.chapters || [];
@@ -489,37 +503,47 @@ function renderDocHub(docHub) {
     return wrapper;
 }
 
-/** Filters the page down to must-know chapters via a class on the container. */
-function renderCramToggle() {
+/* Filters the page down to must-know chapters. The state lives in the URL, so
+   a revision session survives a reload and can be handed to someone else. */
+function renderCramToggle({ collapseAll = true } = {}) {
     const wrapper = document.createElement('div');
     wrapper.className = 'theory-controls';
+
+    const on = theoryCramMode;
 
     const cram = document.createElement('button');
     cram.type = 'button';
     cram.className = 'theory-control';
-    cram.setAttribute('aria-pressed', 'false');
+    cram.setAttribute('aria-pressed', String(on));
+    cram.classList.toggle('active', on);
     cram.textContent = '🔥 Must-know only';
     cram.addEventListener('click', () => {
-        const container = document.getElementById('topicContainer');
-        if (!container) return;
-        const on = container.classList.toggle('cram-mode');
-        cram.setAttribute('aria-pressed', String(on));
-        cram.classList.toggle('active', on);
-    });
-
-    const collapse = document.createElement('button');
-    collapse.type = 'button';
-    collapse.className = 'theory-control';
-    collapse.textContent = '🗂️ Collapse all';
-    collapse.addEventListener('click', () => {
-        const chapters = document.querySelectorAll('.theory-chapter');
-        const anyOpen = [...chapters].some((c) => !c.classList.contains('collapsed'));
-        chapters.forEach((c) => c.classList.toggle('collapsed', anyOpen));
-        collapse.textContent = anyOpen ? '🗂️ Expand all' : '🗂️ Collapse all';
+        // Writing the hash is the whole state change — handleRouteChange
+        // re-renders with the flag applied, so there is one path in and the
+        // button can never disagree with the URL.
+        const route = parseHash(window.location.hash);
+        window.location.hash = generateTheoryHash(
+            route.moduleId, route.chapterId, !theoryCramMode
+        );
     });
 
     wrapper.appendChild(cram);
-    wrapper.appendChild(collapse);
+
+    // The overview and the glossary have no chapters to collapse.
+    if (collapseAll) {
+        const collapse = document.createElement('button');
+        collapse.type = 'button';
+        collapse.className = 'theory-control';
+        collapse.textContent = '🗂️ Collapse all';
+        collapse.addEventListener('click', () => {
+            const chapters = document.querySelectorAll('.theory-chapter');
+            const anyOpen = [...chapters].some((c) => !c.classList.contains('collapsed'));
+            chapters.forEach((c) => c.classList.toggle('collapsed', anyOpen));
+            collapse.textContent = anyOpen ? '🗂️ Expand all' : '🗂️ Collapse all';
+        });
+        wrapper.appendChild(collapse);
+    }
+
     return wrapper;
 }
 

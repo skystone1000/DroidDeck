@@ -304,11 +304,24 @@ function generateHash(topicId, subsectionId) {
     return subsectionId ? `#${topicId}/${subsectionId}` : `#${topicId}`;
 }
 
-function generateTheoryHash(moduleId, chapterId) {
-    if (!moduleId) return `#${THEORY_ROUTE}`;
+/* Cram mode is a property of the route, not of the page, so it survives a
+   reload, a shared link and navigation between modules. Every theory link is
+   built through generateTheoryHash, so carrying the flag by default here is
+   what makes it stick without threading a parameter through every call site. */
+let theoryCramMode = false;
+
+function setTheoryCramMode(on) {
+    theoryCramMode = Boolean(on);
+}
+
+function generateTheoryHash(moduleId, chapterId, cram) {
+    const flag = (cram === undefined) ? theoryCramMode : Boolean(cram);
+    const query = flag ? '?cram' : '';
+
+    if (!moduleId) return `#${THEORY_ROUTE}${query}`;
     return chapterId
-        ? `#${THEORY_ROUTE}/${moduleId}/${chapterId}`
-        : `#${THEORY_ROUTE}/${moduleId}`;
+        ? `#${THEORY_ROUTE}/${moduleId}/${chapterId}${query}`
+        : `#${THEORY_ROUTE}/${moduleId}${query}`;
 }
 
 /**
@@ -318,7 +331,11 @@ function generateTheoryHash(moduleId, chapterId) {
  */
 function parseHash(hash) {
     const raw = (hash || '').replace(/^#/, '');
-    const segments = raw.split('/').filter(Boolean);
+    // `?cram` rides on the hash rather than the real query string, so it
+    // changes with a hashchange like everything else in this router.
+    const [path, query] = raw.split('?');
+    const segments = path.split('/').filter(Boolean);
+    const cram = /(^|&)cram(=1)?($|&)/.test(query || '');
 
     if (segments[0] === THEORY_ROUTE) {
         return {
@@ -326,7 +343,8 @@ function parseHash(hash) {
             topicId: null,
             subsectionId: null,
             moduleId: segments[1] || null,
-            chapterId: segments[2] || null
+            chapterId: segments[2] || null,
+            cram
         };
     }
 
@@ -336,12 +354,16 @@ function parseHash(hash) {
         topicId: segments[0] || fallback,
         subsectionId: segments[1] || null,
         moduleId: null,
-        chapterId: null
+        chapterId: null,
+        cram: false
     };
 }
 
 function handleRouteChange() {
     const route = parseHash(window.location.hash);
+    // Set before rendering: the renderers build links through
+    // generateTheoryHash, which reads this.
+    setTheoryCramMode(route.mode === 'theory' && route.cram);
     setSidebarMode(route.mode);
 
     if (route.mode === 'theory') {
