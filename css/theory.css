@@ -720,3 +720,65 @@
     color: var(--accent-hover);
     border-bottom-color: var(--accent-hover);
 }
+
+/* --------------------------------------------------------------------------
+   Read progress
+   -------------------------------------------------------------------------- */
+
+.theory-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+/* Inside a track heading the bar sits beside the rule, not under the title. */
+.subsection-header .theory-progress {
+    flex: none;
+    width: 180px;
+    margin-top: 0;
+}
+
+.theory-progress-track {
+    flex: 1;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--bg-hover);
+    overflow: hidden;
+}
+
+.theory-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--accent-color);
+    transition: width var(--transition-base);
+}
+
+.theory-progress-label {
+    flex: none;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.theory-module-read {
+    margin-left: auto;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent-hover);
+}
+
+.theory-module-card.is-read .theory-module-title {
+    color: var(--text-secondary);
+}
+
+/* The cross-track dependency a track-ordered page cannot show. */
+.theory-card-prereqs {
+    margin-top: 10px;
+    padding-top: 9px;
+    border-top: 1px dashed var(--border-color);
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}

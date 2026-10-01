@@ -40,6 +40,69 @@ function lookupModule(moduleId) {
 }
 
 /* --------------------------------------------------------------------------
+   Read progress
+
+   Marked explicitly, not inferred from a visit — opening a module to check one
+   table is not reading it, and a progress bar that lies is worse than none.
+   localStorage is wrapped because it throws on file:// in some browsers and in
+   private mode, and progress is not worth breaking the page over.
+   -------------------------------------------------------------------------- */
+
+const READ_STORAGE_KEY = 'droiddeck:theory:read';
+
+function readModules() {
+    try {
+        const raw = window.localStorage.getItem(READ_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return new Set(Array.isArray(parsed) ? parsed : []);
+    } catch (error) {
+        return new Set();
+    }
+}
+
+function setModuleRead(moduleId, read) {
+    const current = readModules();
+    if (read) current.add(moduleId); else current.delete(moduleId);
+    try {
+        window.localStorage.setItem(READ_STORAGE_KEY, JSON.stringify([...current]));
+    } catch (error) {
+        /* Progress is a convenience; losing it is not worth an error. */
+    }
+    return current;
+}
+
+function trackProgress(trackId, modules, read) {
+    const inTrack = modules.filter((mod) => mod.trackId === trackId);
+    const done = inTrack.filter((mod) => read.has(mod.id)).length;
+    return { done, total: inTrack.length };
+}
+
+function renderProgressBar(done, total) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'theory-progress';
+
+    const track = document.createElement('div');
+    track.className = 'theory-progress-track';
+    track.setAttribute('role', 'progressbar');
+    track.setAttribute('aria-valuemin', '0');
+    track.setAttribute('aria-valuemax', String(total));
+    track.setAttribute('aria-valuenow', String(done));
+
+    const fill = document.createElement('div');
+    fill.className = 'theory-progress-fill';
+    fill.style.width = total ? `${Math.round((done / total) * 100)}%` : '0%';
+    track.appendChild(fill);
+
+    const label = document.createElement('span');
+    label.className = 'theory-progress-label';
+    label.textContent = `${done} / ${total} read`;
+
+    wrapper.appendChild(track);
+    wrapper.appendChild(label);
+    return wrapper;
+}
+
+/* --------------------------------------------------------------------------
    Curriculum overview — #theory
    -------------------------------------------------------------------------- */
 
@@ -93,10 +156,17 @@ function renderTheoryOverview() {
 
         container.appendChild(header);
 
+        const read = readModules();
+        if (read.size) {
+            header.appendChild(renderProgressBar(
+                modules.filter((mod) => read.has(mod.id)).length, modules.length
+            ));
+        }
+
         tracks
             .slice()
             .sort((a, b) => a.order - b.order)
-            .forEach((track) => container.appendChild(renderTrackSection(track, modules)));
+            .forEach((track) => container.appendChild(renderTrackSection(track, modules, read)));
 
         container.classList.remove('topic-transitioning');
         if (typeof setActiveTheory === 'function') setActiveTheory(null);
@@ -105,7 +175,7 @@ function renderTheoryOverview() {
     }, TOPIC_TRANSITION_MS);
 }
 
-function renderTrackSection(track, modules) {
+function renderTrackSection(track, modules, read) {
     const section = document.createElement('section');
     section.className = 'theory-track';
 
@@ -122,6 +192,10 @@ function renderTrackSection(track, modules) {
 
     heading.appendChild(title);
     heading.appendChild(rule);
+
+    const progress = trackProgress(track.id, modules, read || new Set());
+    if (progress.done) heading.appendChild(renderProgressBar(progress.done, progress.total));
+
     section.appendChild(heading);
 
     const inTrack = modules
@@ -138,19 +212,21 @@ function renderTrackSection(track, modules) {
 
     const grid = document.createElement('div');
     grid.className = 'theory-module-grid';
-    inTrack.forEach((mod) => grid.appendChild(renderModuleCard(mod)));
+    inTrack.forEach((mod) => grid.appendChild(renderModuleCard(mod, read)));
     section.appendChild(grid);
 
     return section;
 }
 
-function renderModuleCard(mod) {
+function renderModuleCard(mod, read) {
     const tier = IMPORTANCE[moduleImportance(mod)] || IMPORTANCE['good-to-know'];
+    const isRead = Boolean(read && read.has(mod.id));
 
     const card = document.createElement('a');
     // The tier class is what cram mode filters on, exactly as it does for
     // chapters — one rule, both levels.
     card.className = `theory-module-card importance-${tier.modifier}`;
+    if (isRead) card.classList.add('is-read');
     card.href = generateTheoryHash(mod.id);
 
     const top = document.createElement('div');
@@ -167,6 +243,14 @@ function renderModuleCard(mod) {
     top.appendChild(number);
     top.appendChild(title);
 
+    if (isRead) {
+        const tick = document.createElement('span');
+        tick.className = 'theory-module-read';
+        tick.textContent = '✓';
+        tick.title = 'Marked as read';
+        top.appendChild(tick);
+    }
+
     const tagline = document.createElement('p');
     tagline.className = 'theory-module-tagline';
     tagline.textContent = mod.tagline || '';
@@ -180,7 +264,31 @@ function renderModuleCard(mod) {
     card.appendChild(top);
     card.appendChild(tagline);
     card.appendChild(meta);
+
+    const external = crossTrackPrerequisites(mod);
+    if (external.length) card.appendChild(renderCardPrerequisites(external));
     return card;
+}
+
+/* The dependency a reader cannot infer from the page.
+
+   Within a track the reading order already states the dependencies — module 20
+   follows 19 — so drawing them adds nothing. Fourteen edges reach into another
+   track, and those are invisible in a page laid out by track. Surfacing just
+   those is the prerequisite graph's information without its 46 boxes. */
+function crossTrackPrerequisites(mod) {
+    return (mod.prerequisites || [])
+        .map(lookupModule)
+        .filter((prereq) => prereq && prereq.trackId !== mod.trackId);
+}
+
+function renderCardPrerequisites(prerequisites) {
+    const strip = document.createElement('div');
+    strip.className = 'theory-card-prereqs';
+    strip.textContent = 'Needs ' + prerequisites
+        .map((prereq) => `${prereq.order}. ${prereq.title}`)
+        .join(' · ');
+    return strip;
 }
 
 /** A module is as important as its most important chapter. */
@@ -462,9 +570,36 @@ function renderModuleHeader(mod) {
     if (prerequisites.length) header.appendChild(renderPrerequisites(prerequisites));
 
     if (mod.docHub) header.appendChild(renderDocHub(mod.docHub));
-    header.appendChild(renderCramToggle());
+
+    const controls = renderCramToggle();
+    controls.appendChild(renderReadToggle(mod));
+    header.appendChild(controls);
 
     return header;
+}
+
+/* Marking is explicit and local. Nothing is sent anywhere, and the button says
+   what it will do rather than reporting a state, so it reads the same whether
+   or not localStorage is available. */
+function renderReadToggle(mod) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'theory-control';
+
+    const paint = (isRead) => {
+        button.textContent = isRead ? '✓ Read' : '○ Mark as read';
+        button.classList.toggle('active', isRead);
+        button.setAttribute('aria-pressed', String(isRead));
+    };
+
+    paint(readModules().has(mod.id));
+
+    button.addEventListener('click', () => {
+        const wasRead = readModules().has(mod.id);
+        paint(setModuleRead(mod.id, !wasRead).has(mod.id));
+    });
+
+    return button;
 }
 
 /** Tells a reader arriving from a deep link what they are assumed to know. */
