@@ -1,6 +1,6 @@
 # Plan — Theory Section
 
-**Status:** revision 2 — Phases 0–7 built; Phase 8 outstanding
+**Status:** revision 2 — built, Phases 0–8 complete
 **Date:** 2026-08-15
 **Scope:** a learning-ordered theory curriculum, structured independently of the
 question bank, with every unit anchored to official Android/Kotlin documentation.
@@ -873,6 +873,15 @@ usable as a complete senior-level revision path.
 5. `docs/ARCHITECTURE.md`, `docs/CODEBASE.md`, `docs/FEATURES.md` updated to
    describe theory as a first-class mode.
 
+> **Done (2026-10-02).** Items 1, 2, 3 and 5 as written. Item 4 shipped as
+> per-track progress plus **cross-track prerequisites on module cards** rather
+> than a prerequisite graph: 44 of 46 modules declare prerequisites, at most two
+> each, and only 14 edges cross a track. Within a track the reading order
+> already states the dependency, so 46 drawn nodes would restate the page. The
+> 14 cross-track edges are the information a track-ordered layout genuinely
+> hides, and they are now on the cards. Revisit if the curriculum ever grows a
+> dependency structure that is not close to linear.
+
 ## 11. Risks and open decisions
 
 **Volume.** ~250 chapters at 400–900 words is 100–200k words of technical prose —
@@ -887,6 +896,15 @@ point to measure. If total data crosses ~2MB the fix is `fetch()`-ing module
 files on demand — which the per-module file split already makes cheap, and which
 would be the first thing here to require a server rather than `file://`.
 Deferred deliberately; not designed for now.
+
+> **Measured 2026-10-02, all 46 modules written:** questions 1.1MB, theory
+> 864KB, scripts 108KB — **2.1MB total**, so the stated threshold is crossed.
+> The estimate was close (864KB against ~1.5MB predicted), and the trigger is
+> real rather than marginal. Not acted on, because the remedy costs the
+> `file://` deployment story that §3 calls the point of the architecture, and
+> nothing yet indicates the load is a problem in practice. Flagged here as a
+> decision waiting for evidence — first-load timing on a mid-range device — not
+> as an oversight.
 
 **Doc link rot.** Demonstrated, not hypothetical — this revision found two whole
 sections had moved. §7.2 is the defence, and treating redirects as failures is
