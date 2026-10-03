@@ -37,13 +37,36 @@ const BLOCK_FIELDS = {
     comparison: ['title', 'left', 'right', 'rows'],
     pitfall:    ['html'],
     tip:        ['html'],
-    diagram:    ['diagramType', 'diagramConfig']
+    diagram:    ['diagramType', 'diagramConfig'],
+    drill:      ['id', 'tier', 'title', 'minutes', 'prompt', 'watchFor']
 };
+
+/* The drill catalogue, from docs/plans/2026-08-15-machine-coding-drills.md
+   Appendix A. Held here rather than derived from the corpus so that a dropped
+   drill is an error rather than a smaller number nobody notices. */
+const DRILL_IDS = [
+    // Tier 1 — the core loop
+    'list-from-api', 'debounced-search', 'pagination', 'detail-navigation',
+    'offline-first-cache',
+    // Tier 2 — feature-flavoured screens
+    'shopping-cart', 'form-validation', 'countdown-timer', 'quiz-flow',
+    'notes-crud', 'image-list', 'filter-and-sort',
+    // Tier 3 — utilities
+    'lru-cache', 'hand-rolled-debounce', 'retry-with-backoff',
+    'custom-flow-operator', 'rate-limiter', 'image-loader', 'result-wrapper',
+    'event-bus',
+    // Tier 4 — extend, debug, review
+    'fix-the-leak', 'refactor-god-activity', 'add-the-missing-test',
+    'review-this-diff'
+];
 
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 const errors = [];
 const warnings = [];
+
+/* drill id -> where it was found, so check 15 can report the duplicate's home. */
+const drillsSeen = new Map();
 
 function error(where, message) { errors.push(`${where}: ${message}`); }
 function warn(where, message) { warnings.push(`${where}: ${message}`); }
@@ -249,6 +272,38 @@ function checkBlock(block, at) {
         error(at, `diagramType "${block.diagramType}" is not one of ${DIAGRAM_TYPES.join(', ')}`);
     }
 
+    // 15 — drill shape. The timebox and the tier are the two fields a reader
+    // acts on, so neither may be decorative.
+    if (block.type === 'drill') {
+        if (!DRILL_IDS.includes(block.id)) {
+            error(at, `drill id "${block.id}" is not in the catalogue (Appendix A)`);
+        } else if (drillsSeen.has(block.id)) {
+            error(at, `drill "${block.id}" already appears at ${drillsSeen.get(block.id)}`);
+        } else {
+            drillsSeen.set(block.id, at);
+        }
+
+        if (!Number.isInteger(block.tier) || block.tier < 1 || block.tier > 4) {
+            error(at, `tier must be an integer 1–4, got ${JSON.stringify(block.tier)}`);
+        }
+        if (!Number.isInteger(block.minutes) || block.minutes <= 0) {
+            error(at, `minutes must be a positive integer, got ${JSON.stringify(block.minutes)}`);
+        }
+        if (!Array.isArray(block.watchFor) || block.watchFor.some((w) => !w)) {
+            error(at, 'watchFor must be a non-empty array of non-empty strings');
+        } else {
+            block.watchFor.forEach((w, i) => checkHtml(String(w), `${at} watchFor[${i}]`));
+        }
+        if (typeof block.prompt === 'string') checkHtml(block.prompt, `${at} prompt`);
+
+        if (block.sketch) {
+            if (!LANGUAGES.includes(block.sketch.language)) {
+                error(at, `sketch language "${block.sketch.language}" is not one of ${LANGUAGES.join(', ')}`);
+            }
+            if (!block.sketch.code) error(at, 'sketch is present but has no code');
+        }
+    }
+
     if (block.type === 'types') {
         (block.items || []).forEach((item, i) => {
             if (!item || !item.name || !item.html) {
@@ -331,6 +386,17 @@ function checkCoverage(topics, theoryModules) {
     if (showAll) missing.forEach((m) => warnings.push(`    ${m}`));
 }
 
+/* 15 (continued) — every catalogued drill is written exactly once. Duplicates
+   and unknown ids are errors at the block; what is left is what is missing,
+   which is a warning while the section is still being authored. */
+function checkDrillCatalogue() {
+    if (!drillsSeen.size) return;
+    const missing = DRILL_IDS.filter((id) => !drillsSeen.has(id));
+    if (missing.length) {
+        warn('drills', `${drillsSeen.size}/${DRILL_IDS.length} written; missing: ${missing.join(', ')}`);
+    }
+}
+
 /* --------------------------------------------------------------------------
    Run
    -------------------------------------------------------------------------- */
@@ -358,6 +424,7 @@ function main() {
     checkModules(theoryModules, theoryTracks);
     checkChapters(theoryModules, questionIndex);
     checkCoverage(topics, theoryModules);
+    checkDrillCatalogue();
 
     const chapterCount = theoryModules.reduce((n, m) => n + (m.chapters || []).length, 0);
     console.log(

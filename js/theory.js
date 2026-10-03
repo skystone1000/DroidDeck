@@ -875,6 +875,7 @@ function renderBlock(block) {
         case 'pitfall':    return renderCalloutBlock(block, 'pitfall', '⚠️ Pitfall');
         case 'tip':        return renderCalloutBlock(block, 'tip', '🎯 Saying it well');
         case 'diagram':    return renderDiagramBlock(block);
+        case 'drill':      return renderDrillBlock(block);
         default:           return null;
     }
 }
@@ -1079,6 +1080,72 @@ function renderCalloutBlock(block, modifier, label) {
 
     node.appendChild(heading);
     node.appendChild(body);
+    return node;
+}
+
+/* A drill is a task to build under a clock, not a passage to read. The sketch
+   ships collapsed on purpose: reading the answer before attempting it is the
+   one way to get nothing out of a drill. */
+function renderDrillBlock(block) {
+    const node = document.createElement('div');
+    node.className = `theory-drill tier-${block.tier}`;
+    node.id = `drill-${block.id}`;
+
+    const head = document.createElement('div');
+    head.className = 'theory-drill-head';
+
+    const tier = document.createElement('span');
+    tier.className = 'theory-drill-tier';
+    tier.textContent = `Tier ${block.tier}`;
+
+    const title = document.createElement('span');
+    title.className = 'theory-drill-title';
+    title.textContent = block.title;
+
+    const clock = document.createElement('span');
+    clock.className = 'theory-drill-clock';
+    clock.textContent = `⏱ ${block.minutes} min`;
+
+    head.appendChild(tier);
+    head.appendChild(title);
+    head.appendChild(clock);
+
+    const prompt = document.createElement('div');
+    prompt.className = 'theory-drill-prompt';
+    prompt.innerHTML = block.prompt || '';
+
+    node.appendChild(head);
+    node.appendChild(prompt);
+
+    if ((block.watchFor || []).length) {
+        const watch = document.createElement('div');
+        watch.className = 'theory-drill-watch';
+
+        const label = document.createElement('div');
+        label.className = 'theory-drill-watch-label';
+        label.textContent = 'Loses marks';
+        watch.appendChild(label);
+
+        const list = document.createElement('ul');
+        block.watchFor.forEach((item) => {
+            const li = document.createElement('li');
+            li.innerHTML = item;
+            list.appendChild(li);
+        });
+        watch.appendChild(list);
+        node.appendChild(watch);
+    }
+
+    if (block.sketch) {
+        const sketch = renderCodeBlock({
+            language: block.sketch.language,
+            title: block.sketch.title || 'Solution sketch — try it first',
+            code: block.sketch.code
+        });
+        sketch.classList.add('collapsed');
+        node.appendChild(sketch);
+    }
+
     return node;
 }
 

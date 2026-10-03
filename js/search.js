@@ -125,6 +125,13 @@ function blockText(blocks) {
                     ...(block.rows || []).map((row) =>
                         `${row.aspect} ${stripHtml(row.left)} ${stripHtml(row.right)}`)
                 ].join(' ');
+            case 'drill':
+                // A drill nobody can find by name is a drill nobody does.
+                return [
+                    block.title, stripHtml(block.prompt),
+                    ...(block.watchFor || []).map(stripHtml),
+                    (block.sketch || {}).code || ''
+                ].join(' ');
             default:
                 return '';
         }
