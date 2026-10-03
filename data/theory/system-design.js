@@ -1,5 +1,5 @@
 /* ==========================================================================
-   M45 — Mobile system design.
+   M49 — Mobile system design.
 
    Leans on M28–M29 and M42 rather than restating them: by this point the
    reader has the networking, sync and performance material, and what is
@@ -12,7 +12,7 @@
 const systemDesignModule = {
     id: 'system-design',
     trackId: 'synthesis',
-    order: 45,
+    order: 49,
     title: 'Mobile System Design',
     tagline: 'The client is not a small server, and the round is scored differently.',
     estimatedMinutes: 35,

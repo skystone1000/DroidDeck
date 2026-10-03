@@ -68,6 +68,8 @@ const theoryModules = [
     performanceModule,
     buildAndToolingModule,
     algorithmsModule,
+    machineCodingRoundModule,
+    machineCodingSpineModule,
     systemDesignModule,
     theRestOfTheLoopModule
 ];

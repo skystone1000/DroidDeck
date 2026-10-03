@@ -1,5 +1,5 @@
 /* ==========================================================================
-   M46 — The rest of the loop.
+   M50 — The rest of the loop.
 
    The last module, and deliberately the least tidy. It holds the things a
    real interview loop asks that no earlier module owns: the parts of the
@@ -13,7 +13,7 @@
 const theRestOfTheLoopModule = {
     id: 'the-rest-of-the-loop',
     trackId: 'synthesis',
-    order: 46,
+    order: 50,
     title: 'The Rest of the Loop',
     tagline: 'The surfaces, the strategy questions, and the round that is not about code.',
     estimatedMinutes: 30,
