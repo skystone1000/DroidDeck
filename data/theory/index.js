@@ -70,6 +70,7 @@ const theoryModules = [
     algorithmsModule,
     machineCodingRoundModule,
     machineCodingSpineModule,
+    featureDrillsModule,
     systemDesignModule,
     theRestOfTheLoopModule
 ];
