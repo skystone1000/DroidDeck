@@ -26,7 +26,7 @@ to the right place.
 
 ## Theory
 
-**A reading path, not a filing scheme.** 46 modules in 8 tracks, 165 chapters,
+**A reading path, not a filing scheme.** 50 modules in 8 tracks, 179 chapters,
 ordered so each idea arrives after the ideas it depends on. Modules are
 deliberately not the question topics: some split, some merge, some exist only
 here — nothing in the question bank teaches the Android threading model, though
@@ -50,6 +50,13 @@ of the same session.
 shows only the prerequisites that come from *another* track — the ones the
 track-ordered page cannot otherwise reveal.
 
+**Drills.** The last four modules cover the machine coding round — the one
+where an interviewer shares a link and asks for a working feature in fifty
+minutes. They carry 24 drills: a task, a timebox, the things that lose marks,
+and a solution sketch that stays collapsed until you have attempted it. Tier 1
+is the five tasks that carry the round, so cram mode reduces the whole section
+to those.
+
 **Glossary.** `#theory/glossary` lists every term the curriculum defines, in one
 alphabetised page, each linking back to the chapter that introduces it. It is
 harvested from the chapters rather than written separately, so it cannot go
@@ -70,7 +77,7 @@ Progress is stored locally and never leaves the browser.
 Press `/` anywhere to focus the search field. Results appear after a 200ms
 pause in typing.
 
-Search covers **both** corpora — 465 questions and 165 chapters — in one list.
+Search covers **both** corpora — 465 questions and 179 chapters — in one list.
 Theory results carry a badge, because the destination is a different mode and
 you should know that before the click rather than after it.
 

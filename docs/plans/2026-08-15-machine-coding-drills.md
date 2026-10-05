@@ -1,6 +1,6 @@
 # Plan — Machine Coding Drills
 
-**Status:** planned
+**Status:** built — Phases 0–4 complete, 4 modules, 14 chapters, 24 drills
 **Date:** 2026-08-15
 **Scope:** the "build it now, while I watch" round — a ranked catalogue of what
 interviewers actually ask candidates to implement, a memorised skeleton to
@@ -340,6 +340,47 @@ alone (twelve drills, M47) are a shippable section, and M48 can follow later
 without leaving a gap.
 
 ---
+
+## 13. What was built, and where it left the plan
+
+Five deviations, all deliberate, none discovered late enough to be expensive.
+
+**Drills carry an `id`, and the validator holds the catalogue.** §6.2 sketched
+the drill block without one. Without an id there is no way to assert that every
+drill in Appendix A exists exactly once, which was the stated point of check 15 —
+so `id` is a required field, matched against a `DRILL_IDS` list in
+`tools/validate-theory.js`. An unknown id or a duplicate is an error; anything
+unwritten is a warning, which is how the section could ship in phases.
+
+**§8 was wrong about search.** It claimed `js/search.js` needed no change
+because `blockText()` "flattens by field". It does not — it switches on block
+type with an empty default, so drills would have been invisible to search. One
+case added. The plan's own instruction to confirm rather than assume is what
+caught it.
+
+**The tier-4 drills live in M45, not M48.** They are about the extend and
+review *formats*, which M45 is the chapter that explains. Putting them in a
+module called "Utility Drills" would have filed them by phase rather than by
+subject. M48 holds tiers 3 only, eight drills.
+
+**The renumbering happened in Phase 1, not Phase 4.** §6.1 scheduled it last.
+That is not possible: duplicate `order` values are an error, not a warning, so
+`system-design` and `the-rest-of-the-loop` had to move to 49 and 50 in the same
+commit that introduced 45 and 46.
+
+**The Phase 1 gate was not run as written.** "Spine code compiles when pasted
+into a scratch project" needs a Kotlin toolchain, and this machine has neither
+`kotlinc` nor a JRE. The spine was reviewed by hand instead, which found one
+real defect — the search delta called `repository.items(q)` against a spine
+interface declaring `items()`, so a reader typing it verbatim would not have
+compiled. Fixed, and the signature change is now called out in the snippet. The
+gate stands for whoever next has a toolchain; it has not been satisfied.
+
+**Verification that did hold:** validator green with zero warnings (50 modules,
+179 chapters, all 24 drills present exactly once), all 280 documentation links
+resolving without redirect, all four modules rendering with correct chapter
+counts, 24 drill cards in the DOM with tier colours and collapsed sketches, and
+cram mode on `#theory/feature-drills` reducing 12 drills to the 5 tier-1 ones.
 
 ## Appendix A — the drill list
 

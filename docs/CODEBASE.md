@@ -34,12 +34,15 @@ token colours, diagram containers, search result rows.
 ### `css/theory.css`
 Everything the theory mode adds: the sidebar mode switch, the curriculum
 overview grid, module cards, the module header strip, the chapter rail, all
-nine content block types, the glossary, progress bars, and the cram filter.
+ten content block types, the glossary, progress bars, and the cram filter.
 
 The three `--importance-*` tokens it consumes are declared in `themes.css`; this
 file introduces no colours of its own.
 
 **Change this to:** restyle a block type or the overview.
+**Note:** drill tiers reuse the `--importance-*` tokens rather than introducing
+their own — a tier-1 drill and a must-know chapter carry the same weight, and
+two colour languages would say otherwise.
 **Watch for:** the cram rule filters on `.importance-must` at three levels
 (module cards, chapters, glossary entries) — the glossary's A–Z bar reuses the
 chapter rail's markup and is excluded explicitly, or cram mode empties it.
@@ -115,8 +118,12 @@ The theory mode end to end: the overview, module pages, the glossary, the nine
 block renderers, read progress and the cram toggle.
 
 `renderBlock()` is the dispatch point — add a block type by adding a case and a
-CSS rule. `renderSyntaxBlock` and `renderDiagramBlock` delegate to the question
-bank's own renderers rather than reimplementing them.
+CSS rule. `renderSyntaxBlock`, `renderDiagramBlock` and `renderDrillBlock`
+delegate to the question bank's own renderers rather than reimplementing them.
+
+`renderDrillBlock()` collapses its solution sketch on creation. That is not a
+style choice: reading the answer before attempting the drill is the one way to
+get nothing out of it.
 
 `collectGlossaryEntries()` harvests every `definition` block at render time.
 Sorting keys on the first *alphanumeric* character, so `@Composable` files under
@@ -128,10 +135,10 @@ private mode. Marks are explicit — nothing infers "read" from a visit.
 
 ### `js/search.js`
 `buildSearchIndex()` flattens **both** corpora once at startup: 465 questions
-and 165 chapters. Every entry carries `kind`, `title` and `context`, so the
+and 179 chapters. Every entry carries `kind`, `title` and `context`, so the
 scorer and renderer branch only on the badge and the destination.
 
-Chapter text comes from `blockText()`, which flattens all nine block types
+Chapter text comes from `blockText()`, which flattens all ten block types
 including code — an API name is often the query.
 
 `search(query)` requires **every** term to match. Scoring: title hit `+10`,
@@ -185,6 +192,10 @@ to be read. The ones that catch real mistakes:
   handlers and `javascript:` URLs.
 - **Check 14** matches every topic's `keyTopics` against the theory prose and
   warns on misses — the only signal that the reorganisation dropped a subject.
+- **Check 15** validates drill blocks and holds the drill catalogue itself:
+  `DRILL_IDS` is the list from the machine coding plan's Appendix A, an id
+  outside it is an error, a duplicate is an error, and anything unwritten is a
+  warning. Adding a drill means adding its id there first.
 
 ### `tools/check-doc-links.js`
 HEAD-probes every `docHub` and `docs[]` entry, caching results in

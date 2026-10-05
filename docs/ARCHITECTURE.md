@@ -42,7 +42,7 @@ script has been parsed.
 The app holds two bodies of content with different shapes and different
 purposes. **Questions** are organised for lookup: fourteen topics, each a place
 to file a question. **Theory** is organised for comprehension: eight tracks of
-46 modules of 165 chapters, in one reading order where each idea arrives after
+50 modules of 179 chapters, in one reading order where each idea arrives after
 the ideas it depends on.
 
 Neither is a view of the other. They are cross-linked — a chapter lists
@@ -55,8 +55,8 @@ deep link puts the sidebar in theory mode with nothing to synchronise.
 
 ## Hand-written validation stands in for tests
 
-There is no test framework, and a hand-authored corpus of 165 chapters with
-~270 outbound documentation links would rot silently. Two Node scripts in
+There is no test framework, and a hand-authored corpus of 179 chapters with
+~280 outbound documentation links would rot silently. Two Node scripts in
 `tools/` are the whole safety net, and they run before every commit that
 touches either corpus:
 
@@ -125,9 +125,15 @@ the next.
 
 The theory renderers reuse the question bank's `renderCodeBlock()` and
 `renderDiagram()` wholesale, so a snippet looks and behaves identically in both
-modes. The nine block types are one `switch` in `renderBlock()`; a new block
+modes. The ten block types are one `switch` in `renderBlock()`; a new block
 type is a case there plus a CSS rule, and nothing else in the app learns about
 it.
+
+The tenth type, `drill`, is the only one that is not prose in a costume: it
+carries a task, a timebox and a solution sketch, and the validator holds the
+catalogue of which drills must exist. Drills are countable and filterable
+because the section needs both — cram mode reduces 24 of them to the 5 that
+carry the round.
 
 The glossary is **harvested at render time** from every `definition` block
 rather than authored. A hand-maintained list would drift from the chapters
