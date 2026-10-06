@@ -118,7 +118,7 @@ const designPatternData = {
             id: "design-pattern-facade",
             question: "What is the Facade pattern?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li><strong>Facade</strong> — a structural pattern that provides a simplified, unified interface to a larger, more complex subsystem, hiding internal complexity from callers.</li></ul><p><strong>⚙️ Where you see it in Android</strong></p><ul><li>A <code>UserRepository</code> is itself a facade over multiple subsystems — Retrofit API, Room DAO, in-memory cache, mappers — exposing a single simple method like <code>getUser(id)</code>.</li><li><code>WorkManager</code> is a facade over choosing between <code>JobScheduler</code>, <code>AlarmManager</code>, and <code>Firebase JobDispatcher</code> depending on the API level — you call one simple API and it picks the right backend.</li><li>An <code>AnalyticsManager</code> wrapping multiple third-party SDKs (Firebase, Mixpanel, custom backend) behind one <code>track(event)</code> call.</li></ul><p><strong>🎯 Interview tip:</strong> Facade doesn't add new functionality — it just simplifies access to existing functionality behind one clean entry point.</p>",
-            referenceLinks: [{ title: "WorkManager overview", url: "https://developer.android.com/topic/libraries/architecture/workmanager" }],
+            referenceLinks: [{ title: "WorkManager overview", url: "https://developer.android.com/develop/background-work/background-tasks/persistent" }],
             tags: ["facade", "design-pattern", "structural"],
             hasDiagram: false,
             diagramType: null,

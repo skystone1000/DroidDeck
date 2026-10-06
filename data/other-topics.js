@@ -219,7 +219,7 @@ const otherTopicsData = {
             "referenceLinks": [
                 {
                     "title": "View memory usage with Memory Profiler",
-                    "url": "https://developer.android.com/studio/profile/memory-profiler"
+                    "url": "https://developer.android.com/studio/profile/capture-heap-dump"
                 },
                 {
                     "title": "LeakCanary",
@@ -370,8 +370,8 @@ const otherTopicsData = {
         {
             "referenceLinks": [
                 {
-                    "title": "About FCM messages",
-                    "url": "https://firebase.google.com/docs/cloud-messaging/concept-options"
+                    "title": "FCM Architectural Overview",
+                    "url": "https://firebase.google.com/docs/cloud-messaging/fcm-architecture"
                 }
             ],
             "tags": [
@@ -417,7 +417,7 @@ const otherTopicsData = {
             "referenceLinks": [
                 {
                     "title": "Set up an Android FCM client app",
-                    "url": "https://firebase.google.com/docs/cloud-messaging/android/client"
+                    "url": "https://firebase.google.com/docs/cloud-messaging/android/get-started"
                 }
             ],
             "tags": [
@@ -445,7 +445,7 @@ const otherTopicsData = {
             "referenceLinks": [
                 {
                     "title": "Schedule exact alarms",
-                    "url": "https://developer.android.com/develop/background-work/services/alarms/schedule"
+                    "url": "https://developer.android.com/develop/background-work/services/alarms"
                 }
             ],
             "tags": [

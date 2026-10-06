@@ -52,7 +52,7 @@ const jetpackComposeData = {
             "referenceLinks": [
                 {
                     "title": "Why adopt Compose",
-                    "url": "https://developer.android.com/develop/ui/compose/why-adopt"
+                    "url": "https://developer.android.com/develop/ui/compose/first"
                 },
                 {
                     "title": "Compose vs Views interop",
@@ -873,7 +873,7 @@ const jetpackComposeData = {
             "referenceLinks": [
                 {
                     "title": "Navigation with Compose",
-                    "url": "https://developer.android.com/develop/ui/compose/navigation"
+                    "url": "https://developer.android.com/guide/navigation"
                 }
             ],
             "tags": [

@@ -840,8 +840,8 @@ const androidData = {
             "answer": "<p><strong>🔑 Flatten the hierarchy and avoid redundant measure/layout passes</strong> — the view tree's depth and complexity directly drive layout cost.</p><ul><li>Prefer <strong>ConstraintLayout</strong> over nested <code>LinearLayout</code>s with weights — it resolves complex positioning in a single flat layer instead of multiple nested measure passes.</li><li>Use <code>&lt;merge&gt;</code> tags to eliminate redundant root ViewGroups when including layouts, and <code>&lt;ViewStub&gt;</code> to lazily inflate rarely-shown views (e.g. error states).</li><li>Run the <strong>Layout Inspector</strong> and enable <strong>GPU overdraw debugging</strong> (Developer Options) to find and remove unnecessary overlapping backgrounds.</li><li>Avoid deeply nested <code>RelativeLayout</code>s and weighted <code>LinearLayout</code>s, both of which require multiple passes to resolve.</li><li>Use <code>include</code> for reusable chunks, and prefer <code>ViewBinding</code>/lazily-inflated views over always inflating everything up front.</li><li>For lists, ensure fixed item sizes where possible (<code>setHasFixedSize(true)</code>) so RecyclerView can skip a full re-layout pass on data changes.</li></ul>",
             "referenceLinks": [
                 {
-                    "title": "Optimize your layout hierarchy",
-                    "url": "https://developer.android.com/develop/ui/views/layout/optimize-layout"
+                    "title": "Improve layout performance",
+                    "url": "https://developer.android.com/develop/ui/views/layout/improving-layouts"
                 }
             ],
             "tags": [
@@ -1046,8 +1046,8 @@ const androidData = {
             "answer": "<p><strong>🔑 The view tree</strong> is the hierarchy of nested Views/ViewGroups rooted at the window's <code>DecorView</code> — its depth and breadth directly determine measure/layout/draw cost per frame.</p><ul><li>Every level of nesting adds a recursive <code>measure()</code>/<code>layout()</code> call; deep trees mean more traversal work, and weighted <code>LinearLayout</code>s at multiple levels can force <strong>double-measure passes</strong> at each level.</li><li><strong>Flatten with ConstraintLayout</strong> to express what used to require several nested containers in a single layer.</li><li>Use <code>&lt;merge&gt;</code> at the root of reusable/included layouts to avoid an extra redundant ViewGroup wrapper.</li><li>Use <code>&lt;ViewStub&gt;</code> for conditionally-shown UI so it isn't inflated (and doesn't add to the tree) until actually needed.</li><li>Inspect with <strong>Layout Inspector</strong> (Android Studio) to visualize the live hierarchy and depth, and use <strong>Hierarchy Viewer</strong>/Perfetto traces to spot expensive subtrees.</li></ul>",
             "referenceLinks": [
                 {
-                    "title": "Optimize your layout hierarchy",
-                    "url": "https://developer.android.com/develop/ui/views/layout/optimize-layout"
+                    "title": "Improve layout performance",
+                    "url": "https://developer.android.com/develop/ui/views/layout/improving-layouts"
                 }
             ],
             "tags": [
@@ -1627,7 +1627,7 @@ const androidData = {
             "referenceLinks": [
                 {
                     "title": "Broadcasts overview",
-                    "url": "https://developer.android.com/guide/components/broadcasts"
+                    "url": "https://developer.android.com/develop/background-work/background-tasks/broadcasts"
                 }
             ],
             "tags": [
@@ -1655,7 +1655,7 @@ const androidData = {
             "referenceLinks": [
                 {
                     "title": "Broadcasts overview",
-                    "url": "https://developer.android.com/guide/components/broadcasts"
+                    "url": "https://developer.android.com/develop/background-work/background-tasks/broadcasts"
                 }
             ],
             "tags": [
@@ -1705,7 +1705,7 @@ const androidData = {
             "referenceLinks": [
                 {
                     "title": "Broadcasts overview",
-                    "url": "https://developer.android.com/guide/components/broadcasts"
+                    "url": "https://developer.android.com/develop/background-work/background-tasks/broadcasts"
                 }
             ],
             "tags": [
@@ -1727,7 +1727,7 @@ const androidData = {
             "referenceLinks": [
                 {
                     "title": "Services overview",
-                    "url": "https://developer.android.com/guide/components/services"
+                    "url": "https://developer.android.com/develop/background-work/services"
                 }
             ],
             "tags": [
@@ -1812,7 +1812,7 @@ const androidData = {
             "referenceLinks": [
                 {
                     "title": "Services overview",
-                    "url": "https://developer.android.com/guide/components/services"
+                    "url": "https://developer.android.com/develop/background-work/services"
                 }
             ],
             "tags": [
@@ -1834,7 +1834,7 @@ const androidData = {
             "referenceLinks": [
                 {
                     "title": "Services overview",
-                    "url": "https://developer.android.com/guide/components/services"
+                    "url": "https://developer.android.com/develop/background-work/services"
                 }
             ],
             "tags": [
@@ -1884,7 +1884,7 @@ const androidData = {
             "referenceLinks": [
                 {
                     "title": "Foreground services",
-                    "url": "https://developer.android.com/develop/background-work/services/foreground-services"
+                    "url": "https://developer.android.com/develop/background-work/services/fgs"
                 }
             ],
             "tags": [
@@ -2573,11 +2573,11 @@ const androidData = {
             "referenceLinks": [
                 {
                     "title": "Work with data more securely",
-                    "url": "https://developer.android.com/topic/security/data"
+                    "url": "https://developer.android.com/privacy-and-security/security-tips"
                 },
                 {
                     "title": "Android Keystore system",
-                    "url": "https://developer.android.com/training/articles/keystore"
+                    "url": "https://developer.android.com/privacy-and-security/keystore"
                 }
             ],
             "tags": [
@@ -2737,7 +2737,7 @@ const androidData = {
             "referenceLinks": [
                 {
                     "title": "App performance overview",
-                    "url": "https://developer.android.com/topic/performance"
+                    "url": "https://developer.android.com/topic/performance/overview"
                 }
             ],
             "tags": [
@@ -2867,7 +2867,7 @@ const androidData = {
             "referenceLinks": [
                 {
                     "title": "Optimize for battery life",
-                    "url": "https://developer.android.com/topic/performance/power"
+                    "url": "https://developer.android.com/develop/connectivity"
                 }
             ],
             "tags": [
@@ -2952,11 +2952,11 @@ const androidData = {
             "referenceLinks": [
                 {
                     "title": "Support different screen sizes",
-                    "url": "https://developer.android.com/training/multiscreen/screensizes"
+                    "url": "https://developer.android.com/develop/ui/compose/layouts/adaptive/support-different-display-sizes"
                 },
                 {
                     "title": "Window size classes",
-                    "url": "https://developer.android.com/develop/ui/compose/layouts/adaptive/window-size-classes"
+                    "url": "https://developer.android.com/develop/ui/compose/layouts/adaptive/use-window-size-classes"
                 }
             ],
             "tags": [
@@ -3548,7 +3548,7 @@ const androidData = {
             "referenceLinks": [
                 {
                     "title": "WorkManager overview",
-                    "url": "https://developer.android.com/topic/libraries/architecture/workmanager"
+                    "url": "https://developer.android.com/develop/background-work/background-tasks/persistent"
                 }
             ],
             "tags": [
@@ -3603,8 +3603,8 @@ const androidData = {
             "answer": "<p><strong>🔑 A persisted work graph plus a resilient scheduling backend</strong></p><ul><li>Every enqueued <code>WorkRequest</code> is written to WorkManager's internal <strong>Room database</strong> immediately, so the work definition survives app process death and even device reboot — nothing lives only in memory.</li><li>WorkManager delegates actual scheduling to the best available OS mechanism: <strong>JobScheduler</strong> on API 23+, a combination of <strong>AlarmManager + BroadcastReceiver + a wake lock</strong> on older APIs — abstracted behind an internal <code>Scheduler</code> interface so callers don't care which backend is active.</li><li>A <strong>boot-completed BroadcastReceiver</strong> (<code>RescheduleReceiver</code>) reschedules any pending work after device reboot, since OS-level schedulers forget everything on restart.</li><li>Failed work is retried according to the configured <strong>backoff policy</strong> (linear or exponential) up to <code>Worker.Result.retry()</code> semantics; work with unmet constraints simply waits until constraints are satisfied rather than failing.</li><li>All of this is coordinated through <code>WorkManager</code>'s own <code>GreedyScheduler</code>/<code>CommandHandler</code> pipeline, which observes the Room-backed work state and reacts to constraint and execution changes.</li></ul>",
             "referenceLinks": [
                 {
-                    "title": "How WorkManager schedules tasks",
-                    "url": "https://developer.android.com/topic/libraries/architecture/workmanager/how-workmanager-schedules-tasks"
+                    "title": "Task scheduling",
+                    "url": "https://developer.android.com/develop/background-work/background-tasks/persistent"
                 }
             ],
             "tags": [

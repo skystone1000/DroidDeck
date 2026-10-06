@@ -99,7 +99,7 @@ const dataStructuresAlgorithmsData = {
             "referenceLinks": [
                 {
                     "title": "Binary Search Tree — GeeksforGeeks",
-                    "url": "https://www.geeksforgeeks.org/binary-search-tree-data-structure/"
+                    "url": "https://www.geeksforgeeks.org/dsa/binary-search-tree-data-structure/"
                 }
             ],
             "tags": [
@@ -157,7 +157,7 @@ const dataStructuresAlgorithmsData = {
             "referenceLinks": [
                 {
                     "title": "Sorting algorithms — GeeksforGeeks",
-                    "url": "https://www.geeksforgeeks.org/sorting-algorithms/"
+                    "url": "https://www.geeksforgeeks.org/dsa/sorting-algorithms/"
                 }
             ],
             "tags": [
@@ -186,7 +186,7 @@ const dataStructuresAlgorithmsData = {
             "referenceLinks": [
                 {
                     "title": "Dynamic Programming — GeeksforGeeks",
-                    "url": "https://www.geeksforgeeks.org/dynamic-programming/"
+                    "url": "https://www.geeksforgeeks.org/dsa/dynamic-programming/"
                 }
             ],
             "tags": [
@@ -214,7 +214,7 @@ const dataStructuresAlgorithmsData = {
             "referenceLinks": [
                 {
                     "title": "BFS vs DFS — GeeksforGeeks",
-                    "url": "https://www.geeksforgeeks.org/breadth-first-search-or-bfs-for-a-graph/"
+                    "url": "https://www.geeksforgeeks.org/dsa/breadth-first-search-or-bfs-for-a-graph/"
                 }
             ],
             "tags": [
@@ -244,7 +244,7 @@ const dataStructuresAlgorithmsData = {
             "referenceLinks": [
                 {
                     "title": "Graph representations — GeeksforGeeks",
-                    "url": "https://www.geeksforgeeks.org/graph-and-its-representations/"
+                    "url": "https://www.geeksforgeeks.org/dsa/graph-and-its-representations/"
                 }
             ],
             "tags": [
