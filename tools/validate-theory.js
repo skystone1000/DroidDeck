@@ -13,20 +13,12 @@
    ========================================================================== */
 
 const { loadCorpus, allQuestions } = require('./load-corpus');
+const { TIERS, LANGUAGES, DIAGRAM_TYPES, KEBAB, htmlIssues } = require('./schema');
 
-/* Kept in step with the renderers these values feed. */
-const TIERS = ['must-know', 'should-know', 'good-to-know'];
+/* Theory-only vocabulary. The rest lives in schema.js, shared with the
+   question validator. */
 const DOC_KINDS = ['guide', 'api', 'codelab', 'sample', 'course'];
-const DIAGRAM_TYPES = ['flowchart', 'animation', 'sequence'];      // js/diagrams.js
-const LANGUAGES = ['kotlin', 'java', 'xml', 'html', 'groovy', 'text'];
 const RESERVED_IDS = ['theory', 'glossary'];
-
-/* Tags allowed inside authored `html`. Mirrors what answer bodies already use;
-   the table children are here because `<table>` is useless without them. */
-const ALLOWED_TAGS = [
-    'p', 'ul', 'ol', 'li', 'strong', 'em', 'code', 'a', 'br',
-    'table', 'thead', 'tbody', 'tr', 'th', 'td'
-];
 
 const BLOCK_FIELDS = {
     prose:      ['html'],
@@ -59,8 +51,6 @@ const DRILL_IDS = [
     'fix-the-leak', 'refactor-god-activity', 'add-the-missing-test',
     'review-this-diff'
 ];
-
-const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 const errors = [];
 const warnings = [];
@@ -340,14 +330,7 @@ function checkBlock(block, at) {
 
 /* 13 — authored HTML stays inside the allowed subset */
 function checkHtml(html, at) {
-    const tags = [...html.matchAll(/<\s*\/?\s*([a-zA-Z][a-zA-Z0-9]*)/g)].map((m) => m[1].toLowerCase());
-    for (const tag of new Set(tags)) {
-        if (!ALLOWED_TAGS.includes(tag)) {
-            error(at, `uses <${tag}>, which is outside the allowed subset (${ALLOWED_TAGS.join(', ')})`);
-        }
-    }
-    if (/\son[a-z]+\s*=/i.test(html)) error(at, 'contains an inline event handler attribute');
-    if (/javascript:/i.test(html)) error(at, 'contains a javascript: URL');
+    htmlIssues(html).forEach((issue) => error(at, issue));
 }
 
 /* 14 — coverage. A warning, because keyTopics phrasing will not always match

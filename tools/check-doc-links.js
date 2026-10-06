@@ -34,7 +34,7 @@ const asJson = argv.includes('--json');
    Collect every link in the corpus
    -------------------------------------------------------------------------- */
 
-function collectLinks({ theoryModules }) {
+function collectLinks({ theoryModules, topics }) {
     const links = new Map();   // url -> [where]
 
     const add = (doc, where) => {
@@ -50,6 +50,19 @@ function collectLinks({ theoryModules }) {
         for (const chapter of mod.chapters || []) {
             (chapter.docs || []).forEach((doc, i) => {
                 add(doc, `${mod.id} › ${chapter.id} docs[${i}]`);
+            });
+        }
+    }
+
+    /* The question bank's reference links go through the same probe. They were
+       unchecked for as long as they have existed, which is the longer half of
+       the corpus and the half a reader is most likely to click. `referenceLinks`
+       carry an absolute `url` rather than theory's `path`, so `add` resolves
+       them by its second branch. */
+    for (const topic of topics || []) {
+        for (const question of topic.questions || []) {
+            (question.referenceLinks || []).forEach((link, i) => {
+                add(link, `${topic.id} › ${question.id} referenceLinks[${i}]`);
             });
         }
     }
