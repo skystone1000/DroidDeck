@@ -216,7 +216,7 @@ viewModelScope.launch {
             id: "flow-retrofit",
             question: "How do you use Retrofit with Kotlin Flow?",
             answer: "<p><strong>🌐 Concept</strong></p><ul><li>Retrofit doesn't return <code>Flow</code> natively — the idiomatic pattern is a <code>suspend fun</code> in the API interface, wrapped in <code>flow { emit(api.call()) }</code> at the repository layer so callers can chain Flow operators (<code>retry</code>, <code>flowOn</code>, <code>catch</code>).</li><li>Keeping the wrap manual (instead of a third-party Flow call adapter) keeps dispatcher choice and error handling explicit and easy to test.</li></ul>",
-            referenceLinks: [{ title: "Retrofit", url: "https://square.github.io/retrofit/" }, { title: "Kotlin Flow on Android", url: "https://developer.android.com/kotlin/flow" }],
+            referenceLinks: [{ title: "Retrofit API reference", url: "https://javadoc.io/doc/com.squareup.retrofit2/retrofit/latest/index.html" }, { title: "Kotlin Flow on Android", url: "https://developer.android.com/kotlin/flow" }],
             tags: ["flow", "retrofit", "networking", "repository"],
             hasDiagram: false,
             diagramType: null,

@@ -115,7 +115,11 @@ async function probe(url) {
             response = await attempt('GET');
         }
     } catch (error) {
-        return { ok: false, status: 0, note: `request failed: ${error.message}` };
+        // No answer at all. That is not evidence about the link: a dead domain
+        // and a blocked network look identical from here, and one of the two is
+        // routine — socket.io resolves to an ISP filter on some connections.
+        // Reported separately so a captive network cannot turn every run red.
+        return { ok: false, unreachable: true, status: 0, note: `no response: ${error.message}` };
     }
 
     const { status } = response;
@@ -173,6 +177,7 @@ async function main() {
     }
 
     const failures = [];
+    const unreachable = [];
     let index = 0;
 
     async function worker() {
@@ -183,6 +188,11 @@ async function main() {
             if (result.ok) {
                 cache[url] = { status: result.status, checked: new Date().toISOString() };
                 if (!asJson) process.stdout.write('.');
+            } else if (result.unreachable) {
+                // Deliberately not cached: nothing was learned, so the next run
+                // on a working connection should try again.
+                unreachable.push({ url, ...result, where: links.get(url) });
+                if (!asJson) process.stdout.write('?');
             } else {
                 failures.push({ url, ...result, where: links.get(url) });
                 if (!asJson) process.stdout.write('F');
@@ -196,7 +206,7 @@ async function main() {
     fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2));
 
     if (asJson) {
-        console.log(JSON.stringify({ checked: targets.length, failures }, null, 2));
+        console.log(JSON.stringify({ checked: targets.length, failures, unreachable }, null, 2));
     } else {
         console.log('\n');
         if (failures.length) {
@@ -207,8 +217,21 @@ async function main() {
                 failure.where.forEach((w) => console.error(`    used by ${w}`));
                 console.error('');
             }
-        } else {
-            console.log('✓ every documentation link resolves without redirecting');
+        }
+
+        if (unreachable.length) {
+            console.log(`${unreachable.length} link(s) could not be checked from this network:\n`);
+            for (const entry of unreachable) {
+                console.log(`  ? ${entry.url}`);
+                console.log(`    ${entry.note}`);
+                entry.where.forEach((w) => console.log(`    used by ${w}`));
+                console.log('');
+            }
+            console.log('  These are unproven, not broken. Re-run on another connection before editing them.\n');
+        }
+
+        if (!failures.length) {
+            console.log('✓ every documentation link that answered resolves without redirecting');
         }
     }
 

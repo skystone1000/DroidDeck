@@ -225,7 +225,7 @@ fun onLoadClicked() {
             id: "coroutines-retrofit",
             question: "How do you use Retrofit with Coroutines?",
             answer: "<p><strong>🌐 Concept</strong></p><ul><li>Retrofit supports <code>suspend</code> functions natively — declare the interface method as <code>suspend fun</code> and Retrofit runs the call through OkHttp internally, returning the parsed body directly (no <code>Call&lt;T&gt;</code>/<code>enqueue</code> needed).</li><li>You don't need to wrap the call in <code>withContext(Dispatchers.IO)</code> yourself — Retrofit's coroutine adapter already dispatches off the main thread.</li><li>Exceptions (<code>IOException</code>, <code>HttpException</code>) propagate as normal Kotlin exceptions, so wrap calls in <code>try/catch</code> or return a <code>Result&lt;T&gt;</code> from the repository.</li></ul>",
-            referenceLinks: [{ title: "Retrofit", url: "https://square.github.io/retrofit/" }, { title: "Coroutines on Android", url: "https://developer.android.com/kotlin/coroutines" }],
+            referenceLinks: [{ title: "Retrofit API reference", url: "https://javadoc.io/doc/com.squareup.retrofit2/retrofit/latest/index.html" }, { title: "Coroutines on Android", url: "https://developer.android.com/kotlin/coroutines" }],
             tags: ["coroutines", "retrofit", "networking", "suspend"],
             hasDiagram: false,
             diagramType: null,
