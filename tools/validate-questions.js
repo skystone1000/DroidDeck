@@ -13,14 +13,14 @@
 
    Exits 1 on any error. Warnings never fail the run.
 
-   Checks 1, 3, 4 and 5 from the plan describe fields that do not exist yet
-   (`importance`, `images`, `codeSnippets[].output`). They are turned on by the
-   phase that introduces each field; what is here is everything that can be
-   enforced against the corpus as it stands.
+   Checks 3, 4 and 5 from the plan describe fields that do not exist yet
+   (`images`, `codeSnippets[].output`). They are turned on by the phase that
+   introduces each field; what is here is everything that can be enforced
+   against the corpus as it stands.
    ========================================================================== */
 
 const { loadCorpus } = require('./load-corpus');
-const { LANGUAGES, DIAGRAM_TYPES, KEBAB, htmlIssues } = require('./schema');
+const { TIERS, LANGUAGES, DIAGRAM_TYPES, KEBAB, htmlIssues } = require('./schema');
 
 /* Question ids are unique within a topic but not across the bank, and exactly
    one id is shared by two topics. Listing it here means a *second* collision is
@@ -103,6 +103,13 @@ function checkTopics(topics) {
 function checkQuestion(question, at, topic, declaredSubsections) {
     for (const field of ['question', 'answer']) {
         if (!question[field]) error(at, `has no ${field}`);
+    }
+
+    // 1 — importance tier. Same three values theory uses, because a must-know
+    // question and a must-know chapter mean the same thing and are rendered
+    // with the same tokens.
+    if (!TIERS.includes(question.importance)) {
+        error(at, `importance ${JSON.stringify(question.importance)} is not one of ${TIERS.join(', ')}`);
     }
 
     // 7 — authored HTML stays inside the allowed subset

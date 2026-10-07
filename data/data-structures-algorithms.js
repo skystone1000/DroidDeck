@@ -34,6 +34,7 @@ const dataStructuresAlgorithmsData = {
             "codeSnippets": [],
             "subsection": null,
             "id": "dsa-big-o",
+            "importance": "must-know",
             "question": "What is Big O Notation?",
             "answer": "<p><strong>🔑 Definition</strong></p><ul><li><strong>Big O notation</strong> describes how an algorithm's running time or memory use <strong>grows</strong> relative to input size <code>n</code>, in the <strong>worst case</strong> — it's about scalability, not exact runtime.</li><li>Constants and lower-order terms are dropped: <code>O(2n + 100)</code> is written <code>O(n)</code> because that's what dominates as <code>n</code> gets large.</li></ul><p><strong>⚙️ Common complexities, best to worst</strong></p><ul><li><code>O(1)</code> constant — array index access, HashMap get/put (average case).</li><li><code>O(log n)</code> logarithmic — binary search, balanced BST operations.</li><li><code>O(n)</code> linear — single pass through a list.</li><li><code>O(n log n)</code> linearithmic — efficient comparison sorts (merge sort, quicksort average case).</li><li><code>O(n²)</code> quadratic — nested loops, bubble/insertion sort.</li><li><code>O(2ⁿ)</code>/<code>O(n!)</code> exponential/factorial — brute-force subsets/permutations.</li></ul><p><strong>🎯 Interview tip:</strong> Always state both <strong>time</strong> and <strong>space</strong> complexity when answering a DSA question — interviewers explicitly listen for space complexity even when not asked.</p>"
         },
@@ -63,6 +64,7 @@ const dataStructuresAlgorithmsData = {
             ],
             "subsection": null,
             "id": "dsa-array-vs-linkedlist",
+            "importance": "must-know",
             "question": "Explain Array vs LinkedList.",
             "answer": "<p><strong>🔑 Contiguous vs linked memory</strong></p><ul><li>An <strong>Array</strong> stores elements in <strong>contiguous</strong> memory with fixed size (in Kotlin/JVM, resizable variants like <code>ArrayList</code> reallocate under the hood).</li><li>A <strong>LinkedList</strong> stores elements as nodes, each holding a value and a pointer to the next (and previous, if doubly linked) node — memory is scattered, connected by references.</li></ul><table><thead><tr><th>Operation</th><th>Array / ArrayList</th><th>LinkedList</th></tr></thead><tbody><tr><td>Random access by index</td><td>O(1)</td><td>O(n)</td></tr><tr><td>Insert/delete at start</td><td>O(n) (shift elements)</td><td>O(1)</td></tr><tr><td>Insert/delete at end</td><td>O(1) amortized</td><td>O(1) with tail pointer</td></tr><tr><td>Insert/delete in middle</td><td>O(n)</td><td>O(1) once you have the node, O(n) to find it</td></tr><tr><td>Memory overhead</td><td>Low (just elements)</td><td>Higher (pointers per node)</td></tr><tr><td>Cache locality</td><td>Good (contiguous)</td><td>Poor (scattered)</td></tr></tbody></table><p><strong>✅ When to use</strong></p><ul><li>Array/ArrayList for frequent random access; LinkedList when you need frequent insert/delete at known positions (e.g. implementing a queue/deque) and don't need random access.</li></ul>"
         },
@@ -92,6 +94,7 @@ const dataStructuresAlgorithmsData = {
             ],
             "subsection": null,
             "id": "dsa-stack-queue",
+            "importance": "must-know",
             "question": "What is a Stack and Queue?",
             "answer": "<p><strong>🔑 Two fundamental linear structures</strong></p><ul><li>A <strong>Stack</strong> is <strong>LIFO</strong> (Last In, First Out) — <code>push</code>/<code>pop</code>/<code>peek</code> all operate on the top; used for undo history, expression evaluation, DFS, call stacks.</li><li>A <strong>Queue</strong> is <strong>FIFO</strong> (First In, First Out) — <code>enqueue</code> at the back, <code>dequeue</code> from the front; used for task scheduling, BFS, producer-consumer buffering.</li></ul><p><strong>⚙️ Complexity</strong></p><ul><li>Both support <code>push/pop</code> or <code>enqueue/dequeue</code> in <strong>O(1)</strong> time when backed by a linked list or a circular buffer/deque; O(1) amortized when backed by a dynamic array (<code>ArrayDeque</code>).</li><li>Space complexity is <strong>O(n)</strong> for <code>n</code> stored elements.</li></ul><p><strong>✅ Kotlin/Java equivalents</strong></p><ul><li>Kotlin's <code>ArrayDeque</code> implements both efficiently — <code>addLast</code>/<code>removeLast</code> for a stack, <code>addLast</code>/<code>removeFirst</code> for a queue; avoid <code>java.util.Stack</code> (legacy, synchronized, slower).</li></ul>"
         },
@@ -121,6 +124,7 @@ const dataStructuresAlgorithmsData = {
             ],
             "subsection": null,
             "id": "dsa-binary-tree-bst",
+            "importance": "should-know",
             "question": "What is a Binary Tree and Binary Search Tree?",
             "answer": "<p><strong>🔑 Definitions</strong></p><ul><li>A <strong>Binary Tree</strong> is a hierarchical structure where each node has at most <strong>two children</strong> (left, right) — no ordering constraint.</li><li>A <strong>Binary Search Tree (BST)</strong> is a binary tree with an <strong>ordering invariant</strong>: for every node, all values in its left subtree are smaller and all values in its right subtree are larger.</li></ul><p><strong>⚙️ Complexity</strong></p><ul><li>BST search/insert/delete: <strong>O(log n)</strong> average (balanced tree), but degrades to <strong>O(n)</strong> worst case if the tree becomes skewed (e.g. inserting sorted data into a plain BST).</li><li>Self-balancing variants (<strong>AVL</strong>, <strong>Red-Black</strong> trees) guarantee <strong>O(log n)</strong> worst case by rebalancing on insert/delete.</li><li>Space complexity: <strong>O(n)</strong> for <code>n</code> nodes; O(h) extra space for recursive traversal, where h is tree height.</li></ul><p><strong>✅ Traversals</strong></p><ul><li><strong>In-order</strong> (left, node, right) visits a BST's values in sorted order; <strong>pre-order</strong> and <strong>post-order</strong> are used for copying/serializing and deleting a tree respectively.</li></ul>"
         },
@@ -150,6 +154,7 @@ const dataStructuresAlgorithmsData = {
             ],
             "subsection": null,
             "id": "dsa-hashmap-hashing",
+            "importance": "must-know",
             "question": "What is a HashMap and how does hashing work?",
             "answer": "<p><strong>🔑 Definition</strong></p><ul><li>A <strong>HashMap</strong> stores key–value pairs and uses a <strong>hash function</strong> to convert each key into an array index (bucket), giving average <strong>O(1)</strong> get/put/remove regardless of map size.</li></ul><p><strong>⚙️ How hashing works</strong></p><ul><li>The key's <code>hashCode()</code> is computed, then reduced modulo the internal array's capacity (via bit-masking, since capacity is a power of two in Java/Kotlin's <code>HashMap</code>) to pick a bucket.</li><li><strong>Collisions</strong> (two keys hashing to the same bucket) are handled by chaining — each bucket holds a linked list of entries (Java 8+ converts a bucket to a red-black tree if it grows past a threshold, capping worst case at O(log n) instead of O(n)).</li><li>When the load factor (default <strong>0.75</strong>) is exceeded, the table <strong>resizes</strong> (typically doubles) and all entries are rehashed — an O(n) operation, but amortized O(1) per insert.</li></ul><p><strong>⚠️ Requirements</strong></p><ul><li>Keys must implement <code>hashCode()</code>/<code>equals()</code> consistently (equal objects <strong>must</strong> produce equal hash codes) — Kotlin <code>data class</code> generates both automatically, which is why they're safe HashMap keys.</li></ul><p><strong>🎯 Interview tip:</strong> State clearly: average-case <strong>O(1)</strong>, worst-case <strong>O(n)</strong> (all keys colliding into one bucket) — interviewers specifically probe whether you know the worst case exists.</p>"
         },
@@ -179,6 +184,7 @@ const dataStructuresAlgorithmsData = {
             ],
             "subsection": null,
             "id": "dsa-sorting-algorithms",
+            "importance": "should-know",
             "question": "What are common sorting algorithms?",
             "answer": "<p><strong>🔑 Comparison-based sorts</strong></p><ul><li><strong>Bubble/Insertion/Selection sort</strong> — <code>O(n²)</code> time, <code>O(1)</code> space; simple but only practical for tiny or nearly-sorted inputs (insertion sort is actually fast, O(n), on nearly-sorted data).</li><li><strong>Merge sort</strong> — <code>O(n log n)</code> time (always, including worst case), <code>O(n)</code> extra space; <strong>stable</strong>, divide-and-conquer.</li><li><strong>Quicksort</strong> — <code>O(n log n)</code> average, <code>O(n²)</code> worst case (bad pivot choices, e.g. already-sorted input with a naive pivot); <code>O(log n)</code> space for the recursion stack; not stable but usually fastest in practice due to cache locality.</li><li><strong>Heap sort</strong> — <code>O(n log n)</code> time always, <code>O(1)</code> extra space; not stable.</li></ul><p><strong>⚙️ Non-comparison sorts</strong></p><ul><li><strong>Counting sort</strong> / <strong>Radix sort</strong> — <code>O(n + k)</code> time (k = value range), beats the <code>O(n log n)</code> comparison lower bound but only works for bounded/integer-like keys.</li></ul><p><strong>✅ In practice</strong></p><ul><li>Kotlin/Java's <code>Collections.sort()</code>/<code>sorted()</code> use <strong>TimSort</strong> for objects (a hybrid, stable, adaptive merge/insertion sort, O(n log n) worst case) and a dual-pivot quicksort for primitive arrays.</li></ul>"
         },
@@ -207,6 +213,7 @@ const dataStructuresAlgorithmsData = {
             ],
             "subsection": null,
             "id": "dsa-dynamic-programming",
+            "importance": "should-know",
             "question": "What is Dynamic Programming?",
             "answer": "<p><strong>🔑 Definition</strong></p><ul><li><strong>Dynamic Programming (DP)</strong> solves problems by breaking them into <strong>overlapping subproblems</strong>, solving each once, and <strong>caching</strong> the result — avoiding the exponential blow-up of recomputing the same subproblem repeatedly.</li><li>Requires two properties: <strong>optimal substructure</strong> (the optimal solution is built from optimal solutions to subproblems) and <strong>overlapping subproblems</strong> (the same subproblem recurs).</li></ul><p><strong>⚙️ Two approaches</strong></p><ul><li><strong>Top-down (memoization)</strong> — recursive solution + a cache (map/array) keyed by subproblem parameters.</li><li><strong>Bottom-up (tabulation)</strong> — build a table iteratively from the smallest subproblems up, usually O(1) extra call-stack space vs recursion's O(n).</li></ul><p><strong>📊 Classic example — Fibonacci</strong></p><ul><li>Naive recursion: <code>O(2ⁿ)</code> time. With memoization/tabulation: <code>O(n)</code> time, <code>O(n)</code> (or <code>O(1)</code> with two rolling variables) space.</li></ul><p><strong>🎯 Interview tip:</strong> Always name the recurrence relation and state complexity before/after adding memoization — that transition is exactly what interviewers want to see reasoned through.</p>"
         },
@@ -237,6 +244,7 @@ const dataStructuresAlgorithmsData = {
             ],
             "subsection": null,
             "id": "dsa-bfs-dfs",
+            "importance": "should-know",
             "question": "What is BFS and DFS?",
             "answer": "<p><strong>🔑 Two fundamental graph/tree traversal strategies</strong></p><ul><li><strong>BFS (Breadth-First Search)</strong> explores level by level, visiting all neighbors of a node before moving deeper — implemented with a <strong>Queue</strong>. Finds the <strong>shortest path</strong> in an unweighted graph.</li><li><strong>DFS (Depth-First Search)</strong> explores as far as possible down one branch before backtracking — implemented with a <strong>Stack</strong> (explicit or via recursion). Good for detecting cycles, topological sort, connectivity.</li></ul><p><strong>⚙️ Complexity</strong></p><ul><li>Both run in <strong>O(V + E)</strong> time (V = vertices, E = edges) for an adjacency-list representation.</li><li>Space: BFS is <strong>O(V)</strong> for the queue (can hold an entire level, up to V nodes); DFS is <strong>O(h)</strong> for the recursion/explicit stack, where h is the max depth — better for wide, shallow graphs.</li></ul><p><strong>✅ When to use which</strong></p><ul><li>BFS for shortest path / \"closest\" search; DFS for exhaustive exploration, cycle detection, and when memory for a wide frontier is a concern.</li></ul>"
         },
@@ -266,6 +274,7 @@ const dataStructuresAlgorithmsData = {
             ],
             "subsection": null,
             "id": "dsa-graph-representations",
+            "importance": "should-know",
             "question": "What is a Graph and its representations?",
             "answer": "<p><strong>🔑 Definition</strong></p><ul><li>A <strong>Graph</strong> is a set of <strong>vertices (nodes)</strong> connected by <strong>edges</strong> — can be directed/undirected, weighted/unweighted, cyclic/acyclic.</li></ul><p><strong>⚙️ Two main representations</strong></p><ul><li><strong>Adjacency List</strong> — a map/array of lists, each holding a node's neighbors. Space: <strong>O(V + E)</strong>. Efficient for sparse graphs and iterating neighbors; checking if a specific edge exists is O(degree).</li><li><strong>Adjacency Matrix</strong> — a V×V boolean/weight grid. Space: <strong>O(V²)</strong>. Edge-existence check is <strong>O(1)</strong>, but wasteful for sparse graphs and iterating a node's neighbors costs O(V).</li></ul><p><strong>✅ Choosing between them</strong></p><ul><li>Adjacency list for most real-world (sparse) graphs — social networks, road maps, dependency graphs.</li><li>Adjacency matrix when the graph is dense or you need frequent O(1) edge-existence checks and V is small.</li></ul>"
         },
@@ -295,6 +304,7 @@ const dataStructuresAlgorithmsData = {
             ],
             "subsection": null,
             "id": "dsa-common-problems",
+            "importance": "must-know",
             "question": "Common algorithm problems for Android interviews.",
             "answer": "<p><strong>🔑 Patterns that come up repeatedly</strong></p><ul><li><strong>Two Sum / pair-sum</strong> — use a <code>HashMap</code> to find complements in a single pass: <strong>O(n)</strong> time, <strong>O(n)</strong> space (vs O(n²) brute force).</li><li><strong>Reverse a linked list</strong> — iterative pointer-rewiring: <strong>O(n)</strong> time, <strong>O(1)</strong> space.</li><li><strong>Detect a cycle in a linked list</strong> — Floyd's slow/fast pointer (\"tortoise and hare\"): <strong>O(n)</strong> time, <strong>O(1)</strong> space.</li><li><strong>Valid parentheses / balanced brackets</strong> — Stack-based matching: <strong>O(n)</strong> time, <strong>O(n)</strong> space.</li><li><strong>LRU Cache</strong> — <code>HashMap</code> + doubly linked list (or Kotlin's <code>LinkedHashMap</code> with access order) for O(1) get/put — a favorite because it mirrors real Android caching (e.g. <code>LruCache</code>).</li><li><strong>Merge intervals</strong> — sort by start time then sweep: <strong>O(n log n)</strong> time, <strong>O(n)</strong> space.</li><li><strong>Find the Kth largest element</strong> — a min-heap of size k, or Quickselect: <strong>O(n log k)</strong> (heap) or average <strong>O(n)</strong> (Quickselect).</li></ul><p><strong>🎯 Interview tip:</strong> Android interviewers often frame these in a platform context (e.g. \"design an LRU image cache\") — recognizing the underlying textbook pattern under a practical wrapper is the actual skill being tested.</p>"
         }
