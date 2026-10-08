@@ -308,6 +308,122 @@
     color: var(--text-primary);
 }
 
+/* --------------------------------------------------------------------------
+   Importance filter
+   -------------------------------------------------------------------------- */
+
+.tier-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 18px;
+    padding: 5px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+}
+
+.tier-filter-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 13px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: color var(--transition-fast), background var(--transition-fast),
+                border-color var(--transition-fast);
+}
+
+.tier-filter-option:hover:not(:disabled):not(.active) {
+    color: var(--text-primary);
+    background: var(--bg-card);
+}
+
+.tier-filter-option.active {
+    color: var(--accent-hover);
+    background: var(--accent-light);
+    border-color: var(--accent-color);
+}
+
+.tier-filter-option:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.tier-filter-count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.tier-filter-option.active .tier-filter-count {
+    color: var(--accent-hover);
+}
+
+/* The filter itself. One class on the container, two rules — the floor is
+   cumulative, so `should` hides only good-to-know. Nothing re-renders, which is
+   why an expanded card survives a filter change. */
+
+#topicContainer.tier-must .question-card:not(.importance-must),
+#topicContainer.tier-should .question-card.importance-good {
+    display: none;
+}
+
+/* A section whose every question was filtered out would leave a stranded
+   heading, so it goes with them. This is what the <section> wrapper is for. */
+#topicContainer.tier-must
+    .question-section:not(:has(.question-card.importance-must)),
+#topicContainer.tier-should
+    .question-section:not(:has(.question-card.importance-must, .question-card.importance-should)) {
+    display: none;
+}
+
+/* Importance tier — the same pill and the same tokens the theory chapters use,
+   because a must-know question and a must-know chapter mean the same thing and
+   a reader moving between the two modes should not have to relearn a colour. */
+
+.question-importance {
+    flex: 0 0 auto;
+    margin-top: 2px;
+    padding: 3px 9px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    border-radius: 999px;
+    color: var(--importance-good);
+    background: var(--bg-glass);
+    border: 1px solid currentColor;
+}
+
+.question-importance.importance-must   { color: var(--importance-must); }
+.question-importance.importance-should { color: var(--importance-should); }
+
+/* The card's left edge repeats the tier, so a scan down a long topic reads as
+   a stripe rather than as a column of badges to be individually read. */
+.question-card {
+    border-left: 3px solid var(--importance-good);
+}
+
+.question-card.importance-must   { border-left-color: var(--importance-must); }
+.question-card.importance-should { border-left-color: var(--importance-should); }
+
+/* Below roughly a phone's width the badge and the question fight for the same
+   line, and the question wins. */
+@media (max-width: 560px) {
+    .question-importance {
+        display: none;
+    }
+}
+
 .question-chevron {
     flex: 0 0 auto;
     margin-top: 4px;
@@ -576,6 +692,20 @@
     color: var(--bg-primary);
     background: var(--accent-hover);
 }
+
+/* A tier badge is an annotation on the result, not its identity the way the
+   Theory badge is, so it is outlined rather than filled — the filled badge
+   stays the strongest mark in the row. */
+.search-result-badge.importance-must,
+.search-result-badge.importance-should,
+.search-result-badge.importance-good {
+    color: var(--importance-good);
+    background: transparent;
+    border: 1px solid currentColor;
+}
+
+.search-result-badge.importance-must   { color: var(--importance-must); }
+.search-result-badge.importance-should { color: var(--importance-should); }
 
 .search-result-chapter .search-result-topic {
     color: var(--text-secondary);

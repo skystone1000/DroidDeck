@@ -115,6 +115,10 @@ function renderTheoryOverview() {
     setTimeout(() => {
         container.innerHTML = '';
         container.classList.toggle('cram-mode', theoryCramMode);
+        // The question bank's filter classes belong to the other mode. Each
+        // renderer owns the container completely, so clearing them here is what
+        // stops one mode's state from surviving into the next.
+        container.classList.remove('tier-must', 'tier-should');
 
         const modules = (typeof theoryModules === 'undefined') ? [] : theoryModules;
         const tracks = (typeof theoryTracks === 'undefined') ? [] : theoryTracks;
@@ -357,6 +361,10 @@ function renderTheoryGlossary() {
     setTimeout(() => {
         container.innerHTML = '';
         container.classList.toggle('cram-mode', theoryCramMode);
+        // The question bank's filter classes belong to the other mode. Each
+        // renderer owns the container completely, so clearing them here is what
+        // stops one mode's state from surviving into the next.
+        container.classList.remove('tier-must', 'tier-should');
 
         const entries = collectGlossaryEntries();
 
@@ -512,6 +520,10 @@ function renderTheoryModule(moduleId, scrollToChapter) {
     setTimeout(() => {
         container.innerHTML = '';
         container.classList.toggle('cram-mode', theoryCramMode);
+        // The question bank's filter classes belong to the other mode. Each
+        // renderer owns the container completely, so clearing them here is what
+        // stops one mode's state from surviving into the next.
+        container.classList.remove('tier-must', 'tier-should');
         container.appendChild(renderModuleHeader(mod));
 
         const chapters = mod.chapters || [];

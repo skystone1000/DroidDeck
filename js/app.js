@@ -43,6 +43,13 @@ function renderTopic(topicId, scrollToSubsection) {
             container.appendChild(renderKeyTopics(topic.keyTopics));
         }
 
+        container.appendChild(renderTierFilter(topic));
+
+        // Filtering is CSS, not a re-render, so cards that were expanded stay
+        // expanded as the reader narrows the set.
+        container.classList.toggle('tier-must', questionTier === 'must');
+        container.classList.toggle('tier-should', questionTier === 'should');
+
         if (topic.subsections && topic.subsections.length) {
             renderGroupedQuestions(container, topic);
         } else {
@@ -123,31 +130,103 @@ function renderKeyTopics(keyTopics) {
     return section;
 }
 
-/** Questions carry a `subsection` id; group them under their section heading. */
+/**
+ * Questions carry a `subsection` id; group them under their section heading.
+ *
+ * Each group is wrapped in a `<section>` rather than left as flat siblings, so
+ * the tier filter can hide a heading whose every question was filtered out —
+ * `:has()` needs something to contain them. The heading keeps its id and its
+ * data attribute, so scroll-to-hash and `topmostPassed()` are unaffected.
+ */
 function renderGroupedQuestions(container, topic) {
     const questions = topic.questions || [];
     let number = 0;
 
+    const addSection = (sub, inSection) => {
+        const section = document.createElement('section');
+        section.className = 'question-section';
+        section.appendChild(makeSubsectionHeader(sub));
+        inSection.forEach((question) => {
+            section.appendChild(renderQuestionCard(question, ++number));
+        });
+        container.appendChild(section);
+    };
+
     topic.subsections.forEach((sub) => {
         const inSection = questions.filter((q) => q.subsection === sub.id);
-        if (!inSection.length) return;
-
-        container.appendChild(makeSubsectionHeader(sub));
-        inSection.forEach((question) => {
-            container.appendChild(renderQuestionCard(question, ++number));
-        });
+        if (inSection.length) addSection(sub, inSection);
     });
 
     // Anything whose subsection id does not match a declared section still
     // needs to be reachable, so it lands in a trailing bucket.
     const known = new Set(topic.subsections.map((s) => s.id));
     const orphans = questions.filter((q) => !known.has(q.subsection));
-    if (orphans.length) {
-        container.appendChild(makeSubsectionHeader({ id: 'more', title: 'More' }));
-        orphans.forEach((question) => {
-            container.appendChild(renderQuestionCard(question, ++number));
+    if (orphans.length) addSection({ id: 'more', title: 'More' }, orphans);
+}
+
+/* --------------------------------------------------------------------------
+   Importance filter
+   -------------------------------------------------------------------------- */
+
+/**
+ * Three cumulative choices, written into the hash so the filtered view is
+ * shareable and survives navigation between topics.
+ */
+function renderTierFilter(topic) {
+    const questions = topic.questions || [];
+
+    const options = [
+        { floor: null, label: 'All' },
+        { floor: 'should', label: 'Must + should' },
+        { floor: 'must', label: 'Must-know only' }
+    ];
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'tier-filter';
+    wrapper.setAttribute('role', 'tablist');
+    wrapper.setAttribute('aria-label', 'Filter by importance');
+
+    options.forEach((option) => {
+        const count = questionsAtTier(questions, option.floor).length;
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'tier-filter-option';
+        button.setAttribute('role', 'tab');
+
+        const active = questionTier === option.floor;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-selected', String(active));
+
+        const label = document.createElement('span');
+        label.className = 'tier-filter-label';
+        label.textContent = option.label;
+
+        const badge = document.createElement('span');
+        badge.className = 'tier-filter-count';
+        badge.textContent = count;
+
+        button.appendChild(label);
+        button.appendChild(badge);
+
+        // A tier with nothing in it is still shown, so the reader learns that
+        // rather than wondering where the control went — it just cannot be
+        // chosen.
+        if (!count) button.disabled = true;
+
+        button.addEventListener('click', () => {
+            if (active || !count) return;
+            // Writing the hash is the whole state change; handleRouteChange
+            // re-renders with the filter applied, so the button can never
+            // disagree with the URL.
+            const route = parseHash(window.location.hash);
+            window.location.hash = generateHash(route.topicId, route.subsectionId, option.floor);
         });
-    }
+
+        wrapper.appendChild(button);
+    });
+
+    return wrapper;
 }
 
 function makeSubsectionHeader(sub) {
@@ -173,8 +252,13 @@ function makeSubsectionHeader(sub) {
    -------------------------------------------------------------------------- */
 
 function renderQuestionCard(question, number) {
+    // IMPORTANCE comes from js/theory.js, which loads first. Deliberately the
+    // same map rather than a parallel one: a must-know question and a must-know
+    // chapter mean the same thing, so they carry the same label and colour.
+    const tier = IMPORTANCE[question.importance] || IMPORTANCE['good-to-know'];
+
     const card = document.createElement('article');
-    card.className = 'question-card';
+    card.className = `question-card importance-${tier.modifier}`;
     card.dataset.id = question.id;
 
     /* Header */
@@ -204,8 +288,13 @@ function renderQuestionCard(question, number) {
     chevronPath.setAttribute('d', 'M6 9l6 6 6-6');
     chevron.appendChild(chevronPath);
 
+    const importance = document.createElement('span');
+    importance.className = `question-importance importance-${tier.modifier}`;
+    importance.textContent = tier.label;
+
     header.appendChild(badge);
     header.appendChild(text);
+    header.appendChild(importance);
     header.appendChild(chevron);
 
     /* Body */
@@ -405,6 +494,10 @@ function topmostPassed(selector) {
     const midpoint = window.innerHeight / 2;
     let current = null;
     nodes.forEach((node) => {
+        // A filtered-out section is display:none, and its rect is all zeros —
+        // which reads as "scrolled past" and would rewrite the hash to a
+        // section the reader cannot see.
+        if (node.offsetParent === null) return;
         if (node.getBoundingClientRect().top <= midpoint) current = node;
     });
     return current;

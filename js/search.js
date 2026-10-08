@@ -48,6 +48,7 @@ function indexQuestions(topicsList) {
                 topicId: topic.id,
                 subsectionId: question.subsection || null,
                 questionId: question.id,
+                importance: question.importance,
                 tags: tags,
                 searchText: [question.question, answerText, tags.join(' '), topic.title]
                     .join(' ')
@@ -227,6 +228,18 @@ function renderSearchResults(results, query) {
             badge.className = 'search-result-badge';
             badge.textContent = 'Theory';
             label.appendChild(badge);
+        }
+
+        // Questions carry their tier here too, so a search result can be judged
+        // as worth opening before it is opened.
+        if (entry.kind === 'question' && entry.importance) {
+            const tier = IMPORTANCE[entry.importance];
+            if (tier) {
+                const badge = document.createElement('span');
+                badge.className = `search-result-badge importance-${tier.modifier}`;
+                badge.textContent = tier.label;
+                label.appendChild(badge);
+            }
         }
 
         const context = document.createElement('span');

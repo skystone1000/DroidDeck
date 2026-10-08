@@ -45,9 +45,10 @@ function renderSidebar(topicsList) {
 }
 
 function setSidebarMode(mode) {
-    if (mode === sidebarMode) return;
+    if (mode === sidebarMode) return false;
     sidebarMode = mode;
     renderSidebar();
+    return true;
 }
 
 function buildModeSwitch() {
@@ -84,10 +85,19 @@ function buildModeSwitch() {
     return wrapper;
 }
 
+/** Questions a given tier floor lets through. No floor means all of them. */
+function questionsAtTier(questions, floor) {
+    if (!floor) return questions;
+    if (floor === 'must') return questions.filter((q) => q.importance === 'must-know');
+    return questions.filter((q) => q.importance !== 'good-to-know');
+}
+
 function buildQuestionNav(nav) {
     sidebarTopics.forEach((topic) => {
         const icon = topicIcons[topic.id] || '📄';
-        const count = (topic.questions || []).length;
+        // The count follows the filter, so the sidebar answers "how much is
+        // left to revise" rather than "how much exists".
+        const count = questionsAtTier(topic.questions || [], questionTier).length;
 
         if (topic.subsections && topic.subsections.length) {
             nav.appendChild(buildTopicGroup(topic, icon, count));
@@ -300,8 +310,32 @@ function setActiveTopic(topicId, subsectionId) {
    ambiguous if theory were addressed as `#topicId/theory` instead. */
 const THEORY_ROUTE = 'theory';
 
-function generateHash(topicId, subsectionId) {
-    return subsectionId ? `#${topicId}/${subsectionId}` : `#${topicId}`;
+/* The question bank's importance filter is the same idea as theory's cram mode,
+   for the same reason: a filter that resets on navigation is useless for
+   revision, and a filtered session should be shareable. It names the *floor*,
+   not the band — `must` shows must-know, `should` shows must-know and
+   should-know, absent shows everything. Cumulative, because "only the ones that
+   matter" and "everything that is not filler" are the two real revision modes,
+   and a should-know-only view answers no question anybody has. */
+const TIER_FLOORS = ['must', 'should'];
+
+let questionTier = null;
+
+/** Returns true when the filter actually changed, so callers can re-render. */
+function setQuestionTier(tier) {
+    const next = TIER_FLOORS.includes(tier) ? tier : null;
+    if (next === questionTier) return false;
+    questionTier = next;
+    return true;
+}
+
+function generateHash(topicId, subsectionId, tier) {
+    const floor = (tier === undefined)
+        ? questionTier
+        : (TIER_FLOORS.includes(tier) ? tier : null);
+    const query = floor ? `?tier=${floor}` : '';
+
+    return subsectionId ? `#${topicId}/${subsectionId}${query}` : `#${topicId}${query}`;
 }
 
 /* Cram mode is a property of the route, not of the page, so it survives a
@@ -349,22 +383,30 @@ function parseHash(hash) {
     }
 
     const fallback = (typeof topics !== 'undefined' && topics.length) ? topics[0].id : null;
+    const tier = /(^|&)tier=(must|should)($|&)/.exec(query || '');
+
     return {
         mode: 'questions',
         topicId: segments[0] || fallback,
         subsectionId: segments[1] || null,
         moduleId: null,
         chapterId: null,
-        cram: false
+        cram: false,
+        tier: tier ? tier[2] : null
     };
 }
 
 function handleRouteChange() {
     const route = parseHash(window.location.hash);
     // Set before rendering: the renderers build links through
-    // generateTheoryHash, which reads this.
+    // generateTheoryHash and generateHash, which read these.
     setTheoryCramMode(route.mode === 'theory' && route.cram);
-    setSidebarMode(route.mode);
+    const tierChanged = setQuestionTier(route.mode === 'questions' ? route.tier : null);
+    const modeChanged = setSidebarMode(route.mode);
+
+    // Sidebar counts are per-tier, so a filter change has to redraw them. Mode
+    // changes already redraw, and doing both would render the sidebar twice.
+    if (tierChanged && !modeChanged) renderSidebar();
 
     if (route.mode === 'theory') {
         if (route.moduleId === GLOSSARY_ROUTE) {
