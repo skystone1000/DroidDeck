@@ -104,7 +104,7 @@ fun onLoadClicked() {
         },
         {
             id: "coroutines-scope",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is CoroutineScope?",
             answer: "<p><strong>🧭 Concept</strong></p><ul><li>A <strong>CoroutineScope</strong> defines the lifetime boundary for coroutines launched within it — it ties a <code>Job</code> and a <code>CoroutineContext</code> together.</li><li>Every coroutine builder (<code>launch</code>, <code>async</code>) is an extension function on <code>CoroutineScope</code>, so a coroutine can only be started inside one.</li><li>Cancelling the scope's <code>Job</code> cancels every coroutine launched in it — this is the mechanism behind structured concurrency.</li><li>Android provides lifecycle-aware scopes (<code>viewModelScope</code>, <code>lifecycleScope</code>) so app code rarely needs to construct <code>CoroutineScope(...)</code> manually.</li></ul>",
             referenceLinks: [{ title: "Coroutines on Android", url: "https://developer.android.com/kotlin/coroutines" }],
@@ -117,7 +117,7 @@ fun onLoadClicked() {
         },
         {
             id: "coroutines-coroutinescope-vs-supervisorscope",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the difference between coroutineScope and supervisorScope?",
             answer: "<p><strong>⚖️ Concept</strong></p><ul><li>Both are suspending functions that create a child scope and wait for all children to finish, but they differ in how a child's failure travels.</li></ul><table><thead><tr><th>Aspect</th><th>coroutineScope</th><th>supervisorScope</th></tr></thead><tbody><tr><td>Job type</td><td>Regular <code>Job</code></td><td><code>SupervisorJob</code></td></tr><tr><td>Child failure</td><td>Cancels all siblings and rethrows</td><td>Isolated — one child's failure doesn't cancel others</td></tr><tr><td>Use case</td><td>All-or-nothing parallel work</td><td>Independent tasks (e.g. multiple widgets loading separately)</td></tr></tbody></table><ul><li>Both still propagate cancellation from the <em>parent</em> downward — the difference is only in how a <em>child's</em> failure travels back up.</li><li>With <code>supervisorScope</code> you still need per-child <code>try/catch</code> or a <code>CoroutineExceptionHandler</code>, since exceptions no longer bubble up automatically.</li></ul>",
             referenceLinks: [{ title: "Exception handling - Kotlin", url: "https://kotlinlang.org/docs/exception-handling.html" }],
@@ -143,7 +143,7 @@ fun onLoadClicked() {
         },
         {
             id: "coroutines-context",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is CoroutineContext?",
             answer: "<p><strong>🧩 Concept</strong></p><ul><li><code>CoroutineContext</code> is an indexed set of elements that configures how a coroutine runs — an immutable, persistent structure combined with the <code>+</code> operator.</li><li>Key elements: <code>Job</code> (lifecycle/cancellation), <code>CoroutineDispatcher</code> (which thread), <code>CoroutineName</code> (debugging), <code>CoroutineExceptionHandler</code> (uncaught exceptions).</li><li>Combining contexts with <code>+</code> merges elements of the same key, with the right-hand side overriding — e.g. <code>Dispatchers.IO + CoroutineName(&quot;sync&quot;)</code>.</li><li>Every coroutine has its own context, inherited from its parent and overridable at launch: <code>launch(Dispatchers.IO) { }</code>.</li></ul>",
             referenceLinks: [{ title: "Coroutine context and dispatchers", url: "https://kotlinlang.org/docs/coroutine-context-and-dispatchers.html" }],
@@ -236,7 +236,7 @@ fun onLoadClicked() {
         },
         {
             id: "coroutines-retrofit",
-            importance: "must-know",
+            importance: "should-know",
             question: "How do you use Retrofit with Coroutines?",
             answer: "<p><strong>🌐 Concept</strong></p><ul><li>Retrofit supports <code>suspend</code> functions natively — declare the interface method as <code>suspend fun</code> and Retrofit runs the call through OkHttp internally, returning the parsed body directly (no <code>Call&lt;T&gt;</code>/<code>enqueue</code> needed).</li><li>You don't need to wrap the call in <code>withContext(Dispatchers.IO)</code> yourself — Retrofit's coroutine adapter already dispatches off the main thread.</li><li>Exceptions (<code>IOException</code>, <code>HttpException</code>) propagate as normal Kotlin exceptions, so wrap calls in <code>try/catch</code> or return a <code>Result&lt;T&gt;</code> from the repository.</li></ul>",
             referenceLinks: [{ title: "Retrofit API reference", url: "https://javadoc.io/doc/com.squareup.retrofit2/retrofit/latest/index.html" }, { title: "Coroutines on Android", url: "https://developer.android.com/kotlin/coroutines" }],
