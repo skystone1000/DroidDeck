@@ -367,22 +367,34 @@
     color: var(--accent-hover);
 }
 
-/* The filter itself. One class on the container, two rules — the floor is
-   cumulative, so `should` hides only good-to-know. Nothing re-renders, which is
-   why an expanded card survives a filter change. */
+/* The filter itself. The tiers are independent and combine freely, so rather
+   than enumerate every combination the rule is subtractive: `tier-filtered`
+   hides everything, and each `show-*` puts one tier back. Three selections
+   therefore need three rules instead of seven. Nothing re-renders, which is why
+   an expanded card survives a filter change. */
 
-#topicContainer.tier-must .question-card:not(.importance-must),
-#topicContainer.tier-should .question-card.importance-good {
+#topicContainer.tier-filtered .question-card {
     display: none;
 }
 
+#topicContainer.show-must .question-card.importance-must,
+#topicContainer.show-should .question-card.importance-should,
+#topicContainer.show-good .question-card.importance-good {
+    display: block;
+}
+
 /* A section whose every question was filtered out would leave a stranded
-   heading, so it goes with them. This is what the <section> wrapper is for. */
-#topicContainer.tier-must
-    .question-section:not(:has(.question-card.importance-must)),
-#topicContainer.tier-should
-    .question-section:not(:has(.question-card.importance-must, .question-card.importance-should)) {
+   heading, so it goes with them. This is what the <section> wrapper is for, and
+   it follows the same hide-then-restore shape. The `:has()` argument lifts the
+   specificity above the blanket rule on its own. */
+#topicContainer.tier-filtered .question-section {
     display: none;
+}
+
+#topicContainer.show-must .question-section:has(.question-card.importance-must),
+#topicContainer.show-should .question-section:has(.question-card.importance-should),
+#topicContainer.show-good .question-section:has(.question-card.importance-good) {
+    display: block;
 }
 
 /* Importance tier — the same pill and the same tokens the theory chapters use,

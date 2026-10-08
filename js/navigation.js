@@ -85,11 +85,11 @@ function buildModeSwitch() {
     return wrapper;
 }
 
-/** Questions a given tier floor lets through. No floor means all of them. */
-function questionsAtTier(questions, floor) {
-    if (!floor) return questions;
-    if (floor === 'must') return questions.filter((q) => q.importance === 'must-know');
-    return questions.filter((q) => q.importance !== 'good-to-know');
+/** Questions the selected tiers let through. An empty selection means all. */
+function questionsInTiers(questions, keys) {
+    if (!keys || !keys.length) return questions;
+    const wanted = keys.map((key) => TIER_KEYS[key]);
+    return questions.filter((q) => wanted.includes(q.importance));
 }
 
 function buildQuestionNav(nav) {
@@ -97,7 +97,7 @@ function buildQuestionNav(nav) {
         const icon = topicIcons[topic.id] || '📄';
         // The count follows the filter, so the sidebar answers "how much is
         // left to revise" rather than "how much exists".
-        const count = questionsAtTier(topic.questions || [], questionTier).length;
+        const count = questionsInTiers(topic.questions || [], questionTiers).length;
 
         if (topic.subsections && topic.subsections.length) {
             nav.appendChild(buildTopicGroup(topic, icon, count));
@@ -246,6 +246,11 @@ function buildTopicGroup(topic, icon, count) {
     const list = document.createElement('div');
     list.className = 'nav-subsections';
     topic.subsections.forEach((sub) => {
+        // A section the filter has emptied is hidden in the page, so listing it
+        // here would be a link to nothing.
+        const inSection = (topic.questions || []).filter((q) => q.subsection === sub.id);
+        if (!questionsInTiers(inSection, questionTiers).length) return;
+
         const link = document.createElement('a');
         link.className = 'nav-subsection';
         link.href = generateHash(topic.id, sub.id);
@@ -310,30 +315,45 @@ function setActiveTopic(topicId, subsectionId) {
    ambiguous if theory were addressed as `#topicId/theory` instead. */
 const THEORY_ROUTE = 'theory';
 
-/* The question bank's importance filter is the same idea as theory's cram mode,
-   for the same reason: a filter that resets on navigation is useless for
-   revision, and a filtered session should be shareable. It names the *floor*,
-   not the band — `must` shows must-know, `should` shows must-know and
-   should-know, absent shows everything. Cumulative, because "only the ones that
-   matter" and "everything that is not filler" are the two real revision modes,
-   and a should-know-only view answers no question anybody has. */
-const TIER_FLOORS = ['must', 'should'];
+/* The question bank's importance filter lives in the hash, like theory's cram
+   mode and for the same reason: a filter that resets on navigation is useless
+   for revision, and a filtered session should be shareable.
 
-let questionTier = null;
+   The tiers are independent, not a floor. Any one can be selected, and any
+   combination — must-know alone to drill the short list, should-know alone to
+   find the gaps you have been skipping, must and good together if that is what
+   an evening calls for. `?tier=must,should` is the whole state.
 
-/** Returns true when the filter actually changed, so callers can re-render. */
-function setQuestionTier(tier) {
-    const next = TIER_FLOORS.includes(tier) ? tier : null;
-    if (next === questionTier) return false;
-    questionTier = next;
+   Selecting every tier means the same thing as selecting none, so it normalises
+   back to no filter and the URL stays clean. */
+const TIER_KEYS = {
+    must: 'must-know',
+    should: 'should-know',
+    good: 'good-to-know'
+};
+
+const TIER_ORDER = ['must', 'should', 'good'];
+
+/** Selected tier keys. Empty means unfiltered — every tier shows. */
+let questionTiers = [];
+
+function normaliseTiers(keys) {
+    const unique = TIER_ORDER.filter((key) => (keys || []).includes(key));
+    // All three selected is indistinguishable from no filter at all.
+    return unique.length === TIER_ORDER.length ? [] : unique;
+}
+
+/** Returns true when the selection actually changed, so callers can re-render. */
+function setQuestionTiers(keys) {
+    const next = normaliseTiers(keys);
+    if (next.join(',') === questionTiers.join(',')) return false;
+    questionTiers = next;
     return true;
 }
 
-function generateHash(topicId, subsectionId, tier) {
-    const floor = (tier === undefined)
-        ? questionTier
-        : (TIER_FLOORS.includes(tier) ? tier : null);
-    const query = floor ? `?tier=${floor}` : '';
+function generateHash(topicId, subsectionId, tiers) {
+    const selected = (tiers === undefined) ? questionTiers : normaliseTiers(tiers);
+    const query = selected.length ? `?tier=${selected.join(',')}` : '';
 
     return subsectionId ? `#${topicId}/${subsectionId}${query}` : `#${topicId}${query}`;
 }
@@ -383,7 +403,12 @@ function parseHash(hash) {
     }
 
     const fallback = (typeof topics !== 'undefined' && topics.length) ? topics[0].id : null;
-    const tier = /(^|&)tier=(must|should)($|&)/.exec(query || '');
+    const tier = /(^|&)tier=([^&]*)/.exec(query || '');
+    // Unknown keys are dropped rather than treated as an error — a hand-edited
+    // or truncated URL should show more than the reader asked for, never less.
+    const tiers = tier
+        ? tier[2].split(',').map((k) => k.trim()).filter((k) => k in TIER_KEYS)
+        : [];
 
     return {
         mode: 'questions',
@@ -392,7 +417,7 @@ function parseHash(hash) {
         moduleId: null,
         chapterId: null,
         cram: false,
-        tier: tier ? tier[2] : null
+        tiers: normaliseTiers(tiers)
     };
 }
 
@@ -401,7 +426,7 @@ function handleRouteChange() {
     // Set before rendering: the renderers build links through
     // generateTheoryHash and generateHash, which read these.
     setTheoryCramMode(route.mode === 'theory' && route.cram);
-    const tierChanged = setQuestionTier(route.mode === 'questions' ? route.tier : null);
+    const tierChanged = setQuestionTiers(route.mode === 'questions' ? route.tiers : []);
     const modeChanged = setSidebarMode(route.mode);
 
     // Sidebar counts are per-tier, so a filter change has to redraw them. Mode

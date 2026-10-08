@@ -45,10 +45,17 @@ function renderTopic(topicId, scrollToSubsection) {
 
         container.appendChild(renderTierFilter(topic));
 
+        // Theory's filter class belongs to the other mode; clearing it here is
+        // the counterpart of the theory renderers clearing these.
+        container.classList.remove('cram-mode');
+
         // Filtering is CSS, not a re-render, so cards that were expanded stay
-        // expanded as the reader narrows the set.
-        container.classList.toggle('tier-must', questionTier === 'must');
-        container.classList.toggle('tier-should', questionTier === 'should');
+        // expanded as the reader narrows the set. `tier-filtered` hides
+        // everything and each `show-*` puts one tier back.
+        container.classList.toggle('tier-filtered', questionTiers.length > 0);
+        TIER_ORDER.forEach((key) => {
+            container.classList.toggle(`show-${key}`, questionTiers.includes(key));
+        });
 
         if (topic.subsections && topic.subsections.length) {
             renderGroupedQuestions(container, topic);
@@ -169,61 +176,86 @@ function renderGroupedQuestions(container, topic) {
    -------------------------------------------------------------------------- */
 
 /**
- * Three cumulative choices, written into the hash so the filtered view is
+ * "All", then one independent toggle per tier. The tiers combine freely — any
+ * one, any pair, or all three (which is the same view as All, so it normalises
+ * back to it). The selection is written into the hash, so a filtered view is
  * shareable and survives navigation between topics.
  */
 function renderTierFilter(topic) {
     const questions = topic.questions || [];
 
-    const options = [
-        { floor: null, label: 'All' },
-        { floor: 'should', label: 'Must + should' },
-        { floor: 'must', label: 'Must-know only' }
-    ];
-
     const wrapper = document.createElement('div');
     wrapper.className = 'tier-filter';
-    wrapper.setAttribute('role', 'tablist');
+    wrapper.setAttribute('role', 'group');
     wrapper.setAttribute('aria-label', 'Filter by importance');
 
-    options.forEach((option) => {
-        const count = questionsAtTier(questions, option.floor).length;
+    const goTo = (tiers) => {
+        // Writing the hash is the whole state change; handleRouteChange
+        // re-renders with the filter applied, so the buttons can never disagree
+        // with the URL.
+        const route = parseHash(window.location.hash);
+        window.location.hash = generateHash(route.topicId, route.subsectionId, tiers);
+    };
 
+    const makeButton = ({ label, count, active, pressed, onClick, disabled }) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'tier-filter-option';
-        button.setAttribute('role', 'tab');
-
-        const active = questionTier === option.floor;
         button.classList.toggle('active', active);
-        button.setAttribute('aria-selected', String(active));
+        if (pressed !== undefined) button.setAttribute('aria-pressed', String(pressed));
 
-        const label = document.createElement('span');
-        label.className = 'tier-filter-label';
-        label.textContent = option.label;
+        const text = document.createElement('span');
+        text.className = 'tier-filter-label';
+        text.textContent = label;
 
         const badge = document.createElement('span');
         badge.className = 'tier-filter-count';
         badge.textContent = count;
 
-        button.appendChild(label);
+        button.appendChild(text);
         button.appendChild(badge);
 
-        // A tier with nothing in it is still shown, so the reader learns that
-        // rather than wondering where the control went — it just cannot be
-        // chosen.
-        if (!count) button.disabled = true;
-
-        button.addEventListener('click', () => {
-            if (active || !count) return;
-            // Writing the hash is the whole state change; handleRouteChange
-            // re-renders with the filter applied, so the button can never
-            // disagree with the URL.
-            const route = parseHash(window.location.hash);
-            window.location.hash = generateHash(route.topicId, route.subsectionId, option.floor);
-        });
+        // A tier with nothing in it is still shown, so the reader learns the
+        // topic has none rather than wondering where the control went.
+        if (disabled) button.disabled = true;
+        else button.addEventListener('click', onClick);
 
         wrapper.appendChild(button);
+    };
+
+    const showingAll = questionTiers.length === 0;
+
+    makeButton({
+        label: 'All',
+        count: questions.length,
+        active: showingAll,
+        onClick: () => { if (!showingAll) goTo([]); },
+        disabled: !questions.length
+    });
+
+    TIER_ORDER.forEach((key) => {
+        const count = questionsInTiers(questions, [key]).length;
+        const selected = questionTiers.includes(key);
+
+        makeButton({
+            label: IMPORTANCE[TIER_KEYS[key]].label,
+            count,
+            active: selected,
+            pressed: selected,
+            disabled: !count,
+            onClick: () => {
+                // Read the current selection back out of the hash rather than
+                // from `questionTiers`. The hash is the source of truth, and it
+                // is written synchronously while the re-render that updates the
+                // module state is not — two quick clicks would otherwise both
+                // compute from the same stale selection.
+                const current = parseHash(window.location.hash).tiers;
+                const next = current.includes(key)
+                    ? current.filter((k) => k !== key)
+                    : [...current, key];
+                goTo(next);
+            }
+        });
     });
 
     return wrapper;

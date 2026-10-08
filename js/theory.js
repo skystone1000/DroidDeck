@@ -118,7 +118,7 @@ function renderTheoryOverview() {
         // The question bank's filter classes belong to the other mode. Each
         // renderer owns the container completely, so clearing them here is what
         // stops one mode's state from surviving into the next.
-        container.classList.remove('tier-must', 'tier-should');
+        container.classList.remove('tier-filtered', 'show-must', 'show-should', 'show-good');
 
         const modules = (typeof theoryModules === 'undefined') ? [] : theoryModules;
         const tracks = (typeof theoryTracks === 'undefined') ? [] : theoryTracks;
@@ -364,7 +364,7 @@ function renderTheoryGlossary() {
         // The question bank's filter classes belong to the other mode. Each
         // renderer owns the container completely, so clearing them here is what
         // stops one mode's state from surviving into the next.
-        container.classList.remove('tier-must', 'tier-should');
+        container.classList.remove('tier-filtered', 'show-must', 'show-should', 'show-good');
 
         const entries = collectGlossaryEntries();
 
@@ -523,7 +523,7 @@ function renderTheoryModule(moduleId, scrollToChapter) {
         // The question bank's filter classes belong to the other mode. Each
         // renderer owns the container completely, so clearing them here is what
         // stops one mode's state from surviving into the next.
-        container.classList.remove('tier-must', 'tier-should');
+        container.classList.remove('tier-filtered', 'show-must', 'show-should', 'show-good');
         container.appendChild(renderModuleHeader(mod));
 
         const chapters = mod.chapters || [];
