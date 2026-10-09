@@ -66,7 +66,7 @@ viewModelScope.launch {
         },
         {
             id: "flow-builders",
-            importance: "must-know",
+            importance: "should-know",
             question: "What are the different ways to create a Flow (Flow Builders)?",
             answer: "<p><strong>🏗️ Concept</strong></p><ul><li><code>flow { emit(...) }</code> — the general-purpose builder for arbitrary suspend logic, including loops and delays.</li><li><code>flowOf(1, 2, 3)</code> — creates a Flow from a fixed set of values.</li><li><code>.asFlow()</code> — converts an existing collection, sequence, or range into a Flow.</li><li><code>callbackFlow { }</code> / <code>channelFlow { }</code> — channel-backed builders for wrapping callback APIs or emitting from multiple coroutines concurrently.</li><li><code>MutableStateFlow(initial)</code> / <code>MutableSharedFlow()</code> — hot builders whose lifetime is independent of collectors, used for state holders rather than one-shot streams.</li></ul>",
             referenceLinks: [{ title: "Asynchronous Flow - Kotlin", url: "https://kotlinlang.org/docs/flow.html" }],
@@ -92,7 +92,7 @@ viewModelScope.launch {
         },
         {
             id: "flow-terminal-operators",
-            importance: "must-know",
+            importance: "should-know",
             question: "What are terminal operators in Kotlin Flow?",
             answer: "<p><strong>🏁 Concept</strong></p><ul><li><strong>Terminal operators</strong> are suspend functions that actually start collection and consume the Flow — without one, nothing in the chain executes.</li><li><code>collect { }</code> — the fundamental terminal operator; invokes the lambda for every emission.</li><li><code>toList()</code> / <code>toSet()</code> — collects all emissions into a collection (only safe for finite Flows).</li><li><code>first()</code> / <code>firstOrNull()</code> — collects and cancels after the first emission.</li><li><code>reduce</code> / <code>fold</code> — accumulate emissions into a single result.</li><li><code>single()</code> — expects exactly one emission and throws otherwise.</li></ul>",
             referenceLinks: [{ title: "Asynchronous Flow - Kotlin", url: "https://kotlinlang.org/docs/flow.html#terminal-flow-operators" }],
@@ -148,7 +148,7 @@ viewModelScope.launch {
         },
         {
             id: "flow-callbackflow",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is callbackFlow and how do you convert callbacks to Flow?",
             answer: "<p><strong>📞 Concept</strong></p><ul><li><code>callbackFlow { }</code> is a builder for wrapping callback-based APIs (listeners, broadcast receivers) as a cold Flow — it exposes a <code>ProducerScope</code> with <code>trySend()</code> instead of <code>emit()</code>.</li><li>Register the callback inside the block, call <code>trySend(value)</code> whenever it fires, and clean up inside <code>awaitClose { }</code>, which runs when the collector is cancelled or the channel closes.</li><li>Unlike <code>suspendCancellableCoroutine</code> (single value, single resume), <code>callbackFlow</code> is for callbacks that can fire <strong>multiple times</strong>.</li></ul>",
             referenceLinks: [{ title: "callbackFlow reference", url: "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/callback-flow.html" }],
@@ -173,7 +173,7 @@ viewModelScope.launch {
         },
         {
             id: "flow-channelflow",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is channelFlow and how is it different from callbackFlow?",
             answer: "<p><strong>🔀 Concept</strong></p><ul><li><code>channelFlow { }</code> is like <code>flow { }</code> but backed by a <code>Channel</code>, which allows emitting (<code>send</code>) from <strong>multiple coroutines concurrently</strong> — the plain <code>flow { }</code> builder is not safe for concurrent <code>emit</code> calls.</li><li>Use it when the builder needs to launch child coroutines internally (e.g. fan-in from two sources) that all emit into the same stream.</li></ul><table><thead><tr><th>Aspect</th><th>callbackFlow</th><th>channelFlow</th></tr></thead><tbody><tr><td>Purpose</td><td>Bridge callback APIs</td><td>Concurrent emission from coroutines</td></tr><tr><td>Typical use</td><td>Sensor/location listeners</td><td>Fan-in from multiple suspend sources</td></tr><tr><td>Cleanup</td><td><code>awaitClose { }</code> required</td><td>No external callback to unregister</td></tr></tbody></table>",
             referenceLinks: [{ title: "channelFlow reference", url: "https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/channel-flow.html" }],
@@ -324,7 +324,7 @@ fun onQueryChanged(text: String) {
         },
         {
             id: "flow-exception-handling",
-            importance: "should-know",
+            importance: "must-know",
             question: "How does exception handling work in Kotlin Flow?",
             answer: "<p><strong>🚨 Concept</strong></p><ul><li><code>catch { }</code> is a Flow operator that intercepts exceptions thrown <em>upstream</em> of it (the builder and earlier operators) — it cannot catch exceptions from downstream operators or from the collector's own lambda.</li><li>A plain <code>try/catch</code> around <code>collect { }</code> also works and additionally catches exceptions thrown inside the collector body, which <code>catch { }</code> does not.</li><li><code>catch</code> can itself <code>emit()</code> a fallback value, effectively turning a failure into a recovery emission.</li><li><code>CancellationException</code> is never swallowed by <code>catch</code> — Flow's <code>catch</code> operator rethrows it instead of treating it as a normal error, so cancellation stays intact.</li></ul>",
             referenceLinks: [{ title: "Exception transparency - Kotlin Flow", url: "https://kotlinlang.org/docs/flow.html#exception-transparency" }],
@@ -346,7 +346,7 @@ fun onQueryChanged(text: String) {
         },
         {
             id: "flow-unit-testing",
-            importance: "must-know",
+            importance: "should-know",
             question: "How do you unit test ViewModels with Kotlin Flow and StateFlow?",
             answer: "<p><strong>🧪 Concept</strong></p><ul><li>Use <code>runTest { }</code> from <code>kotlinx-coroutines-test</code> plus Turbine's <code>flow.test { }</code> to assert emissions in order with <code>awaitItem()</code>, <code>awaitComplete()</code>, and <code>awaitError()</code>.</li><li>For <code>StateFlow</code>, read <code>.value</code> directly for simple one-shot assertions, or use Turbine to assert a sequence of state transitions over time.</li><li>Swap <code>Dispatchers.Main</code> for a <code>StandardTestDispatcher</code> in <code>@Before</code>/<code>@After</code> exactly as with regular coroutine ViewModel tests, since <code>stateIn(viewModelScope, ...)</code> depends on <code>Dispatchers.Main</code>.</li></ul>",
             referenceLinks: [{ title: "Turbine - testing library for Kotlin Flow", url: "https://github.com/cashapp/turbine" }, { title: "Test Kotlin coroutines on Android", url: "https://developer.android.com/kotlin/coroutines/test" }],

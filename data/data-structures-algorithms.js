@@ -274,7 +274,7 @@ const dataStructuresAlgorithmsData = {
             ],
             "subsection": null,
             "id": "dsa-graph-representations",
-            "importance": "should-know",
+            "importance": "good-to-know",
             "question": "What is a Graph and its representations?",
             "answer": "<p><strong>🔑 Definition</strong></p><ul><li>A <strong>Graph</strong> is a set of <strong>vertices (nodes)</strong> connected by <strong>edges</strong> — can be directed/undirected, weighted/unweighted, cyclic/acyclic.</li></ul><p><strong>⚙️ Two main representations</strong></p><ul><li><strong>Adjacency List</strong> — a map/array of lists, each holding a node's neighbors. Space: <strong>O(V + E)</strong>. Efficient for sparse graphs and iterating neighbors; checking if a specific edge exists is O(degree).</li><li><strong>Adjacency Matrix</strong> — a V×V boolean/weight grid. Space: <strong>O(V²)</strong>. Edge-existence check is <strong>O(1)</strong>, but wasteful for sparse graphs and iterating a node's neighbors costs O(V).</li></ul><p><strong>✅ Choosing between them</strong></p><ul><li>Adjacency list for most real-world (sparse) graphs — social networks, road maps, dependency graphs.</li><li>Adjacency matrix when the graph is dense or you need frequent O(1) edge-existence checks and V is small.</li></ul>"
         },
