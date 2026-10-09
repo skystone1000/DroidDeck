@@ -142,7 +142,7 @@ const otherTopicsData = {
             "codeSnippets": [],
             "subsection": null,
             "id": "react-native-vs-flutter",
-            "importance": "should-know",
+            "importance": "good-to-know",
             "question": "React Native vs Flutter",
             "answer": "<p><strong>🔑 Two cross-platform approaches</strong></p><ul><li><strong>React Native</strong> renders using the platform's <strong>native widgets</strong> via a JS bridge/JSI, using JavaScript/TypeScript and React's component model.</li><li><strong>Flutter</strong> ships its own rendering engine (<strong>Skia</strong>/Impeller) and draws every pixel itself using <strong>Dart</strong>, achieving pixel-identical UI across platforms.</li></ul><table><thead><tr><th>Aspect</th><th>React Native</th><th>Flutter</th></tr></thead><tbody><tr><td>Language</td><td>JavaScript/TypeScript</td><td>Dart</td></tr><tr><td>Rendering</td><td>Native platform widgets (via bridge/JSI)</td><td>Own rendering engine (Skia/Impeller)</td></tr><tr><td>UI consistency</td><td>Can differ slightly per platform</td><td>Pixel-identical across platforms</td></tr><tr><td>Performance</td><td>Bridge overhead (mitigated by JSI/Fabric)</td><td>Compiled to native ARM code, generally faster UI</td></tr><tr><td>Ecosystem</td><td>Huge (leans on JS/npm ecosystem)</td><td>Large and growing, Google-backed</td></tr><tr><td>Backed by</td><td>Meta</td><td>Google</td></tr></tbody></table><p><strong>🎯 Interview tip:</strong> If asked which is \"better,\" answer with trade-offs, not a winner — team's existing JS vs Dart skillset is usually the deciding factor in practice.</p>"
         },
@@ -166,7 +166,7 @@ const otherTopicsData = {
             "codeSnippets": [],
             "subsection": null,
             "id": "app-performance-metrics",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What are the metrics to measure continuously during Android development?",
             "answer": "<p><strong>🔑 Categories to track</strong></p><ul><li><strong>Startup</strong>: cold/warm/hot start time (Play Console vitals, <code>androidx.metrics</code>), time-to-first-frame.</li><li><strong>Rendering</strong>: frame rate / <strong>jank</strong> (dropped frames &gt;16ms at 60fps), measured with <code>FrameMetrics</code>/systrace/Perfetto and Play Console's slow-rendering vitals.</li><li><strong>Stability</strong>: crash-free sessions/users rate, ANR (Application Not Responding) rate.</li><li><strong>Memory</strong>: heap usage trend, OOM crash rate, memory leaks (LeakCanary in debug builds).</li></ul><p><strong>⚙️ Other important signals</strong></p><ul><li><strong>Network</strong>: request latency, error/timeout rate, payload sizes.</li><li><strong>Battery/data</strong>: excessive wakeups, background data usage (Battery Historian, App Standby Buckets).</li><li><strong>Build/app size</strong>: APK/AAB size, method count, since size affects install conversion.</li><li><strong>Business/product</strong>: retention, crash-adjacent funnel drop-off, though these sit alongside — not instead of — the technical metrics above.</li></ul><p><strong>🎯 Interview tip:</strong> Mention <strong>Android Vitals</strong> in the Play Console by name — it's the concrete tool Google itself uses to grade these metrics against thresholds.</p>"
         },
@@ -247,7 +247,7 @@ const otherTopicsData = {
             "codeSnippets": [],
             "subsection": null,
             "id": "memory-heap-dumps",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How to use Memory Heap Dumps data?",
             "answer": "<p><strong>🔑 What a heap dump is</strong></p><ul><li>A <strong>heap dump</strong> is a snapshot of every object on the Java/Kotlin heap at a point in time — object types, field values, and, crucially, the <strong>reference chain</strong> (who is holding a reference to whom).</li></ul><p><strong>⚙️ How to capture and read one</strong></p><ul><li>Capture via <strong>Android Studio Profiler</strong> (Memory Profiler → \"Dump Java heap\") or programmatically with <code>Debug.dumpHprofData(path)</code>; convert with <code>hprof-conv</code> if needed for other tools.</li><li>Analyze in <strong>Android Studio's Memory Profiler</strong> view or <strong>Eclipse MAT</strong> — look at the <strong>Dominator Tree</strong> / <strong>retained size</strong> to find which objects hold the most memory, and the <strong>path to GC Root</strong> to find why an object isn't being collected.</li><li><strong>LeakCanary</strong> automates this in debug builds — it dumps the heap when an <code>Activity</code>/<code>Fragment</code> isn't garbage-collected after it should be destroyed, and prints the leak trace (reference chain) directly in a notification.</li></ul><p><strong>✅ What to look for</strong></p><ul><li>Static references to <code>Context</code>/<code>Activity</code>, un-unregistered listeners/callbacks, and long-lived singletons holding UI references are the classic leak patterns a heap dump reveals.</li></ul>"
         },
@@ -276,7 +276,7 @@ const otherTopicsData = {
             ],
             "subsection": null,
             "id": "implement-dark-theme",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How to implement Dark Theme in your app?",
             "answer": "<p><strong>🔑 Prefer the system-driven approach</strong></p><ul><li>Define both a <strong>light</strong> and <strong>dark</strong> color scheme; Android automatically selects the right one at runtime based on the system's <strong>Force Dark</strong> / theme setting when your theme extends a <code>DayNight</code> base (Views) or you branch on <code>isSystemInDarkTheme()</code> (Compose).</li></ul><p><strong>⚙️ Views (XML) approach</strong></p><ul><li>Provide <code>res/values/colors.xml</code> and <code>res/values-night/colors.xml</code> (same names, different values); theme resources resolve automatically per configuration.</li><li>Set <code>AppCompatDelegate.setDefaultNightMode(...)</code> to force light/dark/system if the app offers an in-app toggle.</li></ul><p><strong>⚙️ Compose approach</strong></p><ul><li>Define <code>lightColorScheme()</code> and <code>darkColorScheme()</code> (Material 3), and pick one in your app's <code>Theme</code> composable based on <code>isSystemInDarkTheme()</code> or a user preference stored in <code>DataStore</code>.</li><li>On Android 12+, <code>dynamicLightColorScheme</code>/<code>dynamicDarkColorScheme</code> can derive Material You colors from the user's wallpaper.</li></ul>"
         },
@@ -424,7 +424,7 @@ const otherTopicsData = {
             "codeSnippets": [],
             "subsection": null,
             "id": "android-push-notification-system",
-            "importance": "should-know",
+            "importance": "must-know",
             "question": "How does the Android Push Notification system work?",
             "answer": "<p><strong>🔑 High-level flow</strong></p><ul><li>The app registers with a push provider (Firebase Cloud Messaging) and receives a unique <strong>registration token</strong> identifying that app install on that device.</li><li>The app sends this token to the <strong>app server</strong>, which stores it against the user.</li><li>When the server wants to notify the user, it sends a message to <strong>FCM's backend</strong>, addressed by token (or topic), which routes it to the device over a persistent connection.</li><li>On the device, the OS delivers the message to the app's <code>FirebaseMessagingService</code> (if the app process is running or can be woken), which decides whether to show a system notification or handle data silently.</li></ul><p><strong>⚙️ Message types</strong></p><ul><li><strong>Notification messages</strong> — displayed automatically by the system tray when the app is backgrounded.</li><li><strong>Data messages</strong> — always delivered to app code (<code>onMessageReceived</code>), letting the app decide what to do, even build a custom notification.</li></ul>"
         },
@@ -453,7 +453,7 @@ const otherTopicsData = {
             ],
             "subsection": null,
             "id": "fcm-push-notification-flow",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "Android Push Notification Flow using FCM",
             "answer": "<p><strong>🔑 Step-by-step flow</strong></p><ul><li>Add <code>google-services.json</code> and the FCM SDK; on app start, <code>FirebaseMessaging.getInstance().token</code> generates/retrieves the device's registration token.</li><li>Send that token to your backend (usually alongside a user ID) so it knows where to deliver messages for that user/device.</li><li>Backend calls the <strong>FCM HTTP v1 API</strong> (via a service-account-authenticated request, or the Admin SDK) with the target token/topic and the payload.</li><li>FCM delivers the message to the device; a <code>FirebaseMessagingService</code> subclass overrides <code>onMessageReceived(RemoteMessage)</code> to handle it — build and post a <code>Notification</code> via <code>NotificationManager</code> for data messages, or let the system auto-display notification-type messages while backgrounded.</li><li>Override <code>onNewToken(token)</code> to handle token refresh/rotation and re-sync with the backend.</li></ul><p><strong>⚠️ Pitfall</strong></p><ul><li>On Android 13+, posting notifications requires the runtime <code>POST_NOTIFICATIONS</code> permission — must be requested explicitly or notifications silently won't show.</li></ul>"
         },
@@ -482,7 +482,7 @@ const otherTopicsData = {
             ],
             "subsection": null,
             "id": "local-notification-exact-time",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How to show local Notification at an exact time?",
             "answer": "<p><strong>🔑 AlarmManager for exact timing</strong></p><ul><li><strong>Local (non-push) scheduled notifications</strong> use <code>AlarmManager</code>, not FCM/WorkManager (WorkManager is for deferrable background work, not guaranteed exact-time firing).</li><li>Use <code>AlarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)</code> to fire at a precise time even in <strong>Doze mode</strong>.</li><li>The <code>PendingIntent</code> triggers a <code>BroadcastReceiver</code> which builds and posts the actual <code>Notification</code> via <code>NotificationManagerCompat.notify()</code>.</li></ul><p><strong>⚠️ Pitfalls / platform restrictions</strong></p><ul><li>Since <strong>Android 12 (API 31)</strong>, scheduling <em>exact</em> alarms requires the <code>SCHEDULE_EXACT_ALARM</code> permission (Android 13+ it's user-toggleable in Settings); check <code>AlarmManager.canScheduleExactAlarms()</code> first and fall back to inexact scheduling if denied.</li><li>Alarms don't survive a device reboot — re-register them on <code>BOOT_COMPLETED</code> if persistence across reboot is required.</li><li>On Android 13+, also request <code>POST_NOTIFICATIONS</code> at runtime or the notification silently won't display.</li></ul>"
         }

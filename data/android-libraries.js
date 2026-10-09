@@ -37,7 +37,7 @@ const androidLibrariesData = {
         },
         {
             id: "okhttp-caching",
-            importance: "must-know",
+            importance: "should-know",
             question: "How does HTTP Caching work with OkHttp?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li>OkHttp implements HTTP caching per RFC 7234 through a <code>Cache</code> instance backed by a directory on disk, keyed by request URL.</li><li>Configure it with <code>OkHttpClient.Builder().cache(Cache(dir, maxSize))</code>; OkHttp then honors standard headers automatically.</li></ul><p><strong>⚙️ How it works</strong></p><ul><li><strong>Cache-Control</strong> response headers (<code>max-age</code>, <code>no-cache</code>, <code>no-store</code>) from the server drive freshness decisions.</li><li>If the server doesn't send proper cache headers, you can force caching client-side with a network interceptor that rewrites <code>Cache-Control</code> on the response.</li><li>For offline support, an application interceptor can rewrite the request's <code>Cache-Control</code> to <code>only-if-cached, max-stale=&lt;seconds&gt;</code> when there is no network.</li><li>Stale responses trigger a conditional GET (<code>If-None-Match</code>/<code>If-Modified-Since</code>); a <code>304 Not Modified</code> lets OkHttp reuse the cached body.</li></ul><p><strong>⚠️ Pitfalls</strong></p><ul><li>POST/PUT/DELETE responses are never cached by default — only GET.</li><li>Cache size and eviction (LRU) must be sized deliberately; too small and you thrash, too large and you waste disk.</li></ul>",
             referenceLinks: [{ title: "OkHttp Cache (API reference)", url: "https://javadoc.io/doc/com.squareup.okhttp3/okhttp/latest/okhttp3/Cache.html" }],
@@ -50,7 +50,7 @@ const androidLibrariesData = {
         },
         {
             id: "okhttp-logging",
-            importance: "must-know",
+            importance: "should-know",
             question: "How to enable logging in OkHttp?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li>Add Square's <code>logging-interceptor</code> artifact (<code>com.squareup.okhttp3:logging-interceptor</code>) and register a <code>HttpLoggingInterceptor</code> as a <strong>network interceptor</strong> so it sees the final wire-level request/response.</li></ul><p><strong>⚙️ Levels</strong></p><ul><li><code>NONE</code> — no logs (default, used for production release builds).</li><li><code>BASIC</code> — request/response line only.</li><li><code>HEADERS</code> — request/response lines plus headers, no body.</li><li><code>BODY</code> — everything, including request/response bodies — verbose, use only in debug builds since bodies may contain sensitive data.</li></ul><p><strong>⚠️ Pitfalls</strong></p><ul><li>Never ship <code>BODY</code> level logging in a release build — it can leak tokens, PII, and payment data into logcat.</li><li>Gate the interceptor behind <code>BuildConfig.DEBUG</code>.</li></ul>",
             referenceLinks: [{ title: "HttpLoggingInterceptor (API reference)", url: "https://javadoc.io/doc/com.squareup.okhttp3/logging-interceptor/latest/okhttp3/logging/HttpLoggingInterceptor.html" }],
@@ -97,7 +97,7 @@ const androidLibrariesData = {
         },
         {
             id: "android-dagger-how-works",
-            importance: "must-know",
+            importance: "should-know",
             question: "How does Dagger work internally?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li>Dagger is an <strong>annotation processor</strong> (KAPT for Java-style stubs, or KSP for newer, faster processing) that runs at compile time and generates plain Java/Kotlin source implementing your dependency graph — there is no runtime reflection.</li></ul><p><strong>⚙️ How it works</strong></p><ul><li>It scans <code>@Inject</code>, <code>@Module</code>/<code>@Provides</code>, and <code>@Component</code> annotations to build a static graph of bindings.</li><li>For each <code>@Component</code>, it generates a class named <code>Dagger&lt;ComponentName&gt;</code> containing factory methods and <code>Provider</code>/<code>Lazy</code> wrappers that directly call constructors or provider methods — essentially hand-written-looking builder code.</li><li>Object creation becomes a chain of plain constructor calls resolved at build time, so the graph is validated when you compile: missing bindings, duplicate bindings, and circular dependencies all fail the build with a clear error.</li><li>Scoped bindings (e.g. <code>@Singleton</code>) are cached as fields inside the generated component instance, tied to that component's lifecycle.</li></ul><p><strong>🎯 Interview tip:</strong> The key differentiator to mention versus Koin/Guice: Dagger's graph is fully resolved at compile time with generated code, not reflection at runtime.</p>",
             referenceLinks: [{ title: "How Dagger Works", url: "https://dagger.dev/dev-guide/" }],
@@ -123,7 +123,7 @@ const androidLibrariesData = {
         },
         {
             id: "android-dagger-component",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is a Component in Dagger?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li>A <strong>Component</strong> is an interface annotated with <code>@Component</code> that acts as the bridge between the modules providing bindings and the classes that need them — Dagger generates a concrete implementation of it.</li></ul><p><strong>⚙️ How it works</strong></p><ul><li>Declares which <code>@Module</code>s feed the graph: <code>@Component(modules = [NetworkModule::class, DbModule::class])</code>.</li><li>Exposes <strong>injection entry points</strong>, e.g. <code>fun inject(activity: MainActivity)</code>, or <strong>provision methods</strong> that return a dependency directly, e.g. <code>fun apiService(): ApiService</code>.</li><li>Its scope annotation (e.g. <code>@Singleton</code>) determines the lifetime of bindings cached within it — one instance of the component means one instance of each scoped binding.</li><li>Subcomponents can be nested inside a parent component to create shorter-lived scopes (e.g. an <code>ActivityComponent</code> inside an <code>AppComponent</code>).</li></ul>",
             referenceLinks: [{ title: "Dagger Components", url: "https://dagger.dev/dev-guide/" }],
@@ -136,7 +136,7 @@ const androidLibrariesData = {
         },
         {
             id: "android-dagger-module",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is a Module in Dagger?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li>A <strong>Module</strong> (<code>@Module</code>-annotated class) groups <code>@Provides</code> (or <code>@Binds</code>) methods that tell Dagger how to construct types it cannot build via a plain <code>@Inject</code> constructor — interfaces, third-party SDK classes, or objects requiring custom construction logic (e.g. a configured <code>Retrofit</code> or <code>Room</code> database).</li><li><code>@Provides</code> methods contain imperative construction code and return the built instance; they can take other bindings as parameters, which Dagger resolves and injects automatically.</li><li><code>@Binds</code> is a lighter alternative for interface-to-implementation bindings — an abstract method Dagger implements without generating a factory call, more efficient than <code>@Provides</code> for that case.</li><li>Modules are attached to a <code>@Component</code> via <code>@Component(modules = [MyModule::class])</code>.</li></ul>",
             referenceLinks: [{ title: "Dagger Modules", url: "https://dagger.dev/dev-guide/" }],
@@ -149,7 +149,7 @@ const androidLibrariesData = {
         },
         {
             id: "android-dagger-custom-scope",
-            importance: "must-know",
+            importance: "should-know",
             question: "How does a custom scope work in Dagger?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li>A <strong>scope</strong> is a custom annotation (e.g. <code>@ActivityScope</code>) you define with <code>@Scope</code> meta-annotation, used to bind an object's lifetime to a particular subcomponent rather than the whole app.</li></ul><p><strong>⚙️ How it works</strong></p><ul><li>Define it: <code>@Scope @Retention(RUNTIME) annotation class ActivityScope</code>.</li><li>Annotate both the <code>@Subcomponent</code> and the <code>@Provides</code>/<code>@Inject</code> class with the same scope annotation.</li><li>Dagger then caches exactly one instance of that binding <strong>per instance of the owning (sub)component</strong> — e.g. one instance per Activity, discarded when the Activity's component is discarded (typically in <code>onDestroy</code>).</li><li>Scope mismatches (using an unscoped module inside a scoped component incorrectly, or referencing a narrower scope from a broader one) are caught at compile time.</li></ul><p><strong>⚠️ Pitfalls</strong></p><ul><li>A component can only carry <strong>one</strong> scope annotation; mixing scope annotations on the same component is a compile error.</li><li>Unscoped bindings are created fresh every time they're requested — don't forget to scope things meant to be singletons within that boundary.</li></ul>",
             referenceLinks: [{ title: "Dagger scopes", url: "https://dagger.dev/dev-guide/" }],
@@ -183,7 +183,7 @@ const androidLibrariesData = {
         },
         {
             id: "android-multipart-request",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is a Multipart Request in Networking?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li>A <strong>multipart request</strong> (<code>multipart/form-data</code>) bundles multiple independent parts — text fields and binary data like files/images — into a single HTTP request body, each part separated by a boundary marker.</li></ul><p><strong>⚙️ How it works with Retrofit/OkHttp</strong></p><ul><li>File parts are represented as <code>MultipartBody.Part</code>, built from a <code>RequestBody</code> with the file's <code>MediaType</code> (e.g. <code>image/jpeg</code>).</li><li>Text fields can be sent as separate <code>@Part</code> parameters or as a <code>Map&lt;String, RequestBody&gt;</code> with <code>@PartMap</code>.</li><li>The Retrofit method is annotated <code>@Multipart</code> and each parameter with <code>@Part</code>.</li></ul><p><strong>✅ When to use</strong></p><ul><li>Uploading images/files alongside metadata (e.g. profile picture upload with a caption) in one round trip.</li></ul>",
             referenceLinks: [{ title: "Retrofit @Multipart (API reference)", url: "https://javadoc.io/doc/com.squareup.retrofit2/retrofit/latest/retrofit2/http/Multipart.html" }],
@@ -196,7 +196,7 @@ const androidLibrariesData = {
         },
         {
             id: "android-kotlin-flow",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is Flow in Kotlin?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li><strong>Flow</strong> — Kotlin's coroutine-based cold asynchronous stream type (<code>kotlinx.coroutines.flow.Flow&lt;T&gt;</code>) that emits multiple values sequentially over time, built from the ground up on <code>suspend</code> functions.</li></ul><p><strong>⚙️ How it works</strong></p><ul><li><strong>Cold</strong> — the producer block only runs when a terminal operator like <code>collect</code> is called; each new collector re-executes it independently, unlike a hot RxJava <code>Observable</code>.</li><li>Built via <code>flow { emit(value) }</code>, or converted from existing sources (<code>asFlow()</code>, <code>callbackFlow</code> for callback-based APIs).</li><li>Operators (<code>map</code>, <code>filter</code>, <code>debounce</code>, <code>flatMapLatest</code>, <code>combine</code>) are suspend-aware and structured-concurrency-friendly — cancellation propagates automatically with the collecting scope.</li><li><code>StateFlow</code>/<code>SharedFlow</code> are hot variants for state-holding and event-broadcasting respectively.</li><li>Flow context is preserved by default (<code>flowOn</code> to change the upstream dispatcher) — this is enforced at compile time via context preservation rules.</li></ul><p><strong>⚖️ vs RxJava</strong></p><ul><li>Flow integrates natively with coroutines/structured concurrency, has a smaller, more Kotlin-idiomatic API, and no separate threading model to learn (just dispatchers).</li></ul>",
             referenceLinks: [{ title: "Kotlin Flow", url: "https://kotlinlang.org/docs/flow.html" }],
@@ -213,7 +213,7 @@ const androidLibrariesData = {
         },
         {
             id: "android-app-startup-library",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the App Startup Library?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li><strong>App Startup</strong> (<code>androidx.startup</code>) — a Jetpack library that lets multiple libraries/components initialize themselves at app launch <strong>without each declaring its own <code>ContentProvider</code></strong>, consolidating them into a single provider.</li></ul><p><strong>⚙️ How it works</strong></p><ul><li>You implement <code>Initializer&lt;T&gt;</code> with a <code>create(context)</code> method and a <code>dependencies()</code> list declaring other initializers that must run first.</li><li>All registered initializers are declared as <code>meta-data</code> entries under a single <code>InitializationProvider</code> in the manifest, so only one <code>ContentProvider</code> is instantiated at process start regardless of how many components use App Startup.</li><li>Initializers run synchronously on the main thread in dependency order before <code>Application.onCreate()</code> returns control to app code — dependency cycles are detected and throw at runtime.</li><li>You can disable automatic (manifest-driven) init for a component and trigger it manually via <code>AppInitializer.getInstance(context).initializeComponent(...)</code> when you need lazy/on-demand init.</li></ul><p><strong>✅ When to use</strong></p><ul><li>Reduces process-start overhead versus each library/SDK registering its own <code>ContentProvider</code> — fewer providers means faster cold start.</li></ul>",
             referenceLinks: [{ title: "App Startup", url: "https://developer.android.com/topic/libraries/app-startup" }],
@@ -307,7 +307,7 @@ const androidLibrariesData = {
         },
         {
             id: "android-rxjava-timer-delay-interval",
-            importance: "should-know",
+            importance: "good-to-know",
             question: "How are Timer, Delay, and Interval operators used in RxJava?",
             answer: "<table><thead><tr><th>Operator</th><th>Behavior</th></tr></thead><tbody><tr><td><code>Observable.timer(t, unit)</code></td><td>Emits a single <code>0L</code> after the given delay, then completes.</td></tr><tr><td><code>.delay(t, unit)</code></td><td>Delays each emission from an existing source by a fixed time, preserving items and order.</td></tr><tr><td><code>Observable.interval(t, unit)</code></td><td>Emits an incrementing <code>Long</code> (0, 1, 2...) repeatedly every <code>t</code> units, forever, until disposed.</td></tr></tbody></table><p><strong>✅ When to use</strong></p><ul><li><code>timer</code> — one-shot delayed action, e.g. splash screen navigation, debounce fallback.</li><li><code>delay</code> — throttling/staggering emissions from an existing stream, e.g. simulating network latency.</li><li><code>interval</code> — polling, e.g. periodic refresh of a dashboard every 30 seconds.</li></ul><p><strong>⚠️ Pitfalls</strong></p><ul><li>All three run on <code>Schedulers.computation()</code> by default — always <code>observeOn(AndroidSchedulers.mainThread())</code> before touching UI.</li><li><code>interval</code> runs indefinitely — must be disposed (e.g. via <code>CompositeDisposable</code>) to avoid leaking.</li></ul>",
             referenceLinks: [{ title: "RxJava Timer", url: "https://reactivex.io/documentation/operators/timer.html" }],
@@ -389,7 +389,7 @@ const androidLibrariesData = {
         },
         {
             id: "android-rxjava-search",
-            importance: "must-know",
+            importance: "should-know",
             question: "How to implement search feature using RxJava?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li>A reactive search bar chains operators to turn raw keystrokes into throttled, deduplicated, cancel-safe network queries.</li></ul><p><strong>⚙️ Typical operator chain</strong></p><ul><li><code>debounce(300ms)</code> — wait for the user to pause typing before firing a query, avoiding a request per keystroke.</li><li><code>distinctUntilChanged()</code> — skip re-querying if the text is unchanged (e.g. a debounce firing after a delete-then-retype-same-text).</li><li><code>switchMap { query -> api.search(query) }</code> — cancels the previous in-flight request when a new query arrives, so stale responses never race ahead of fresh ones.</li><li><code>filter { it.length >= 2 }</code> — skip querying on empty/too-short input.</li></ul><p><strong>⚠️ Pitfalls</strong></p><ul><li>Using <code>flatMap</code> instead of <code>switchMap</code> is a common bug — it lets multiple requests run concurrently and a slow earlier response can overwrite a newer one.</li></ul>",
             referenceLinks: [{ title: "RxJava switchMap", url: "https://reactivex.io/documentation/operators/flatmap.html" }],
@@ -406,7 +406,7 @@ const androidLibrariesData = {
         },
         {
             id: "android-rxjava-pagination",
-            importance: "must-know",
+            importance: "should-know",
             question: "How to implement pagination in RecyclerView using RxJava?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li>Drive a page-request stream that increments a page counter and triggers a network fetch each time the user scrolls near the end of the current list.</li></ul><p><strong>⚙️ Typical approach</strong></p><ul><li>A <code>RecyclerView.OnScrollListener</code> detects when the last visible item index is within a threshold of the adapter's item count, and pushes the next page number into a <code>PublishSubject&lt;Int&gt;</code>.</li><li><code>concatMap</code> (not <code>flatMap</code>) processes page requests in strict order so pages don't arrive out of sequence.</li><li>A loading flag/<code>BehaviorSubject&lt;Boolean&gt;</code> guards against firing a new page request while one is still in flight.</li><li>Results are appended to the existing list (<code>scan</code> operator or manual accumulation) and submitted to the adapter.</li></ul>",
             referenceLinks: [{ title: "Paging with RecyclerView", url: "https://developer.android.com/topic/libraries/architecture/paging/v3-overview" }],

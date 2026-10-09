@@ -73,12 +73,19 @@ function resolveToolchain() {
     const java = firstExisting([javaHome && `${javaHome}/bin/java`]) || onPath('java');
 
     // The stdlib sits beside whichever kotlinc we found; without it a compiled
-    // class cannot start.
-    const stdlib = kotlinc
-        ? firstExisting([path.join(path.dirname(kotlinc), '..', 'lib', 'kotlin-stdlib.jar')])
-        : null;
+    // class cannot start. kotlinx-coroutines ships in the same directory but is
+    // *not* on the default classpath, and without it every snippet with a
+    // `runBlocking` or a `delay` fails to compile — which is most of the ones
+    // worth running.
+    const lib = kotlinc ? path.join(path.dirname(kotlinc), '..', 'lib') : null;
+    const stdlib = lib ? firstExisting([path.join(lib, 'kotlin-stdlib.jar')]) : null;
+    const extras = lib
+        ? ['kotlinx-coroutines-core-jvm.jar'].map((j) => path.join(lib, j)).filter(fs.existsSync)
+        : [];
 
-    return { kotlinc, java, stdlib, javaHome };
+    const classpath = [stdlib, ...extras].filter(Boolean).join(path.delimiter);
+
+    return { kotlinc, java, stdlib, extras, classpath, javaHome };
 }
 
 /* --------------------------------------------------------------------------
@@ -97,7 +104,7 @@ function runKotlin(code, tools) {
     try {
         fs.writeFileSync(source, code);
 
-        const compile = spawnSync(tools.kotlinc, [source, '-d', classes], {
+        const compile = spawnSync(tools.kotlinc, [source, '-cp', tools.classpath, '-d', classes], {
             encoding: 'utf8',
             timeout: COMPILE_TIMEOUT_MS,
             env: { ...process.env, JAVA_HOME: tools.javaHome || process.env.JAVA_HOME || '' }
@@ -109,7 +116,7 @@ function runKotlin(code, tools) {
             return { ok: false, note: `did not compile — ${detail || 'see kotlinc output'}` };
         }
 
-        const run = spawnSync(tools.java, ['-cp', `${classes}${path.delimiter}${tools.stdlib}`, 'SnippetKt'], {
+        const run = spawnSync(tools.java, ['-cp', `${classes}${path.delimiter}${tools.classpath}`, 'SnippetKt'], {
             encoding: 'utf8',
             timeout: RUN_TIMEOUT_MS
         });
@@ -175,34 +182,56 @@ function stdoutSnippets(topics) {
    a wrong expectation is actually caught.
    -------------------------------------------------------------------------- */
 
-const FIXTURE = {
-    code: [
-        'fun main() {',
-        '    val nums = listOf(1, 2, 3, 4)',
-        '    println("sum=" + nums.sum())',
-        '    nums.filter { it % 2 == 0 }.forEach { println("even $it") }',
-        '}'
-    ].join('\n'),
-    expected: ['sum=10', 'even 2', 'even 4']
-};
+const FIXTURES = [
+    {
+        name: 'plain Kotlin',
+        code: [
+            'fun main() {',
+            '    val nums = listOf(1, 2, 3, 4)',
+            '    println("sum=" + nums.sum())',
+            '    nums.filter { it % 2 == 0 }.forEach { println("even $it") }',
+            '}'
+        ].join('\n'),
+        expected: ['sum=10', 'even 2', 'even 4']
+    },
+    {
+        // Most snippets worth running are coroutine snippets, and coroutines are
+        // not on kotlinc's default classpath. Without this fixture the harness
+        // would look healthy right up until the first real snippet failed to
+        // compile.
+        name: 'coroutines',
+        code: [
+            'import kotlinx.coroutines.*',
+            '',
+            'fun main() = runBlocking {',
+            '    val job = launch { repeat(3) { println("tick $it"); delay(10) } }',
+            '    job.join()',
+            '    println("done")',
+            '}'
+        ].join('\n'),
+        expected: ['tick 0', 'tick 1', 'tick 2', 'done']
+    }
+];
 
 function runSelftest(tools) {
-    console.log('Self-test — compiling and running a known fixture.\n');
+    console.log('Self-test — compiling and running known fixtures.\n');
 
-    const result = runKotlin(FIXTURE.code, tools);
-    if (!result.ok) {
-        console.log(`  ✗ the harness could not run its own fixture: ${result.note}`);
-        return 1;
+    for (const fixture of FIXTURES) {
+        const result = runKotlin(fixture.code, tools);
+        if (!result.ok) {
+            console.log(`  ✗ ${fixture.name}: ${result.note}`);
+            return 1;
+        }
+        if (!sameOutput(result.lines, fixture.expected)) {
+            report(`${fixture.name} output did not match`, result.lines, fixture.expected);
+            return 1;
+        }
+        console.log(`  ✓ ${fixture.name} — compiled, ran, printed exactly what was expected`);
     }
-    if (!sameOutput(result.lines, FIXTURE.expected)) {
-        report('fixture output did not match', result.lines, FIXTURE.expected);
-        return 1;
-    }
-    console.log('  ✓ fixture compiled, ran, and printed exactly what was expected');
 
     // The negative case matters as much: a comparison that never fails would
     // pass every snippet in the corpus regardless of what it printed.
-    if (sameOutput(result.lines, ['sum=10', 'even 2', 'even 5'])) {
+    if (sameOutput(FIXTURES[0].expected, ['sum=10', 'even 2', 'even 5'])) {
         console.log('  ✗ a wrong expectation compared equal — the diff is broken');
         return 1;
     }

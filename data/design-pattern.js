@@ -23,7 +23,7 @@ const designPatternData = {
         },
         {
             id: "design-pattern-singleton",
-            importance: "should-know",
+            importance: "must-know",
             question: "What is the Singleton pattern?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li><strong>Singleton</strong> — a creational pattern that ensures a class has exactly one instance, globally accessible throughout the app's lifetime.</li></ul><p><strong>⚙️ How it works in Kotlin</strong></p><ul><li>Kotlin's <code>object</code> keyword gives you a thread-safe, lazily-initialized singleton for free — no manual double-checked locking needed like classic Java implementations.</li></ul><p><strong>⚠️ Why it hurts testability</strong></p><ul><li><strong>Global mutable state</strong> — hard to reset between tests, causing test pollution/order-dependence if state leaks across test cases.</li><li><strong>Hidden dependencies</strong> — a class referencing a singleton directly doesn't declare that dependency in its constructor, making it hard to see and hard to substitute a fake/mock in tests.</li><li><strong>Hard to mock</strong> — Kotlin <code>object</code>s can't be easily subclassed or swapped, unlike constructor-injected interfaces.</li><li><strong>Concurrency risk</strong> if mutable state isn't properly synchronized, since all callers share one instance.</li></ul><p><strong>✅ Better alternative</strong></p><ul><li>Let a DI framework (Hilt/Dagger with <code>@Singleton</code> scope, or Koin's <code>single {}</code>) manage single-instance lifetime behind an interface — you still get one instance app-wide, but it's injectable and swappable for tests.</li></ul><p><strong>🎯 Interview tip:</strong> This is a favorite trick question — mentioning the testability downside and the DI-scoped-singleton alternative shows depth beyond textbook GoF knowledge.</p>",
             referenceLinks: [{ title: "Dependency injection in Android", url: "https://developer.android.com/training/dependency-injection" }],
@@ -57,7 +57,7 @@ const designPatternData = {
         },
         {
             id: "design-pattern-observer",
-            importance: "should-know",
+            importance: "must-know",
             question: "What is the Observer pattern?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li><strong>Observer</strong> — a behavioral pattern where a <strong>subject</strong> maintains a list of dependent <strong>observers</strong> and automatically notifies them of state changes, decoupling the producer of data from its consumers.</li></ul><p><strong>⚙️ How it works</strong></p><ul><li>Observers subscribe to a subject; when the subject's state changes, it pushes an update to every subscriber without needing to know their concrete type.</li><li>Decouples producer and consumer — the subject doesn't need to know how many observers exist or what they do with updates.</li></ul><p><strong>⚙️ Where you see it in Android</strong></p><ul><li><strong>LiveData</strong> — Activities/Fragments observe it lifecycle-aware; auto-unsubscribes on destroy.</li><li><strong>Kotlin Flow</strong> (<code>StateFlow</code>/<code>SharedFlow</code>) — coroutine-based observer pattern.</li><li><strong>RxJava Observable/Subject</strong> — the canonical reactive implementation of this pattern.</li><li><strong>BroadcastReceiver</strong>, <code>View.OnClickListener</code> — classic callback-based observer usage.</li></ul>",
             referenceLinks: [{ title: "LiveData overview", url: "https://developer.android.com/topic/libraries/architecture/livedata" }],
@@ -169,7 +169,7 @@ const designPatternData = {
         },
         {
             id: "design-pattern-android-common",
-            importance: "should-know",
+            importance: "must-know",
             question: "What design patterns are commonly used in Android?",
             answer: "<table><thead><tr><th>Pattern</th><th>Example in Android</th></tr></thead><tbody><tr><td>Builder</td><td><code>NotificationCompat.Builder</code>, <code>AlertDialog.Builder</code></td></tr><tr><td>Singleton</td><td>Kotlin <code>object</code>, <code>@Singleton</code>-scoped DI bindings</td></tr><tr><td>Factory</td><td><code>ViewModelProvider.Factory</code></td></tr><tr><td>Observer</td><td><code>LiveData</code>, <code>Flow</code>, <code>BroadcastReceiver</code></td></tr><tr><td>Adapter</td><td><code>RecyclerView.Adapter</code></td></tr><tr><td>Facade</td><td><code>WorkManager</code>, repository classes</td></tr><tr><td>Strategy</td><td><code>RecyclerView.LayoutManager</code></td></tr><tr><td>Decorator</td><td>OkHttp Interceptors wrapping requests</td></tr><tr><td>Dependency Injection</td><td>Hilt/Dagger/Koin</td></tr><tr><td>MVC/MVP/MVVM/MVI</td><td>Overall app architecture patterns</td></tr></tbody></table><p><strong>🎯 Interview tip:</strong> Naming a pattern isn't enough — pair each with a concrete Android class/API as evidence you've actually recognized it in real code, not just memorized the GoF catalog.</p>",
             referenceLinks: [{ title: "Guide to app architecture", url: "https://developer.android.com/topic/architecture" }],
@@ -199,7 +199,7 @@ const designPatternData = {
         },
         {
             id: "design-pattern-observer-android-examples",
-            importance: "should-know",
+            importance: "good-to-know",
             question: "What are examples of the Observer pattern in Android?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li>The Observer pattern shows up anywhere Android lets a component subscribe to another's state or events without polling.</li></ul><p><strong>⚙️ Concrete examples</strong></p><ul><li><strong><code>LiveData</code></strong> — Activities/Fragments call <code>observe(lifecycleOwner) { }</code>; automatically stops delivering updates when the LifecycleOwner is destroyed.</li><li><strong><code>StateFlow</code>/<code>SharedFlow</code></strong> — collected via <code>collect { }</code> inside <code>repeatOnLifecycle</code> for lifecycle-aware observation.</li><li><strong><code>BroadcastReceiver</code></strong> — registers to observe system-wide or app-wide broadcast events (e.g. battery low, connectivity changed).</li><li><strong><code>View.OnClickListener</code> / <code>TextWatcher</code></strong> — the View is the subject, the listener is the observer of UI events.</li><li><strong><code>SharedPreferences.OnSharedPreferenceChangeListener</code></strong> — observe changes to persisted key-value data.</li><li><strong>RxJava <code>Observable</code>/<code>Subject</code></strong> — the reactive-library-level implementation of the same pattern.</li></ul>",
             referenceLinks: [{ title: "LiveData overview", url: "https://developer.android.com/topic/libraries/architecture/livedata" }],
@@ -225,7 +225,7 @@ const designPatternData = {
         },
         {
             id: "design-pattern-glide",
-            importance: "should-know",
+            importance: "good-to-know",
             question: "What design pattern is used in Glide library?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li>Glide also composes several patterns to give its fluent, extensible API.</li></ul><p><strong>⚙️ Patterns at play</strong></p><ul><li><strong>Builder</strong> — the fluent chain <code>Glide.with(context).load(url).placeholder(...).into(imageView)</code> reads like a builder even though it's implemented via a request-builder object under the hood.</li><li><strong>Singleton</strong> — <code>Glide.get(context)</code> returns a single app-wide <code>Glide</code> instance managing shared memory/disk caches.</li><li><strong>Strategy</strong> — pluggable caching strategies (<code>DiskCacheStrategy.ALL/NONE/DATA/RESOURCE</code>) and pluggable <code>Transformation</code> implementations (<code>CenterCrop</code>, <code>RoundedCorners</code>) are interchangeable algorithms selected by the caller.</li><li><strong>Observer</strong> — Glide ties requests to a <code>Lifecycle</code>, observing lifecycle events to pause/resume/clear loads automatically.</li><li><strong>Factory</strong> — <code>ModelLoaderFactory</code>/<code>ModelLoader</code> registry decides which loader handles a given model type (URL, file, resource id, byte array).</li></ul>",
             referenceLinks: [{ title: "Glide", url: "https://bumptech.github.io/glide/" }],
@@ -238,7 +238,7 @@ const designPatternData = {
         },
         {
             id: "design-pattern-aosp",
-            importance: "should-know",
+            importance: "good-to-know",
             question: "What design patterns are used in AOSP?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li>The Android platform itself (AOSP) is built on classic GoF patterns — recognizing them helps explain <em>why</em> certain framework APIs are shaped the way they are.</li></ul><p><strong>⚙️ Examples</strong></p><ul><li><strong>Observer</strong> — <code>BroadcastReceiver</code>, <code>ContentObserver</code>, <code>SensorEventListener</code> all notify registered observers of system events.</li><li><strong>Singleton</strong> — system services returned by <code>Context.getSystemService()</code> (e.g. <code>ActivityManager</code>, <code>LocationManager</code>) are process-wide singletons.</li><li><strong>Factory</strong> — <code>LayoutInflater.from(context)</code>, <code>Fragment.instantiate()</code> create instances without exposing constructor details to the caller.</li><li><strong>Facade</strong> — <code>Context</code> itself is a facade over a huge range of subsystems (resources, system services, package manager, preferences) behind one simplified access point.</li><li><strong>Command</strong> — <code>Runnable</code> objects posted to a <code>Handler</code>/<code>Looper</code> encapsulate a unit of work as an object to be executed later, the classic Command pattern shape.</li><li><strong>Builder</strong> — <code>Notification.Builder</code>, <code>AlertDialog.Builder</code>, <code>PendingIntent</code>-related builder-style APIs.</li><li><strong>Template Method</strong> — <code>Activity</code>'s lifecycle callbacks (<code>onCreate</code>, <code>onStart</code>, <code>onResume</code>...) are a template method the framework calls in a fixed sequence, with subclasses overriding the steps.</li></ul><p><strong>🎯 Interview tip:</strong> Bringing up Template Method for the Activity lifecycle is a less obvious answer that shows deeper platform understanding beyond the usual Observer/Singleton examples.</p>",
             referenceLinks: [{ title: "Activity lifecycle", url: "https://developer.android.com/guide/components/activities/activity-lifecycle" }],
