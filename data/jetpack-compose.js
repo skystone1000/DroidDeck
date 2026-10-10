@@ -136,7 +136,7 @@ const jetpackComposeData = {
             "codeSnippets": [],
             "subsection": null,
             "id": "compose-declarative-vs-imperative",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is the difference between Declarative UI and Imperative UI?",
             "answer": "<p><strong>🔑 Core distinction</strong></p><ul><li><strong>Imperative UI</strong>: you write step-by-step instructions for <em>how</em> to change the UI (\"find this view, set its text, hide that one\"). The UI's history of mutations matters.</li><li><strong>Declarative UI</strong>: you describe <em>what</em> the UI should be for the current state; the framework computes the diff and applies it.</li></ul><table><thead><tr><th>Aspect</th><th>Imperative</th><th>Declarative</th></tr></thead><tbody><tr><td>Mental model</td><td>Mutate widgets step by step</td><td>Describe UI as a function of state</td></tr><tr><td>Example</td><td>Android View system, jQuery DOM</td><td>Jetpack Compose, SwiftUI, React</td></tr><tr><td>State sync bugs</td><td>Common (forget to update a view)</td><td>Rare (UI derives from state)</td></tr><tr><td>Testability</td><td>Requires simulating interaction sequences</td><td>Assert output for a given input state</td></tr></tbody></table><p><strong>🎯 Interview tip:</strong> Frame it as \"imperative describes the <em>how</em>, declarative describes the <em>what</em>\" — that one line usually satisfies the question, then be ready to give the Compose vs View example.</p>"
         },
@@ -247,7 +247,7 @@ const jetpackComposeData = {
             ],
             "subsection": null,
             "id": "compose-mutable-state",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is MutableState in Compose?",
             "answer": "<p><strong>🔑 Definition</strong></p><ul><li><code>MutableState&lt;T&gt;</code> extends <code>State&lt;T&gt;</code> and adds a settable <code>.value</code> — writing to it notifies observers and schedules recomposition.</li><li>Created with <code>mutableStateOf(initialValue)</code>; almost always wrapped in <code>remember { }</code> so it survives recomposition (otherwise a fresh one is created every recomposition, losing the value).</li></ul><p><strong>⚙️ Variants</strong></p><ul><li><code>mutableStateOf</code> — single value, supports Kotlin <code>by</code> delegation for direct <code>var</code> access.</li><li><code>mutableStateListOf</code> / <code>mutableStateMapOf</code> — observable list/map without needing to reassign the whole collection.</li><li>Optional <code>SnapshotMutationPolicy</code> (e.g. <code>structuralEqualityPolicy()</code>, <code>referentialEqualityPolicy()</code>) controls when a write is considered a real change worth notifying observers about.</li></ul>"
         },
@@ -305,7 +305,7 @@ const jetpackComposeData = {
             ],
             "subsection": null,
             "id": "compose-stateful-vs-stateless",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is the difference between Stateful and Stateless composables?",
             "answer": "<p><strong>🔑 Definitions</strong></p><ul><li>A <strong>stateful</strong> composable owns and mutates its own state internally (e.g. holds a <code>remember { mutableStateOf(...) }</code>) — callers can't observe or control that state.</li><li>A <strong>stateless</strong> composable holds no state of its own; it receives everything via parameters and reports changes via callback lambdas — the classic <code>value</code> + <code>onValueChange</code> shape.</li></ul><table><thead><tr><th>Aspect</th><th>Stateful</th><th>Stateless</th></tr></thead><tbody><tr><td>Ownership</td><td>Composable owns state</td><td>Caller owns state, passed down</td></tr><tr><td>Reusability</td><td>Lower — hard to control from outside</td><td>Higher — easy to preview/test</td></tr><tr><td>Preview-friendly</td><td>Harder</td><td>Trivial — pass any state</td></tr><tr><td>Typical role</td><td>Screen-level wrapper</td><td>Reusable UI component</td></tr></tbody></table><p><strong>✅ Best practice</strong></p><ul><li>Build stateless, reusable components; keep a thin stateful wrapper at the top that hoists the state (often backed by a ViewModel).</li></ul>"
         },
@@ -396,7 +396,7 @@ const jetpackComposeData = {
             ],
             "subsection": null,
             "id": "compose-remember-coroutine-scope",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is rememberCoroutineScope and its use cases?",
             "answer": "<p><strong>🔑 Definition</strong></p><ul><li><code>rememberCoroutineScope()</code> returns a <code>CoroutineScope</code> bound to the point in the composition where it's called — it survives recomposition and is cancelled automatically when that composable leaves the composition.</li><li>Unlike <code>LaunchedEffect</code>, it does <strong>not</strong> start a coroutine itself — it just gives you a scope to launch coroutines <strong>from event callbacks</strong> (e.g. a button click), where you can't call <code>LaunchedEffect</code> directly since it's not composable code.</li></ul><p><strong>✅ Typical use cases</strong></p><ul><li>Launching a coroutine in response to a click, e.g. animating a scroll (<code>LazyListState.animateScrollToItem</code>) or showing a <code>Snackbar</code>.</li><li>Anything that should start <em>only</em> on user action, not automatically on composition/recomposition like <code>LaunchedEffect</code> would.</li></ul>"
         },
@@ -456,7 +456,7 @@ const jetpackComposeData = {
             ],
             "subsection": null,
             "id": "compose-async-operations",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How can we handle asynchronous operations in Jetpack Compose?",
             "answer": "<p><strong>🔑 Compose delegates async work to coroutines</strong></p><ul><li>Compose itself has no async primitives beyond effect handlers — actual async work (network, DB) lives in a <code>ViewModel</code> using <code>viewModelScope</code>, and Compose just observes the resulting <code>State</code>/<code>StateFlow</code>.</li></ul><p><strong>⚙️ Tools available in the composition</strong></p><ul><li><code>LaunchedEffect(key)</code> — run a suspend call automatically tied to composition/key changes (e.g. load data when a screen appears).</li><li><code>rememberCoroutineScope()</code> — launch a coroutine from a callback (button click, drag gesture).</li><li><code>produceState</code> — turn any async source into Compose <code>State</code> declaratively.</li><li><code>collectAsStateWithLifecycle()</code> — the usual way to surface a <code>ViewModel</code>'s async results to the UI.</li></ul><p><strong>⚠️ Pitfall</strong></p><ul><li>Never launch a raw <code>GlobalScope.launch</code> from a composable — it isn't tied to any lifecycle and will leak.</li></ul>"
         },
@@ -485,7 +485,7 @@ const jetpackComposeData = {
             ],
             "subsection": null,
             "id": "compose-non-compose-state",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How can we convert a non-compose state into a Compose state?",
             "answer": "<p><strong>🔑 Bridging APIs</strong></p><ul><li><code>produceState(initialValue, key)</code> — the general-purpose bridge: runs a coroutine block that can <code>value = ...</code> repeatedly, converting callbacks/Flows/futures into a Compose <code>State&lt;T&gt;</code>.</li><li><code>mutableStateOf</code> inside a <code>DisposableEffect</code> — register a listener/callback, write results into a <code>MutableState</code>, and unregister in <code>onDispose</code>.</li><li>For existing reactive types: <code>Flow.collectAsState()</code>, <code>LiveData.observeAsState()</code>, or <code>RxJava</code> via <code>subscribeAsState()</code> (compose-rxjava2/3 interop artifacts).</li></ul><p><strong>🎯 Interview tip:</strong> <code>produceState</code> is the answer to reach for when the source is a plain callback API (e.g. a location listener or a legacy SDK) that has no Flow/LiveData wrapper.</p>"
         },
@@ -543,7 +543,7 @@ const jetpackComposeData = {
             ],
             "subsection": null,
             "id": "compose-remember-updated-state",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "Explain rememberUpdatedState in Compose.",
             "answer": "<p><strong>🔑 Definition</strong></p><ul><li><code>rememberUpdatedState(value)</code> wraps a value so a <strong>long-lived effect</strong> (like a <code>LaunchedEffect</code> with a key that rarely changes) can always read the <strong>latest</strong> value without restarting the effect every time that value changes.</li></ul><p><strong>⚙️ The problem it solves</strong></p><ul><li>If a <code>LaunchedEffect(Unit)</code> captures a lambda parameter directly, that lambda is <strong>frozen</strong> to whatever it was on first composition (a stale closure) — because the key <code>Unit</code> never causes the effect to restart.</li><li>Wrapping the captured value with <code>rememberUpdatedState</code> gives you a <code>State</code> reference that's always current, read inside the effect via <code>.value</code>, without needing to add it as a key (which would restart the effect unnecessarily, e.g. cancelling an in-flight delay/animation).</li></ul><p><strong>🎯 Interview tip:</strong> Use case to quote: a splash screen delay that calls <code>onTimeout()</code> after a fixed delay — you want the delay to run once (<code>LaunchedEffect(true)</code>), but call the <em>latest</em> <code>onTimeout</code> lambda, so wrap it in <code>rememberUpdatedState</code>.</p>"
         },
@@ -632,7 +632,7 @@ const jetpackComposeData = {
             ],
             "subsection": null,
             "id": "compose-lifecycle-events",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How do you handle lifecycle events in Compose functions?",
             "answer": "<p><strong>🔑 Bridging Activity/Fragment lifecycle into Compose</strong></p><ul><li><code>LocalLifecycleOwner.current</code> gives access to the enclosing <code>Lifecycle</code> from within a composable.</li><li>Combine it with <code>DisposableEffect</code> and a <code>LifecycleEventObserver</code> to react to <code>ON_START</code>, <code>ON_STOP</code>, <code>ON_RESUME</code>, <code>ON_PAUSE</code>, etc. — e.g. starting/stopping a camera preview or analytics session.</li><li>For simpler cases, <code>collectAsStateWithLifecycle()</code> already handles start/stop internally, so you often don't need to hook the observer manually at all.</li></ul>"
         },
@@ -864,7 +864,7 @@ const jetpackComposeData = {
             ],
             "subsection": null,
             "id": "compose-semantics",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What are Semantics in Compose?",
             "answer": "<p><strong>🔑 Definition</strong></p><ul><li><strong>Semantics</strong> describe the <strong>meaning</strong> of UI elements to accessibility services (TalkBack), the testing framework, and autofill — separate from how they look. Compose builds a <strong>semantics tree</strong> alongside the UI tree.</li><li>Most built-in components (<code>Text</code>, <code>Button</code>, <code>Image</code>) already emit sensible default semantics; custom components/graphics often need to add them explicitly.</li></ul><p><strong>⚙️ Key APIs</strong></p><ul><li><code>Modifier.semantics { contentDescription = \"...\" }</code> — describe an element (essential for <code>Image</code>/<code>Icon</code> without visible text).</li><li><code>Modifier.clearAndSetSemantics { }</code> — override/merge children's semantics, e.g. to describe a compound component as one unit.</li><li><code>mergeDescendants = true</code> — groups a subtree's semantics into a single accessibility node (used automatically by clickable rows).</li><li><code>Modifier.testTag(\"...\")</code> — a semantics property used purely for UI tests (<code>onNodeWithTag</code>), not exposed to accessibility services.</li></ul>"
         },
@@ -894,7 +894,7 @@ const jetpackComposeData = {
             ],
             "subsection": null,
             "id": "compose-user-input",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How can you handle user input and events in Jetpack Compose?",
             "answer": "<p><strong>🔑 Input flows in through Modifiers and callbacks</strong></p><ul><li><strong>Clicks/taps</strong>: <code>Modifier.clickable { }</code>, <code>combinedClickable</code> (long-press/double-click), or component-level <code>onClick</code> (e.g. <code>Button</code>).</li><li><strong>Text input</strong>: <code>TextField(value, onValueChange)</code> — a controlled/stateless component; the caller owns the text state.</li><li><strong>Gestures/drag</strong>: <code>Modifier.pointerInput(key) { detectDragGestures { ... } }</code>, <code>draggable</code>, <code>scrollable</code>, <code>transformable</code> for pinch/zoom.</li><li><strong>Focus</strong>: <code>Modifier.focusRequester()</code>/<code>focusable()</code> plus <code>FocusManager</code> for programmatic focus control (e.g. move to next field on IME action).</li></ul><p><strong>⚙️ Event flow</strong></p><ul><li>All of these follow unidirectional data flow: the UI reports the raw event via a callback; the caller (often a ViewModel) decides how state should change, and the new state flows back down.</li></ul>"
         },
@@ -951,7 +951,7 @@ const jetpackComposeData = {
             "codeSnippets": [],
             "subsection": null,
             "id": "compose-orientation-changes",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How do you handle orientation changes in Jetpack Compose?",
             "answer": "<p><strong>🔑 Same rules as the rest of the app</strong></p><ul><li>By default a configuration change (rotation) recreates the Activity; any state held only via plain <code>remember</code> is lost, then reset to its initial value.</li><li>Use <code>rememberSaveable</code> for UI state that must survive rotation (form input, expanded/collapsed flags, selected tab, scroll position via <code>rememberLazyListState</code> wrapped in <code>rememberSaveable</code>-friendly APIs).</li><li><code>ViewModel</code>-held state survives configuration changes automatically since the <code>ViewModel</code> outlives the recreated Activity (scoped to the <code>ViewModelStore</code>).</li></ul><p><strong>⚙️ Adapting layout to orientation</strong></p><ul><li>Use <code>BoxWithConstraints</code> or <code>WindowSizeClass</code> (from <code>material3-window-size-class</code>) to branch layout based on available width/height instead of hardcoding orientation checks — this also handles foldables and multi-window correctly.</li></ul>"
         },
@@ -1004,7 +1004,7 @@ const jetpackComposeData = {
             ],
             "subsection": null,
             "id": "compose-unidirectional-data-flow",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "Explain unidirectional data flow in Jetpack Compose.",
             "answer": "<p><strong>🔑 State down, events up</strong></p><ul><li><strong>Unidirectional data flow (UDF)</strong> is a pattern where state flows in one direction — from a state holder (ViewModel/parent composable) <strong>down</strong> into composables as parameters — and events flow in the opposite direction — <strong>up</strong> from composables to the state holder via callback lambdas.</li><li>The state holder is the single source of truth; composables never mutate state directly, they only report <em>what happened</em> (a click, a text change) and let the owner decide the new state.</li></ul><p><strong>✅ Why it's used</strong></p><ul><li>Makes state changes predictable and traceable — you can reason about the whole screen by reading one state holder instead of chasing mutations scattered across the view tree.</li><li>Composables built this way are naturally stateless and reusable (see state hoisting).</li></ul>"
         },
