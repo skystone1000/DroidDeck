@@ -18,7 +18,7 @@ const kotlinData = {
     questions: [
         {
             id: "kotlin-const-advantage",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the advantage of using const in Kotlin?",
             answer: "<p><strong>🔑 Compile-time constant</strong></p><ul><li><strong>const val</strong> is a <strong>compile-time constant</strong> — its value is inlined directly into every call site by the compiler, unlike a regular <code>val</code> whose value is resolved at runtime via a getter call.</li><li><strong>Performance</strong> — no getter invocation is generated, so reading a <code>const val</code> has zero runtime overhead.</li><li><strong>Restrictions</strong> — must be a top-level property, or a member of an <code>object</code>/<code>companion object</code>; must be initialized with a <code>String</code> or primitive type literal, never a function call or class instance.</li><li><strong>Use case</strong> — ideal for <code>API_KEY</code>, timeout values, annotation arguments (annotations require compile-time constants) and other fixed configuration values.</li><li><strong>Not usable</strong> inside a function body or as a local variable — only at the top level or inside an object.</li></ul><p><strong>🎯 Interview tip:</strong> if you need a value usable as an annotation parameter, it must be a <code>const val</code> — a plain <code>val</code> will not compile there.</p>",
             referenceLinks: [{ title: "Kotlin: Properties — const", url: "https://kotlinlang.org/docs/properties.html#compile-time-constants" }],
@@ -120,7 +120,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-remove-duplicates",
-            importance: "must-know",
+            importance: "good-to-know",
             question: "How to remove duplicates from an array in Kotlin?",
             answer: "<p><strong>🔑 distinct() and its variants</strong></p><ul><li><strong>distinct()</strong> returns a new <code>List</code> keeping only the first occurrence of each element, using structural equality (<code>equals()</code>/<code>hashCode()</code>) to compare.</li><li><strong>distinctBy { selector }</strong> deduplicates using a derived key rather than the whole object — e.g. dedupe users by <code>id</code> while keeping full objects.</li><li><strong>toSet() / toMutableSet()</strong> converts the collection to a <code>Set</code>, which inherently has no duplicates — useful when order doesn't matter and you want set semantics going forward.</li><li><strong>toSortedSet()</strong> both deduplicates and orders the elements if a natural or custom ordering is desired.</li><li>All of these are <strong>immutable, non-mutating operations</strong> — they return a new collection rather than modifying the original array/list in place.</li></ul>",
             referenceLinks: [{ title: "Kotlin stdlib: distinct", url: "https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/distinct.html" }],
@@ -137,7 +137,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-jvmstatic",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is a JvmStatic Annotation in Kotlin?",
             answer: "<p><strong>🔑 True static methods for Java callers</strong></p><ul><li><strong>@JvmStatic</strong> is applied to a function or property inside an <code>object</code> or <code>companion object</code> to instruct the compiler to additionally generate a genuine <code>static</code> method on the JVM, not just an instance method on the singleton.</li><li><strong>Without it</strong>, Java code must call companion members via <code>ClassName.Companion.method()</code>; <strong>with it</strong>, Java can call <code>ClassName.method()</code> directly, matching idiomatic Java static usage.</li><li><strong>Kotlin callers are unaffected</strong> — from Kotlin, <code>ClassName.method()</code> already works either way; <code>@JvmStatic</code> exists purely for Java interop.</li><li>Can be combined with <code>@JvmField</code> for static fields and <code>@JvmOverloads</code> for default-argument overloads to make a library fully Java-friendly.</li></ul><p><strong>🎯 Interview tip:</strong> this matters most when authoring an Android/Kotlin library consumed by Java modules or by legacy Java codebases mid-migration.</p>",
             referenceLinks: [{ title: "Kotlin: Static methods (Java interop)", url: "https://kotlinlang.org/docs/java-to-kotlin-interop.html#static-methods" }],
@@ -154,7 +154,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-jvmfield",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is a JvmField Annotation in Kotlin?",
             answer: "<p><strong>🔑 Expose a property as a raw Java field</strong></p><ul><li><strong>@JvmField</strong> tells the compiler to expose a Kotlin property directly as a <strong>public field</strong> on the JVM, skipping the getter/setter it would normally generate.</li><li><strong>Requirements</strong> — the property must have no custom accessors, cannot be <code>private</code>, <code>protected</code>, or <code>open</code>, and cannot be <code>const</code> (use <code>const val</code> for that case instead) or a property of an interface.</li><li><strong>Why</strong> — reduces bytecode/reflection overhead in performance-sensitive code, and gives Java callers plain field access (<code>obj.field</code>) instead of <code>obj.getField()</code>.</li><li><strong>Trade-off</strong> — you lose Kotlin's ability to later add validation logic in a custom setter without a breaking API change.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Instance fields (Java interop)", url: "https://kotlinlang.org/docs/java-to-kotlin-interop.html#instance-fields" }],
@@ -167,7 +167,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-jvmoverloads",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is a JvmOverloads Annotation in Kotlin?",
             answer: "<p><strong>🔑 Generate overloads for default parameters</strong></p><ul><li>Kotlin functions with <strong>default parameter values</strong> compile to a single method — Java has no concept of default arguments, so Java callers would be forced to pass every parameter explicitly.</li><li><strong>@JvmOverloads</strong> instructs the compiler to generate one additional overloaded method for each parameter that has a default value, progressively dropping trailing defaulted parameters.</li><li><strong>Applies to</strong> constructors, top-level functions, and member functions with default arguments.</li><li>Overloads are generated in <strong>declaration order</strong>, from the parameter list with the most defaults omitted to the full parameter list.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Overloads generation (Java interop)", url: "https://kotlinlang.org/docs/java-to-kotlin-interop.html#overloads-generation" }],
@@ -184,7 +184,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-noinline",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is noinline in Kotlin?",
             answer: "<p><strong>🔑 Opt a single lambda out of inlining</strong></p><ul><li>When a function is marked <code>inline</code>, <strong>all</strong> of its function-type parameters are inlined by default; <strong>noinline</strong> lets you exclude one specific lambda parameter from that inlining.</li><li><strong>Why you'd need it</strong> — an inlined lambda cannot be stored in a variable, returned, or passed to another non-inline function because it doesn't exist as a real object at runtime; marking it <code>noinline</code> makes it a real <code>Function</code> object again so it can be passed around.</li><li><strong>Trade-off</strong> — the <code>noinline</code> parameter loses the performance benefit (allocation + virtual call reintroduced) and cannot use non-local <code>return</code>.</li><li>Common when an inline function forwards one lambda to another API (e.g. storing it as a callback) while still inlining the rest for performance.</li></ul>",
             referenceLinks: [{ title: "Kotlin: noinline", url: "https://kotlinlang.org/docs/inline-functions.html#noinline" }],
@@ -201,7 +201,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-crossinline",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is crossinline in Kotlin?",
             answer: "<p><strong>🔑 Forbid non-local returns from a specific lambda</strong></p><ul><li><strong>crossinline</strong> marks a lambda parameter of an inline function as still inlined, but <strong>disallows a bare <code>return</code></strong> inside it — only <code>return@label</code> is permitted.</li><li><strong>Why it's needed</strong> — if the lambda is invoked from inside another execution context (e.g. inside a nested lambda, a separate object like a <code>Runnable</code>, or a coroutine builder), a non-local return could try to exit a function that has already returned, which is illegal.</li><li><strong>Typical case</strong> — an inline function that runs the lambda inside another higher-order function (like <code>thread { }</code> or an event listener registration), where the JVM call stack no longer matches the source-level nesting.</li></ul>",
             referenceLinks: [{ title: "Kotlin: crossinline", url: "https://kotlinlang.org/docs/inline-functions.html#returns" }],
@@ -261,7 +261,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-init-block",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is an init block in Kotlin?",
             answer: "<p><strong>🔑 Initializer code tied to the primary constructor</strong></p><ul><li>An <strong>init block</strong> (<code>init { ... }</code>) contains initialization logic that runs as part of the <strong>primary constructor</strong>, since the primary constructor itself cannot contain a body.</li><li><strong>Execution order</strong> — a class can have multiple <code>init</code> blocks and property initializers; they all execute <strong>in the order they appear</strong> in the class body, top to bottom, interleaved with each other.</li><li><strong>Runs before</strong> any secondary constructor body — secondary constructors must delegate to the primary constructor (directly or transitively) via <code>this(...)</code>, so <code>init</code> blocks always run first.</li><li><strong>Common use</strong> — validating constructor arguments (e.g. <code>require(age &gt;= 0)</code>) or performing setup that depends on multiple properties.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Classes — initialization order", url: "https://kotlinlang.org/docs/classes.html#constructors" }],
@@ -312,7 +312,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-function-returning-function",
-            importance: "must-know",
+            importance: "should-know",
             question: "Write a Higher-Order Function that returns a function.",
             answer: "<p><strong>🔑 Functions producing functions (currying-style)</strong></p><ul><li>A function's return type can itself be a function type, e.g. <code>fun makeMultiplier(factor: Int): (Int) -> Int</code>, letting you build specialized functions from general ones.</li><li>The returned lambda forms a <strong>closure</strong>, capturing variables from the enclosing scope (like <code>factor</code> below) even after the outer function has returned.</li><li>This pattern underlies factory-style APIs, memoization helpers, and building composable validation/transform pipelines.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Function types", url: "https://kotlinlang.org/docs/lambdas.html#function-types" }],
@@ -346,7 +346,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-associateby",
-            importance: "must-know",
+            importance: "good-to-know",
             question: "How does associateBy work for List to Map conversion in Kotlin?",
             answer: "<p><strong>🔑 Turn a list into a lookup map</strong></p><ul><li><strong>associateBy { keySelector }</strong> builds a <code>Map&lt;K, T&gt;</code> from a <code>List&lt;T&gt;</code>, using the selector's result as the key and the <strong>original element</strong> as the value.</li><li>If multiple elements produce the same key, <strong>later elements overwrite earlier ones</strong> for that key — duplicates are silently dropped, not merged.</li><li><strong>associateBy(keySelector, valueTransform)</strong> — a two-lambda overload that also transforms the value, instead of keeping the whole element.</li><li>Related functions: <code>associate { it.key to it.value }</code> for full control over both key and value, and <code>associateWith { valueSelector }</code> which uses the <strong>elements themselves as keys</strong> and computes the value.</li></ul>",
             referenceLinks: [{ title: "Kotlin stdlib: associateBy", url: "https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/associate-by.html" }],
@@ -363,7 +363,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-open-keyword",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the open keyword in Kotlin?",
             answer: "<p><strong>🔑 Kotlin classes and members are final by default</strong></p><ul><li>Unlike Java, Kotlin classes, member functions, and properties are <strong>final (non-overridable/non-inheritable) unless explicitly marked <code>open</code></strong> — a deliberate design choice to favor composition and prevent fragile base-class bugs.</li><li><code>open class Base</code> allows other classes to <code>: Base()</code> subclass it; <code>open fun foo()</code> allows a subclass to <code>override fun foo()</code> it.</li><li>Marking the class <code>open</code> alone does not open its members — <strong>each member you want overridable must itself be marked <code>open</code></strong>.</li><li><code>abstract</code> members are implicitly open (must be overridden); overriding a member with <code>override</code> makes it open for further overriding by default, unless the override is marked <code>final</code>.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Inheritance", url: "https://kotlinlang.org/docs/inheritance.html" }],
@@ -380,7 +380,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-internal-modifier",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the internal visibility modifier in Kotlin?",
             answer: "<p><strong>🔑 Module-scoped visibility</strong></p><ul><li><strong>internal</strong> makes a declaration visible to <strong>any code within the same module</strong> — a set of Kotlin files compiled together (a Gradle module, IntelliJ module, or Maven project) — but invisible outside it.</li><li>Sits between <code>public</code> (visible everywhere) and <code>private</code>/<code>protected</code> in scope, and is Kotlin's answer to Java's lack of a true module-visibility concept (Java's package-private has no direct Kotlin equivalent).</li><li><strong>Use case</strong> — expose implementation details to other files/classes in the same Gradle module (e.g. a library's internal helpers) while keeping them out of the module's public API surface for consumers.</li><li>Applies to classes, functions, properties, and constructors.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Visibility modifiers", url: "https://kotlinlang.org/docs/visibility-modifiers.html" }],
@@ -393,7 +393,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-partition",
-            importance: "must-know",
+            importance: "good-to-know",
             question: "What is the partition filtering function in Kotlin?",
             answer: "<p><strong>🔑 Split a collection into two lists by a predicate</strong></p><ul><li><strong>partition { predicate }</strong> traverses a collection once and returns a <code>Pair&lt;List&lt;T&gt;, List&lt;T&gt;&gt;</code> — the first list holds elements where the predicate was <code>true</code>, the second holds the rest.</li><li>Semantically equivalent to calling <code>filter { predicate }</code> and <code>filterNot { predicate }</code> separately, but done in a <strong>single pass</strong>, which is more efficient.</li><li>Commonly destructured directly: <code>val (matched, unmatched) = list.partition { ... }</code>.</li></ul>",
             referenceLinks: [{ title: "Kotlin stdlib: partition", url: "https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.collections/partition.html" }],
@@ -410,7 +410,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-infix-notation",
-            importance: "must-know",
+            importance: "good-to-know",
             question: "What is infix notation in Kotlin?",
             answer: "<p><strong>🔑 Call a function without a dot or parentheses</strong></p><ul><li><strong>Infix notation</strong> lets certain single-parameter member or extension functions be called as <code>receiver functionName argument</code> instead of <code>receiver.functionName(argument)</code>, reading more like natural language.</li><li><strong>Requirements</strong> — the function must be marked <code>infix</code>, be a member or extension function, take exactly <strong>one parameter</strong> with no default value, and not accept variable arguments (<code>vararg</code>).</li><li><strong>Standard library examples</strong> — <code>1 to \"one\"</code> (creates a <code>Pair</code>), <code>1 until 10</code>, <code>1 downTo 0</code>, <code>true and false</code>, <code>view setOnClick { }</code>-style DSL helpers.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Infix notation", url: "https://kotlinlang.org/docs/functions.html#infix-notation" }],
@@ -457,7 +457,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-runblocking",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is runBlocking in Kotlin Coroutines?",
             answer: "<p><strong>🔑 Bridge between blocking and coroutine code</strong></p><ul><li><strong>runBlocking</strong> is a coroutine builder that <strong>blocks the current thread</strong> until the coroutine it launches — and all its children — complete.</li><li><strong>Purpose</strong> — it exists specifically to call suspend functions from non-suspend, non-coroutine contexts, most commonly a <code>main()</code> function or a unit test.</li><li><strong>Not for production Android code</strong> — using it on the main thread (e.g. inside an <code>onClick</code>) would freeze the UI, defeating the purpose of coroutines; prefer <code>lifecycleScope.launch</code>/<code>viewModelScope.launch</code> instead.</li><li><strong>Testing</strong> — largely superseded by <code>runTest</code> from <code>kotlinx-coroutines-test</code>, which additionally auto-skips <code>delay()</code> calls for fast, deterministic tests.</li></ul>",
             referenceLinks: [{ title: "Kotlin Coroutines: bridging blocking and non-blocking worlds", url: "https://kotlinlang.org/docs/coroutines-basics.html#bridging-blocking-and-non-blocking-worlds" }],
@@ -474,7 +474,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-structured-concurrency",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the meaning of structured concurrency in Kotlin Coroutines?",
             answer: "<p><strong>🔑 Coroutines can't outlive their scope</strong></p><ul><li><strong>Structured concurrency</strong> means every coroutine runs inside a <code>CoroutineScope</code> that defines its lifetime — a coroutine launched from a scope becomes a <strong>child</strong> of that scope and cannot outlive it.</li><li><strong>Cancellation propagates down</strong> — cancelling the parent scope cancels every child coroutine automatically, eliminating leaked background work (a common source of bugs with raw threads).</li><li><strong>Exceptions propagate up</strong> — an unhandled exception in a child cancels its parent and siblings by default (unless a <code>SupervisorJob</code> is used), so failures are never silently swallowed.</li><li><strong>Completion waits for children</strong> — a scope is not considered complete until all of its child coroutines finish, making the code's control flow mirror its concurrency structure.</li><li><strong>Android application</strong> — <code>viewModelScope</code> and <code>lifecycleScope</code> tie coroutine lifetime to a <code>ViewModel</code>/<code>LifecycleOwner</code>, automatically cancelling work when the owner is cleared/destroyed.</li></ul><p><strong>🎯 Interview tip:</strong> structured concurrency is Kotlin's core answer to the &quot;forgot to cancel a background thread&quot; class of memory leaks.</p>",
             referenceLinks: [{ title: "Kotlin Coroutines: structured concurrency", url: "https://kotlinlang.org/docs/coroutines-basics.html#structured-concurrency" }],
@@ -550,7 +550,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-lateinit-check-initialized",
-            importance: "must-know",
+            importance: "should-know",
             question: "How to check if a lateinit variable has been initialized?",
             answer: "<p><strong>🔑 The isInitialized reflection property</strong></p><ul><li>Kotlin exposes <strong><code>this::propertyName.isInitialized</code></strong> (or <code>ClassName::propertyName.isInitialized</code> for a top-level/companion property) — a boolean that reports whether a <code>lateinit</code> property has been assigned a value yet, <strong>without throwing</strong>.</li><li>Requires a <strong>property reference</strong> (<code>::</code>) — you cannot call <code>isInitialized</code> on the property value itself.</li><li>Only usable when the check is performed <strong>inside the same module</strong> for a property declared elsewhere, or anywhere for a property of the enclosing class/file — it relies on reflection-backed compiler support.</li><li>Prevents the alternative of wrapping every access in a <code>try/catch</code> for <code>UninitializedPropertyAccessException</code>.</li></ul>",
             referenceLinks: [{ title: "Kotlin: isInitialized", url: "https://kotlinlang.org/docs/properties.html#checking-whether-a-lateinit-var-is-initialized" }],
@@ -567,7 +567,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-lazy-initialization",
-            importance: "must-know",
+            importance: "should-know",
             question: "How to do lazy initialization of variables in Kotlin?",
             answer: "<p><strong>🔑 by lazy { } delegated property</strong></p><ul><li><strong>by lazy { block }</strong> defers computing a <code>val</code>'s value until its <strong>first access</strong>, caching the result for all subsequent reads.</li><li>Implemented as a <strong>delegated property</strong> — the <code>lazy()</code> function returns a <code>Lazy&lt;T&gt;</code> instance that stores the computed value after the first call.</li><li><strong>Thread-safety modes</strong> (passed as an argument to <code>lazy(mode) { }</code>): <code>LazyThreadSafetyMode.SYNCHRONIZED</code> (default — locked, safe across threads), <code>PUBLICATION</code> (may compute more than once under contention, but only one result is kept), and <code>NONE</code> (no locking — fastest, but only safe if guaranteed single-threaded use).</li><li><strong>Use case</strong> — expensive computations or object graphs that may never be needed (e.g. a heavy parser or regex only built if a feature flag is on).</li></ul>",
             referenceLinks: [{ title: "Kotlin: Lazy properties", url: "https://kotlinlang.org/docs/delegated-properties.html#lazy-properties" }],
@@ -597,7 +597,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-static-equivalent",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the equivalent of Java static methods in Kotlin?",
             answer: "<p><strong>🔑 Kotlin has no static keyword</strong></p><ul><li>Kotlin removed <code>static</code> entirely; the two idiomatic replacements are <strong>top-level functions</strong> (declared directly in a file, outside any class — genuinely compiled as static JVM methods) and <strong>companion object members</strong> (for functions/constants logically tied to a specific class).</li><li>An <code>object</code> declaration is the equivalent of a class that is entirely static — a true singleton with a single instance.</li><li>For Java callers that need a real <code>static</code> method rather than <code>Companion.method()</code>, add <code>@JvmStatic</code> to the companion member.</li><li><strong>Preference in idiomatic Kotlin</strong> — top-level functions are favored over companion objects when the function doesn't need access to class internals, since companion objects still allocate a singleton instance.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Static methods (Java interop)", url: "https://kotlinlang.org/docs/java-to-kotlin-interop.html#static-methods" }],
@@ -631,7 +631,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-open-vs-public",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the difference between open and public in Kotlin?",
             answer: "<p><strong>⚖️ Two orthogonal concepts: visibility vs inheritability</strong></p><table><thead><tr><th>Aspect</th><th><code>public</code></th><th><code>open</code></th></tr></thead><tbody><tr><td>Controls</td><td><strong>Visibility</strong> — who can see/reference the declaration</td><td><strong>Inheritability</strong> — whether the class/member can be subclassed or overridden</td></tr><tr><td>Default</td><td>Yes — the default visibility if none is specified</td><td>No — every class/member is final unless marked <code>open</code></td></tr><tr><td>Applies to</td><td>Classes, functions, properties, constructors</td><td>Classes, functions, properties</td></tr><tr><td>Can combine?</td><td colspan=\"2\">Yes — a member is commonly both <code>public</code> and <code>open</code> at once, they're independent modifiers</td></tr></tbody></table><p><strong>🎯 Interview tip:</strong> a class can be <code>public</code> but not <code>open</code> (visible everywhere, but final) — this combination is actually Kotlin's default for every class you write.</p>",
             referenceLinks: [{ title: "Kotlin: Inheritance", url: "https://kotlinlang.org/docs/inheritance.html" }],
@@ -644,7 +644,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-apply-scope-function",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the apply scope function and its use cases?",
             answer: "<p><strong>🔑 Configure an object, get the object back</strong></p><ul><li><strong>apply</strong> executes its lambda with the receiver available as <code>this</code>, and <strong>returns the receiver itself</strong> — making it ideal for configuring an object right where it's created.</li><li><strong>Signature</strong> — <code>inline fun &lt;T&gt; T.apply(block: T.() -&gt; Unit): T</code>.</li><li><strong>Classic use case</strong> — object initialization/builder-style setup: creating a view, an <code>Intent</code>, or a data object and setting several properties in one expression.</li><li>Because it returns <code>this</code>, calls can be <strong>chained</strong> immediately after the <code>apply</code> block, unlike <code>also</code> which is functionally similar but uses <code>it</code> instead of <code>this</code>.</li></ul>",
             referenceLinks: [{ title: "Kotlin: apply", url: "https://kotlinlang.org/docs/scope-functions.html#apply" }],
@@ -661,7 +661,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-let-scope-function",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the let scope function and its use cases?",
             answer: "<p><strong>🔑 Scope a value and null-check it in one step</strong></p><ul><li><strong>let</strong> executes its lambda with the receiver available as <code>it</code>, and <strong>returns the lambda's result</strong> — useful for transforming a value or scoping it to a smaller block.</li><li><strong>Signature</strong> — <code>inline fun &lt;T, R&gt; T.let(block: (T) -&gt; R): R</code>.</li><li><strong>Most common use case</strong> — combined with the safe-call operator, <code>nullable?.let { ... }</code> executes the block only when the value is non-null, avoiding an explicit <code>if (x != null)</code> check.</li><li><strong>Other uses</strong> — limiting a variable's scope to avoid polluting the outer namespace, and chaining transformations (<code>value.let(::transform).let(::validate)</code>).</li></ul>",
             referenceLinks: [{ title: "Kotlin: let", url: "https://kotlinlang.org/docs/scope-functions.html#let" }],
@@ -678,7 +678,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-scope-functions-use-cases",
-            importance: "must-know",
+            importance: "should-know",
             question: "Explain the use-case of let, run, with, also, apply in Kotlin.",
             answer: "<p><strong>🔑 Picking the right scope function for the job</strong></p><table><thead><tr><th>Scenario</th><th>Best fit</th><th>Why</th></tr></thead><tbody><tr><td>Null-check + transform a nullable value</td><td><code>let</code></td><td><code>it</code> reference reads naturally with <code>?.let</code>, returns transformed result</td></tr><tr><td>Configure an object right after creation</td><td><code>apply</code></td><td>Returns the receiver, so setup reads as one expression</td></tr><tr><td>Configure an object <strong>and</strong> compute a derived result</td><td><code>run</code></td><td>Same <code>this</code> context as <code>apply</code>, but returns the lambda result instead</td></tr><tr><td>Group several calls on an object that isn't the receiver expression</td><td><code>with</code></td><td>Not an extension function — takes the object as an explicit argument</td></tr><tr><td>Insert a side effect (logging, debug print) mid-chain</td><td><code>also</code></td><td>Returns the receiver unchanged, so the chain continues undisturbed</td></tr></tbody></table><p><strong>🎯 Interview tip:</strong> a good rule of thumb — need <strong>this</strong> back? use <code>apply</code>/<code>also</code>. Need a <strong>computed value</strong> back? use <code>let</code>/<code>run</code>/<code>with</code>.</p>",
             referenceLinks: [{ title: "Kotlin: Function selection", url: "https://kotlinlang.org/docs/scope-functions.html#function-selection" }],
@@ -691,7 +691,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-apply-vs-with",
-            importance: "must-know",
+            importance: "should-know",
             question: "How to choose between apply and with in Kotlin?",
             answer: "<p><strong>⚖️ Extension function vs regular function</strong></p><table><thead><tr><th>Aspect</th><th><code>apply</code></th><th><code>with</code></th></tr></thead><tbody><tr><td>Called as</td><td>Extension: <code>receiver.apply { }</code></td><td>Regular function: <code>with(receiver) { }</code></td></tr><tr><td>Context reference</td><td><code>this</code></td><td><code>this</code></td></tr><tr><td>Returns</td><td>The receiver itself</td><td>The lambda's result</td></tr><tr><td>Works with nullable receiver + safe call</td><td>Yes — <code>obj?.apply { }</code></td><td>No — <code>with</code> takes the object as an argument, not a receiver, so no <code>?.</code> chaining</td></tr><tr><td>Typical use</td><td>Chained object configuration, especially returning it from a function</td><td>Grouping several calls on an already non-null object, when you don't need it back</td></tr></tbody></table><p><strong>🎯 Interview tip:</strong> if the object is nullable, or you want to keep chaining afterward, reach for <code>apply</code>; if you just need to group calls and get a computed answer, use <code>with</code>.</p>",
             referenceLinks: [{ title: "Kotlin: with", url: "https://kotlinlang.org/docs/scope-functions.html#with" }],
@@ -708,7 +708,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-list-vs-array",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the difference between List and Array types in Kotlin?",
             answer: "<p><strong>⚖️ Fixed-size raw arrays vs collection-framework lists</strong></p><table><thead><tr><th>Aspect</th><th><code>Array</code></th><th><code>List</code></th></tr></thead><tbody><tr><td>Size</td><td>Fixed at creation</td><td><code>List</code> read-only view is fixed; <code>MutableList</code> can grow/shrink</td></tr><tr><td>Mutability of elements</td><td>Always mutable via index (<code>arr[i] = x</code>)</td><td>Depends: <code>List</code> is read-only, <code>MutableList</code> allows <code>set</code>/<code>add</code>/<code>remove</code></td></tr><tr><td>Primitives</td><td>Specialized types avoid boxing: <code>IntArray</code>, <code>DoubleArray</code>, etc.</td><td>Elements of primitive type are always boxed (e.g. <code>List&lt;Int&gt;</code> boxes each <code>Int</code>)</td></tr><tr><td>Variance</td><td>Invariant (<code>Array&lt;String&gt;</code> is not an <code>Array&lt;Any&gt;</code>)</td><td><code>List&lt;out T&gt;</code> is covariant — <code>List&lt;String&gt;</code> is a <code>List&lt;Any&gt;</code></td></tr><tr><td>Underlying type</td><td>JVM array (interop with Java arrays, varargs)</td><td>Kotlin collection interface, backed by <code>ArrayList</code> etc.</td></tr><tr><td>When to use</td><td>Interop with Java APIs expecting arrays, performance-critical primitive-heavy code</td><td>General-purpose collections — the idiomatic default in Kotlin code</td></tr></tbody></table>",
             referenceLinks: [{ title: "Kotlin: Arrays", url: "https://kotlinlang.org/docs/arrays.html" }],
@@ -742,7 +742,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-coroutines-basics",
-            importance: "must-know",
+            importance: "should-know",
             question: "What are Coroutines in Kotlin?",
             answer: "<p><strong>🔑 Lightweight concurrency via suspendable computations</strong></p><ul><li><strong>Coroutines</strong> are Kotlin's concurrency primitive — units of work that can <strong>suspend</strong> execution at defined points and resume later, without blocking the underlying OS thread.</li><li><strong>Lightweight</strong> — thousands of coroutines can run on a small pool of threads because a suspended coroutine releases its thread instead of holding it, unlike a blocked thread.</li><li><strong>suspend functions</strong> mark where suspension can occur; they compile (via the Kotlin compiler's continuation-passing transform) into state machines that can pause and resume.</li><li><strong>Coroutine builders</strong> — <code>launch</code> (fire-and-forget, returns <code>Job</code>), <code>async</code> (returns a <code>Deferred&lt;T&gt;</code> result), and <code>runBlocking</code> (bridges blocking code) all start new coroutines within a <code>CoroutineScope</code>.</li><li><strong>Library</strong> — provided by <code>kotlinx.coroutines</code>, not the language core, though <code>suspend</code> itself is a language keyword.</li></ul>",
             referenceLinks: [{ title: "Kotlin Coroutines overview", url: "https://kotlinlang.org/docs/coroutines-overview.html" }, { title: "Android: Coroutines on Android", url: "https://developer.android.com/kotlin/coroutines" }],
@@ -759,7 +759,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-coroutine-scope",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is Coroutine Scope?",
             answer: "<p><strong>🔑 Ties coroutines to a lifetime</strong></p><ul><li>A <strong>CoroutineScope</strong> is an interface holding a <code>CoroutineContext</code> that defines the lifecycle boundary for the coroutines launched within it — every <code>launch</code>/<code>async</code> call needs a scope to run in.</li><li><strong>Enforces structured concurrency</strong> — cancelling the scope cancels every coroutine started from it; the scope isn't considered finished until all its children complete.</li><li><strong>CoroutineScope() factory</strong> creates a new independent scope with a given context, typically including a <code>Job</code> to track its children.</li><li><strong>coroutineScope { }</strong> (lowercase, a suspend function) creates a child scope that suspends the caller until all its children finish — useful for grouping concurrent work inside a suspend function.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Coroutine context and dispatchers", url: "https://kotlinlang.org/docs/coroutine-context-and-dispatchers.html" }],
@@ -776,7 +776,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-coroutine-scopes-android",
-            importance: "must-know",
+            importance: "should-know",
             question: "What are the scopes in Kotlin Coroutines used in Android?",
             answer: "<p><strong>🔑 Lifecycle-aware scopes built for Android</strong></p><ul><li><strong>viewModelScope</strong> — a <code>CoroutineScope</code> extension on <code>ViewModel</code> (from <code>androidx.lifecycle</code>), automatically cancelled when the <code>ViewModel</code>'s <code>onCleared()</code> is called; runs on <code>Dispatchers.Main.immediate</code> by default.</li><li><strong>lifecycleScope</strong> — tied to a <code>LifecycleOwner</code> (Activity/Fragment), cancelled when the lifecycle reaches <code>DESTROYED</code>; often paired with <code>repeatOnLifecycle(Lifecycle.State.STARTED)</code> to safely collect flows only while the UI is visible.</li><li><strong>GlobalScope</strong> — application-lifetime scope, <strong>not tied to any component</strong>; strongly discouraged in app code because it bypasses structured concurrency and easily leaks work.</li><li><strong>Custom scopes</strong> — e.g. a repository-level <code>CoroutineScope(SupervisorJob() + Dispatchers.IO)</code> for work that should outlive a single screen but still be cancellable.</li></ul>",
             referenceLinks: [{ title: "Android: Coroutines and lifecycle-aware scopes", url: "https://developer.android.com/topic/libraries/architecture/coroutines" }],
@@ -793,7 +793,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-coroutine-context",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is Coroutine Context?",
             answer: "<p><strong>🔑 An indexed set of coroutine configuration elements</strong></p><ul><li><strong>CoroutineContext</strong> is a persistent, immutable collection of elements that configure how a coroutine runs — each element has a unique <code>Key</code>, similar to a type-indexed map.</li><li><strong>Common elements</strong> — <code>Job</code> (lifecycle/cancellation), a <code>CoroutineDispatcher</code> (which thread(s), e.g. <code>Dispatchers.Main</code>/<code>IO</code>/<code>Default</code>), <code>CoroutineName</code> (debug label), and <code>CoroutineExceptionHandler</code> (uncaught exception handling).</li><li><strong>Combined with +</strong> — contexts are merged with the plus operator; an element with the same key on the right overrides one on the left, e.g. <code>Dispatchers.IO + CoroutineName(\"sync\")</code>.</li><li><strong>Inheritance</strong> — a child coroutine inherits its parent's context by default, except its <code>Job</code>, which becomes a new child <code>Job</code> linked to the parent's for structured concurrency.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Coroutine context and dispatchers", url: "https://kotlinlang.org/docs/coroutine-context-and-dispatchers.html" }],
@@ -828,7 +828,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-launch-vs-async",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the difference between launch and async in Kotlin Coroutines?",
             answer: "<p><strong>⚖️ Fire-and-forget vs a result you await</strong></p><table><thead><tr><th>Aspect</th><th><code>launch</code></th><th><code>async</code></th></tr></thead><tbody><tr><td>Returns</td><td><code>Job</code></td><td><code>Deferred&lt;T&gt;</code> (a <code>Job</code> that also holds a result)</td></tr><tr><td>Purpose</td><td>Fire-and-forget side effects</td><td>Compute and later retrieve a value with <code>.await()</code></td></tr><tr><td>Exception behavior</td><td>Propagates immediately to the parent scope</td><td>Stored in the <code>Deferred</code>; only re-thrown when <code>.await()</code> is called (unless top-level in a supervisor context)</td></tr><tr><td>Typical use</td><td>Updating UI state, writing to a database, logging</td><td>Running independent computations concurrently, then combining results</td></tr></tbody></table><p><strong>🎯 Interview tip:</strong> use multiple <code>async</code> calls inside a <code>coroutineScope { }</code> to run independent suspend calls truly in parallel, then <code>awaitAll()</code> them.</p>",
             referenceLinks: [{ title: "Kotlin: async", url: "https://kotlinlang.org/docs/composing-suspending-functions.html#async" }],
@@ -896,7 +896,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-sealed-classes-android-use-cases",
-            importance: "must-know",
+            importance: "should-know",
             question: "What are common use-cases of Sealed classes in Android?",
             answer: "<p><strong>🔑 Modeling finite, exhaustive states</strong></p><ul><li><strong>UI state modeling</strong> — a screen's state as <code>sealed class UiState { object Loading; data class Success(val data: T); data class Error(val message: String) }</code>, rendered exhaustively in Compose or a <code>ViewModel</code> observer.</li><li><strong>One-time UI events</strong> — navigation events, snackbar triggers, or dialogs modeled as a sealed hierarchy emitted through a <code>SharedFlow</code>, avoiding stringly-typed event dispatch.</li><li><strong>Network/Resource wrapper</strong> — wrapping API responses (<code>Result.Success</code>/<code>Result.Failure</code>) to force callers to handle both success and error paths at compile time.</li><li><strong>Navigation destinations</strong> — representing each screen/route as a sealed class subclass, giving type-safe arguments instead of raw string routes.</li><li><strong>Form/validation state</strong> — representing a field's validation result as <code>Valid</code>/<code>Invalid(reason)</code> instead of a nullable error string.</li></ul>",
             referenceLinks: [{ title: "Android: Modeling UI state", url: "https://developer.android.com/topic/architecture/ui-layer/state-production" }],
@@ -947,7 +947,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-coroutine-timeouts",
-            importance: "must-know",
+            importance: "should-know",
             question: "How do timeouts work in Kotlin Coroutines?",
             answer: "<p><strong>🔑 withTimeout and withTimeoutOrNull</strong></p><ul><li><strong>withTimeout(duration) { block }</strong> runs the block and, if it doesn't complete within the given time, <strong>cancels it and throws <code>TimeoutCancellationException</code></strong> (a subtype of <code>CancellationException</code>).</li><li><strong>withTimeoutOrNull(duration) { block }</strong> behaves the same but <strong>returns <code>null</code> instead of throwing</strong> when the timeout is exceeded — often more convenient when a timeout is an expected outcome, not an error.</li><li><strong>Cooperative cancellation still applies</strong> — the block must reach a suspension point (or check <code>isActive</code>/call <code>ensureActive()</code>) for the cancellation to actually take effect; a tight non-suspending CPU loop can ignore the timeout.</li><li><strong>Cleanup</strong> — resources should be released in a <code>finally</code> block or via <code>use { }</code>, since cancellation is delivered as an exception that unwinds the stack.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Cancellation and timeouts", url: "https://kotlinlang.org/docs/cancellation-and-timeouts.html" }],
@@ -964,7 +964,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-combine-coroutine-results",
-            importance: "must-know",
+            importance: "should-know",
             question: "How do you combine multiple coroutine results?",
             answer: "<p><strong>🔑 Run concurrently with async, then await together</strong></p><ul><li><strong>async + await pattern</strong> — launch each independent unit of work with <code>async</code> inside a <code>coroutineScope { }</code>, then call <code>.await()</code> on each <code>Deferred</code> to collect results — the calls run <strong>concurrently</strong>, not sequentially.</li><li><strong>awaitAll(...)</strong> awaits a collection of <code>Deferred</code> values at once, propagating the first exception and cancelling the rest, which is cleaner than awaiting each one manually when they're homogeneous.</li><li><strong>Flow's combine/zip operators</strong> — for streaming results rather than one-shot suspend calls, <code>combine(flow1, flow2) { a, b -> ... }</code> emits whenever either flow emits, while <code>zip</code> pairs emissions positionally.</li><li><strong>coroutineScope { }</strong> ensures that if any child fails, the whole group is cancelled together — respecting structured concurrency.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Composing suspending functions", url: "https://kotlinlang.org/docs/composing-suspending-functions.html" }],
@@ -981,7 +981,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-coroutine-job",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is a Job in Kotlin Coroutines?",
             answer: "<p><strong>🔑 A cancellable handle to a coroutine's lifecycle</strong></p><ul><li>A <strong>Job</strong> represents a cancellable unit of work with a lifecycle — it's what <code>launch</code> returns, and it's the element in a <code>CoroutineContext</code> that ties parent and child coroutines together for structured concurrency.</li><li><strong>Lifecycle states</strong> — New → Active → Completing → Completed, with Cancelling → Cancelled as an alternate path at any point after Active.</li><li><strong>Key operations</strong> — <code>job.cancel()</code> requests cancellation, <code>job.join()</code> suspends until the job completes, <code>job.isActive</code>/<code>isCompleted</code>/<code>isCancelled</code> inspect state.</li><li><strong>SupervisorJob</strong> is a variant where a child's failure does <strong>not</strong> cancel siblings or the parent — used when independent children shouldn't take each other down.</li><li>Every coroutine has exactly one <code>Job</code> in its context, forming a <strong>parent-child tree</strong> that structured concurrency relies on for cancellation propagation.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Job", url: "https://kotlinlang.org/docs/coroutines-basics.html#coroutines-are-light-weight" }],
@@ -998,7 +998,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-job-cancel-vs-scope-cancel",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the difference between job.cancel() and scope.cancel() in Coroutines?",
             answer: "<p><strong>⚖️ Cancelling one branch vs the whole tree</strong></p><table><thead><tr><th>Aspect</th><th><code>job.cancel()</code></th><th><code>scope.cancel()</code></th></tr></thead><tbody><tr><td>Scope</td><td>Cancels that specific <code>Job</code> and its children only</td><td>Cancels the <strong>entire scope</strong> — every coroutine launched from it</td></tr><tr><td>Reusability after</td><td>Sibling coroutines in the same scope keep running</td><td>The scope's underlying <code>Job</code> is cancelled — the scope becomes <strong>unusable</strong> for launching new coroutines</td></tr><tr><td>Typical target</td><td>A single background task the user opted out of (e.g. cancel one upload)</td><td>A whole component's lifecycle ending (e.g. <code>ViewModel.onCleared()</code>, which the framework already does for you)</td></tr></tbody></table><p><strong>🎯 Interview tip:</strong> calling <code>scope.cancel()</code> manually on <code>viewModelScope</code>/<code>lifecycleScope</code> is almost never necessary — the framework handles it; reach for <code>job.cancel()</code> on the specific <code>Job</code> returned by <code>launch</code> when you need finer-grained control.</p>",
             referenceLinks: [{ title: "Kotlin: Cancellation and timeouts", url: "https://kotlinlang.org/docs/cancellation-and-timeouts.html" }],
@@ -1015,7 +1015,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-async-exception-no-await",
-            importance: "must-know",
+            importance: "should-know",
             question: "What happens if an exception is thrown inside an async coroutine, but await() is never called?",
             answer: "<p><strong>🔑 Depends on the parent Job type</strong></p><ul><li><strong>Under structured concurrency (normal Job)</strong> — an exception thrown inside an <code>async</code> block propagates <strong>immediately</strong> to its parent coroutine, regardless of whether <code>await()</code> is ever called; the parent scope is cancelled just like it would be for a failing <code>launch</code>.</li><li><strong>Under a SupervisorJob / top-level GlobalScope.async</strong> — the exception is <strong>stored inside the <code>Deferred</code></strong> and stays silent until something calls <code>.await()</code> on it — if nothing ever does, the exception is effectively swallowed and never surfaces.</li><li><strong>Practical risk</strong> — this makes <code>async</code> without an eventual <code>await()</code> a dangerous pattern for supervised/top-level scopes: failures can go completely unnoticed.</li><li><strong>Mitigation</strong> — always pair <code>async</code> with <code>await()</code>, or install a <code>CoroutineExceptionHandler</code> on the scope to at least log uncaught failures.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Exception handling", url: "https://kotlinlang.org/docs/exception-handling.html" }],
@@ -1032,7 +1032,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-debounce-coroutines",
-            importance: "must-know",
+            importance: "should-know",
             question: "How to implement debounce using Kotlin Coroutines?",
             answer: "<p><strong>🔑 Flow's built-in debounce operator</strong></p><ul><li>The idiomatic approach is <code>kotlinx.coroutines.flow.debounce(timeoutMillis)</code> — applied to a <code>Flow</code>, it emits an item only after the given quiet period has passed <strong>without a new emission</strong>, dropping intermediate values.</li><li><strong>Common source</strong> — a search box's text changes exposed as a <code>Flow&lt;String&gt;</code> (e.g. via <code>callbackFlow</code> or <code>MutableStateFlow</code>), debounced before triggering a network search.</li><li><strong>Manual debounce</strong> (without Flow) — cancel and relaunch a coroutine <code>Job</code> on every new event, using <code>delay()</code> before doing the actual work, so only the last scheduled job survives the quiet window.</li><li>Distinct from <code>throttleLatest</code>-style operators — debounce waits for silence, while throttling limits the <em>rate</em> of emissions regardless of gaps.</li></ul>",
             referenceLinks: [{ title: "Kotlin Flow: debounce", url: "https://kotlinlang.org/docs/flow.html#debounce" }],
@@ -1060,7 +1060,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-coroutines-series-parallel",
-            importance: "must-know",
+            importance: "should-know",
             question: "How to run two coroutines in series and parallel in Kotlin?",
             answer: "<p><strong>🔑 Sequential suspend calls vs concurrent async</strong></p><ul><li><strong>Series (sequential)</strong> — simply call one <code>suspend</code> function after another in the same coroutine; each call suspends until it completes before the next line runs, exactly like normal sequential code.</li><li><strong>Parallel (concurrent)</strong> — wrap each call in its own <code>async { }</code> builder inside a <code>coroutineScope { }</code>; both start immediately and run concurrently, and you retrieve their results with <code>.await()</code> once both are needed.</li><li><strong>Total time</strong> — sequential execution takes the <strong>sum</strong> of each call's duration; parallel execution takes roughly the <strong>maximum</strong> of the two, since they overlap.</li><li><strong>When to choose which</strong> — use series when the second call depends on the first's result; use parallel when the calls are independent and both results are needed together.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Composing suspending functions", url: "https://kotlinlang.org/docs/composing-suspending-functions.html" }],
@@ -1087,7 +1087,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-yield",
-            importance: "must-know",
+            importance: "good-to-know",
             question: "What is yield in Kotlin Coroutines?",
             answer: "<p><strong>🔑 A cooperative suspension point</strong></p><ul><li><strong>yield()</strong> is a suspend function that <strong>voluntarily suspends</strong> the current coroutine, giving other coroutines on the same dispatcher a chance to run, and then resumes as soon as possible.</li><li><strong>Cancellation checkpoint</strong> — like other suspension points, <code>yield()</code> checks for cancellation; calling it periodically inside a CPU-heavy loop makes that loop cooperatively cancellable, since a tight non-suspending loop otherwise never checks.</li><li><strong>Sequence/iterator builders</strong> — inside a <code>sequence { }</code> or <code>iterator { }</code> builder, <code>yield(value)</code> has a different, related meaning: it emits a value and suspends the producer until the next value is requested (lazy generation, similar to Python generators).</li><li>Distinct from <code>delay()</code> — <code>yield()</code> doesn't wait for a specific time, it just relinquishes the thread momentarily.</li></ul>",
             referenceLinks: [{ title: "Kotlin: Cancellation and timeouts", url: "https://kotlinlang.org/docs/cancellation-and-timeouts.html#making-computation-code-cancellable" }],
@@ -1138,7 +1138,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-flatmap-operators",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the difference between flatMapConcat, flatMapMerge, and flatMapLatest in Kotlin Flow?",
             answer: "<p><strong>⚖️ Three strategies for flattening a Flow of Flows</strong></p><table><thead><tr><th>Operator</th><th>Ordering</th><th>Concurrency</th><th>Typical use</th></tr></thead><tbody><tr><td><code>flatMapConcat</code></td><td>Preserves order — waits for each inner flow to finish before starting the next</td><td>Sequential, one inner flow at a time</td><td>Requests that must run strictly in order</td></tr><tr><td><code>flatMapMerge</code></td><td>Interleaved — emissions arrive as they occur</td><td>Concurrent, up to <code>concurrency</code> inner flows at once (default 16)</td><td>Independent parallel requests where order doesn't matter</td></tr><tr><td><code>flatMapLatest</code></td><td>Only the newest matters</td><td>Cancels the previous inner flow whenever a new value arrives from upstream</td><td>Search-as-you-type, always want the latest query's result only</td></tr></tbody></table><p><strong>🎯 Interview tip:</strong> <code>flatMapLatest</code> is the Flow equivalent of RxJava's <code>switchMap</code> — reach for it whenever a new upstream event should invalidate in-flight work from the previous one.</p>",
             referenceLinks: [{ title: "Kotlin Flow: Flattening flows", url: "https://kotlinlang.org/docs/flow.html#flattening-flows" }],
@@ -1155,7 +1155,7 @@ const kotlinData = {
         },
         {
             id: "kotlin-collect-vs-collectlatest",
-            importance: "must-know",
+            importance: "should-know",
             question: "What is the difference between collect and collectLatest in Kotlin Flow?",
             answer: "<p><strong>⚖️ Process every value vs only the latest</strong></p><table><thead><tr><th>Aspect</th><th><code>collect</code></th><th><code>collectLatest</code></th></tr></thead><tbody><tr><td>Guarantee</td><td>Every emitted value is fully processed by the collector block, in order</td><td>Only the <strong>latest</strong> value is guaranteed to finish processing — an in-progress block is cancelled if a new value arrives</td></tr><tr><td>Behavior on rapid emission</td><td>Collector block runs to completion for each value, potentially queuing/backpressuring upstream</td><td>Collector block for a stale value is cancelled mid-execution when a newer value shows up</td></tr><tr><td>Use case</td><td>Every update must be acted on — e.g. appending to a list, writing to a database log</td><td>Only the most recent state matters — e.g. updating a loading UI where a stale in-flight render should be dropped</td></tr></tbody></table><p><strong>🎯 Interview tip:</strong> because the collector body in <code>collectLatest</code> can be cancelled mid-execution, any suspend calls inside it must be cancellation-safe (e.g. no partial side effects left dangling).</p>",
             referenceLinks: [{ title: "Kotlin Flow: collect", url: "https://kotlinlang.org/docs/flow.html#terminal-flow-operators" }],
