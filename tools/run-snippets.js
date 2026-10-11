@@ -12,6 +12,12 @@
    `kind: 'trace'`, which is prose describing behaviour and is labelled as such
    in the UI. Only `stdout` is a machine-checkable claim.
 
+   Kotlin and Java are both runnable. Java earns its place here rather than being
+   an afterthought: the questions whose answers people get wrong until they watch
+   them run — `Integer` caching at 127 against 128, `==` against `.equals()`,
+   pass-by-value, the order `finally` runs in — are all Java, and all of them are
+   claims a printed line settles.
+
        node tools/run-snippets.js              # verify every stdout snippet
        node tools/run-snippets.js --selftest   # prove the harness itself works
        node tools/run-snippets.js --verbose    # show actual vs expected on pass
@@ -46,6 +52,9 @@ const verbose = argv.includes('--verbose');
    Android development already has everything this needs and nothing has to be
    installed. $KOTLINC and $JAVA_HOME win when set, so a standalone toolchain
    works too.
+
+   `javac` sits beside the `java` we already resolve — the same bundled JBR — so
+   Java support costs a path join rather than a second toolchain.
    -------------------------------------------------------------------------- */
 
 const STUDIO = '/Applications/Android Studio.app/Contents';
@@ -71,6 +80,7 @@ function resolveToolchain() {
         `${STUDIO}/jbr/Contents/Home`
     ]);
     const java = firstExisting([javaHome && `${javaHome}/bin/java`]) || onPath('java');
+    const javac = firstExisting([javaHome && `${javaHome}/bin/javac`]) || onPath('javac');
 
     // The stdlib sits beside whichever kotlinc we found; without it a compiled
     // class cannot start. kotlinx-coroutines ships in the same directory but is
@@ -85,12 +95,40 @@ function resolveToolchain() {
 
     const classpath = [stdlib, ...extras].filter(Boolean).join(path.delimiter);
 
-    return { kotlinc, java, stdlib, extras, classpath, javaHome };
+    return { kotlinc, java, javac, stdlib, extras, classpath, javaHome };
 }
 
 /* --------------------------------------------------------------------------
    Running one snippet
    -------------------------------------------------------------------------- */
+
+/** The first few compiler errors, on one line, or null if it compiled. */
+function compileNote(compile, tool) {
+    if (compile.status === 0) return null;
+    const detail = (compile.stderr || compile.stdout || '').trim().split('\n')
+        .filter((l) => /error:/i.test(l)).slice(0, 4).join('; ');
+    return `did not compile — ${detail || `see ${tool} output`}`;
+}
+
+/** Run a compiled class and collect stdout as lines, or explain why it did not. */
+function runClass(tools, classpath, mainClass) {
+    const run = spawnSync(tools.java, ['-cp', classpath, mainClass], {
+        encoding: 'utf8',
+        timeout: RUN_TIMEOUT_MS
+    });
+
+    if (run.error && run.error.code === 'ETIMEDOUT') {
+        return { ok: false, note: `did not finish within ${RUN_TIMEOUT_MS / 1000}s — it is not a stdout snippet` };
+    }
+    if (run.status !== 0) {
+        const detail = (run.stderr || '').trim().split('\n')[0] || `exit ${run.status}`;
+        return { ok: false, note: `threw at runtime — ${detail}` };
+    }
+
+    const lines = (run.stdout || '').split('\n');
+    while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
+    return { ok: true, lines };
+}
 
 /**
  * Compile and run `code`, returning `{ ok, lines, note }`.
@@ -110,32 +148,115 @@ function runKotlin(code, tools) {
             env: { ...process.env, JAVA_HOME: tools.javaHome || process.env.JAVA_HOME || '' }
         });
 
-        if (compile.status !== 0) {
-            const detail = (compile.stderr || compile.stdout || '').trim().split('\n')
-                .filter((l) => /error:/i.test(l)).slice(0, 4).join('; ');
-            return { ok: false, note: `did not compile — ${detail || 'see kotlinc output'}` };
-        }
+        const failed = compileNote(compile, 'kotlinc');
+        if (failed) return { ok: false, note: failed };
 
-        const run = spawnSync(tools.java, ['-cp', `${classes}${path.delimiter}${tools.classpath}`, 'SnippetKt'], {
-            encoding: 'utf8',
-            timeout: RUN_TIMEOUT_MS
-        });
-
-        if (run.error && run.error.code === 'ETIMEDOUT') {
-            return { ok: false, note: `did not finish within ${RUN_TIMEOUT_MS / 1000}s — it is not a stdout snippet` };
-        }
-        if (run.status !== 0) {
-            const detail = (run.stderr || '').trim().split('\n')[0] || `exit ${run.status}`;
-            return { ok: false, note: `threw at runtime — ${detail}` };
-        }
-
-        const lines = (run.stdout || '').split('\n');
-        while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
-        return { ok: true, lines };
+        return runClass(tools, `${classes}${path.delimiter}${tools.classpath}`, 'SnippetKt');
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
     }
 }
+
+/* --------------------------------------------------------------------------
+   Java
+
+   Kotlin puts top-level code in a predictable `SnippetKt`; Java does not. The
+   file must be named after its public class, and the class to run is whichever
+   one declares `main` — not necessarily the same one, and not necessarily the
+   first. Both have to be read out of the source before anything can be compiled.
+   -------------------------------------------------------------------------- */
+
+/** Blank out comments and literals, which can contain braces and the word `class`. */
+function stripLiterals(source) {
+    return source
+        .replace(/\/\*[\s\S]*?\*\//g, ' ')
+        .replace(/\/\/[^\n]*/g, ' ')
+        .replace(/"""[\s\S]*?"""/g, '""')
+        .replace(/"(\\.|[^"\\\n])*"/g, '""')
+        .replace(/'(\\.|[^'\\\n])*'/g, "''");
+}
+
+/** Brace nesting depth at every index, so top-level declarations can be told apart. */
+function depthMap(source) {
+    const depth = new Array(source.length);
+    let level = 0;
+    for (let i = 0; i < source.length; i++) {
+        if (source[i] === '}') level--;
+        depth[i] = level;
+        if (source[i] === '{') level++;
+    }
+    return depth;
+}
+
+/**
+ * Work out what to call the file and what class to run.
+ * Returns `{ file, main }`, where `main` is fully qualified and null if the
+ * snippet has no entry point at all.
+ */
+function javaEntry(code) {
+    const source = stripLiterals(code);
+    const depth = depthMap(source);
+    const pkg = (source.match(/^[ \t]*package\s+([\w.]+)\s*;/m) || [])[1] || null;
+
+    // Only types declared at depth 0 are candidates. A `static class Node`
+    // sitting above `main` inside the outer class is nested, and running it
+    // would fail with an error that says nothing useful.
+    const declaration = /\b(public\s+)?(?:(?:final|abstract|static|sealed|non-sealed)\s+)*(?:class|interface|enum|record)\s+([A-Za-z_$][\w$]*)/g;
+    const types = [];
+    let match;
+    while ((match = declaration.exec(source))) {
+        if (depth[match.index] !== 0) continue;
+        const open = source.indexOf('{', match.index);
+        if (open === -1) continue;
+        let end = open + 1;
+        let level = 1;
+        while (end < source.length && level > 0) {
+            if (source[end] === '{') level++;
+            else if (source[end] === '}') level--;
+            end++;
+        }
+        types.push({ name: match[2], isPublic: Boolean(match[1]), start: match.index, end });
+    }
+
+    const mainAt = source.search(/\bvoid\s+main\s*\(\s*(?:final\s+)?String/);
+    const holder = mainAt === -1 ? null : types.find((t) => mainAt > t.start && mainAt < t.end);
+    const named = types.find((t) => t.isPublic) || holder || types[0];
+
+    return {
+        file: named ? named.name : 'Snippet',
+        main: holder ? (pkg ? `${pkg}.${holder.name}` : holder.name) : null
+    };
+}
+
+function runJava(code, tools) {
+    const entry = javaEntry(code);
+    if (!entry.main) {
+        return { ok: false, note: 'declares no `public static void main` — it cannot print anything, so it is a trace, not a stdout snippet' };
+    }
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'droiddeck-snippet-'));
+    const source = path.join(dir, `${entry.file}.java`);
+    const classes = path.join(dir, 'out');
+
+    try {
+        fs.mkdirSync(classes);
+        fs.writeFileSync(source, code);
+
+        const compile = spawnSync(tools.javac, ['-nowarn', '-d', classes, source], {
+            encoding: 'utf8',
+            timeout: COMPILE_TIMEOUT_MS
+        });
+
+        const failed = compileNote(compile, 'javac');
+        if (failed) return { ok: false, note: failed };
+
+        return runClass(tools, classes, entry.main);
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+}
+
+const RUNNERS = { kotlin: runKotlin, java: runJava };
 
 function sameOutput(actual, expected) {
     if (actual.length !== expected.length) return false;
@@ -185,6 +306,7 @@ function stdoutSnippets(topics) {
 const FIXTURES = [
     {
         name: 'plain Kotlin',
+        language: 'kotlin',
         code: [
             'fun main() {',
             '    val nums = listOf(1, 2, 3, 4)',
@@ -200,6 +322,7 @@ const FIXTURES = [
         // would look healthy right up until the first real snippet failed to
         // compile.
         name: 'coroutines',
+        language: 'kotlin',
         code: [
             'import kotlinx.coroutines.*',
             '',
@@ -210,6 +333,37 @@ const FIXTURES = [
             '}'
         ].join('\n'),
         expected: ['tick 0', 'tick 1', 'tick 2', 'done']
+    },
+    {
+        // Java's entry point has to be found rather than assumed, so the fixture
+        // uses the awkward shape on purpose: a helper type declared first, a
+        // public class that is not the first declaration, and `main` inside it
+        // after a nested class. Anything that guesses gets this wrong.
+        name: 'Java',
+        language: 'java',
+        code: [
+            'class Counter {',
+            '    int value;',
+            '    void bump() { value++; }',
+            '}',
+            '',
+            'public class Demo {',
+            '    static class Pair { int a, b; }',
+            '',
+            '    public static void main(String[] args) {',
+            '        Counter c = new Counter();',
+            '        c.bump();',
+            '        c.bump();',
+            '        System.out.println("value=" + c.value);',
+            '',
+            '        Integer small = 127, alsoSmall = 127;',
+            '        Integer big = 128, alsoBig = 128;',
+            '        System.out.println("127 == 127 -> " + (small == alsoSmall));',
+            '        System.out.println("128 == 128 -> " + (big == alsoBig));',
+            '    }',
+            '}'
+        ].join('\n'),
+        expected: ['value=2', '127 == 127 -> true', '128 == 128 -> false']
     }
 ];
 
@@ -217,7 +371,7 @@ function runSelftest(tools) {
     console.log('Self-test — compiling and running known fixtures.\n');
 
     for (const fixture of FIXTURES) {
-        const result = runKotlin(fixture.code, tools);
+        const result = RUNNERS[fixture.language](fixture.code, tools);
         if (!result.ok) {
             console.log(`  ✗ ${fixture.name}: ${result.note}`);
             return 1;
@@ -246,9 +400,10 @@ function runSelftest(tools) {
 function main() {
     const tools = resolveToolchain();
 
-    if (!tools.kotlinc || !tools.java || !tools.stdlib) {
-        console.log('No Kotlin toolchain found. Looked for:');
+    if (!tools.kotlinc || !tools.java || !tools.javac || !tools.stdlib) {
+        console.log('No complete toolchain found. Looked for:');
         console.log(`  kotlinc  ${tools.kotlinc || 'not found'}`);
+        console.log(`  javac    ${tools.javac || 'not found'}`);
         console.log(`  java     ${tools.java || 'not found'}`);
         console.log(`  stdlib   ${tools.stdlib || 'not found'}`);
         console.log('\nInstall Android Studio, or set $KOTLINC and $JAVA_HOME.');
@@ -259,6 +414,7 @@ function main() {
 
     if (verbose || selftest) {
         console.log(`kotlinc: ${tools.kotlinc}`);
+        console.log(`javac:   ${tools.javac}`);
         console.log(`java:    ${tools.java}\n`);
     }
 
@@ -276,14 +432,15 @@ function main() {
 
     const failures = [];
     for (const target of targets) {
-        if (target.snippet.language !== 'kotlin') {
+        const runner = RUNNERS[target.snippet.language];
+        if (!runner) {
             failures.push(target.label);
             console.log(`  ✗ ${target.label}`);
-            console.log(`    language "${target.snippet.language}" cannot be run — only kotlin is supported\n`);
+            console.log(`    language "${target.snippet.language}" cannot be run — only ${Object.keys(RUNNERS).join(' and ')} are supported\n`);
             continue;
         }
 
-        const result = runKotlin(target.snippet.code || '', tools);
+        const result = runner(target.snippet.code || '', tools);
         if (!result.ok) {
             failures.push(target.label);
             console.log(`  ✗ ${target.label}\n    ${result.note}\n`);
@@ -307,4 +464,6 @@ function main() {
     console.log(`✓ all ${targets.length} snippet(s) print exactly what is recorded`);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { javaEntry, resolveToolchain, runKotlin, runJava };
