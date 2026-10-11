@@ -17,6 +17,13 @@ const TIERS = ['must-know', 'should-know', 'good-to-know'];
 const LANGUAGES = ['kotlin', 'java', 'xml', 'html', 'groovy', 'text'];
 const DIAGRAM_TYPES = ['flowchart', 'animation', 'sequence'];      // js/diagrams.js
 
+/* A snippet's output is either console text or a description of behaviour, and
+   the two are never rendered alike. `RUNNABLE_LANGUAGES` is the list
+   run-snippets.js has a compiler for, and it is what makes `stdout` a claim the
+   repo can check rather than one an author asserts. */
+const OUTPUT_KINDS = ['stdout', 'trace'];
+const RUNNABLE_LANGUAGES = ['kotlin', 'java'];
+
 /* Tags allowed inside authored `html`. The table children are here because
    `<table>` is useless without them. `<img>` is deliberately absent: images are
    structured data on the question, not markup inside an answer, so that `src`
@@ -64,4 +71,7 @@ function htmlIssues(html) {
     return issues;
 }
 
-module.exports = { TIERS, LANGUAGES, DIAGRAM_TYPES, ALLOWED_TAGS, KEBAB, htmlIssues };
+module.exports = {
+    TIERS, LANGUAGES, DIAGRAM_TYPES, OUTPUT_KINDS, RUNNABLE_LANGUAGES,
+    ALLOWED_TAGS, KEBAB, htmlIssues
+};

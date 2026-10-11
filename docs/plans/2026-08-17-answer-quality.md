@@ -522,6 +522,24 @@ snippet through `run-snippets.js`, write traces for the rest. 272 snippets exist
 triage says which of them get a pane and which kind, so this phase is execution
 rather than judgement.
 
+> **Correction, written while starting the phase.** "Execution rather than
+> judgement" was wrong, and wrong in a way that changes the size of the work.
+> **Almost nothing in the bank is a program.** Of 221 Kotlin snippets exactly one
+> declares `fun main`; of 39 Java snippets, none declares a `main` at all — every
+> one is a fragment of declarations and bare statements that no compiler would
+> accept. So a snippet cannot be *given* an output pane; it has to be **rewritten
+> into a runnable program first**, and only then run.
+>
+> The alternative — having `run-snippets.js` wrap fragments in a synthetic `main`
+> before compiling — was considered and rejected. The snippet has to grow
+> `println` calls to print anything at all, so it is being edited either way, and
+> once it is, hiding the entry point means the reader is shown one thing while
+> the verifier checks another. What the reader sees is what ran. That is the
+> property this whole feature exists to have.
+>
+> This makes Phase 3 a content phase, not an annotation phase, and it is why the
+> phase proceeds a topic at a time.
+
 **Phase 4 — verify and simplify (asks 1 and 3).** Work the `words` column,
 must-know tier first, topic by topic, one commit each. Both passes at once —
 reading a question against its primary source and rewriting it for the tongue are

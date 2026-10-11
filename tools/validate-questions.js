@@ -13,14 +13,15 @@
 
    Exits 1 on any error. Warnings never fail the run.
 
-   Checks 3, 4 and 5 from the plan describe fields that do not exist yet
-   (`images`, `codeSnippets[].output`). They are turned on by the phase that
-   introduces each field; what is here is everything that can be enforced
-   against the corpus as it stands.
+   Checks 3 and 4 from the plan describe fields that do not exist yet
+   (`images`). They are turned on by the phase that introduces each field; what
+   is here is everything that can be enforced against the corpus as it stands.
    ========================================================================== */
 
 const { loadCorpus } = require('./load-corpus');
-const { TIERS, LANGUAGES, DIAGRAM_TYPES, KEBAB, htmlIssues } = require('./schema');
+const {
+    TIERS, LANGUAGES, DIAGRAM_TYPES, OUTPUT_KINDS, RUNNABLE_LANGUAGES, KEBAB, htmlIssues
+} = require('./schema');
 
 /* Question ids are unique within a topic but not across the bank, and exactly
    one id is shared by two topics. Listing it here means a *second* collision is
@@ -147,9 +148,51 @@ function checkQuestion(question, at, topic, declaredSubsections) {
         if (!LANGUAGES.includes(snippet.language)) {
             error(where, `language ${JSON.stringify(snippet.language)} is not one of ${LANGUAGES.join(', ')}`);
         }
+        if (snippet.output) checkOutput(snippet, `${where} output`);
     });
 
     checkDiagram(question, at);
+}
+
+/* 5 — the output pane.
+
+   `stdout` is a falsifiable claim: this is what the program printed, and
+   `run-snippets.js` re-runs it to prove it. `trace` is a description of
+   behaviour, for code that has no stdout to give. Confusing the two is the one
+   failure this feature must not have, so the schema keeps them apart and the
+   language check below refuses `stdout` on anything no compiler here can run —
+   an Output block nobody verified is a guess wearing a costume. */
+function checkOutput(snippet, at) {
+    const output = snippet.output;
+    if (typeof output !== 'object') { error(at, 'is not an object'); return; }
+
+    if (!OUTPUT_KINDS.includes(output.kind)) {
+        error(at, `kind ${JSON.stringify(output.kind)} is not one of ${OUTPUT_KINDS.join(', ')}`);
+    }
+
+    if (!Array.isArray(output.lines) || !output.lines.length) {
+        error(at, 'lines must be a non-empty array');
+    } else {
+        output.lines.forEach((line, i) => {
+            if (typeof line !== 'string') error(at, `lines[${i}] is not a string`);
+        });
+    }
+
+    if (output.kind === 'stdout' && !RUNNABLE_LANGUAGES.includes(snippet.language)) {
+        error(
+            at,
+            `kind is "stdout" but the snippet is ${snippet.language}, which run-snippets.js ` +
+            `cannot execute — only ${RUNNABLE_LANGUAGES.join(' and ')} can carry stdout. Use "trace"`
+        );
+    }
+
+    if (output.explain !== undefined) {
+        if (typeof output.explain !== 'string' || !output.explain.trim()) {
+            error(at, 'explain, when present, must be a non-empty string');
+        } else {
+            htmlIssues(output.explain).forEach((issue) => error(`${at} explain`, issue));
+        }
+    }
 }
 
 /* `hasDiagram` gates the render, so a config with the flag off is dead content

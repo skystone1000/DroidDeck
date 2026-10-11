@@ -437,6 +437,8 @@ function renderCodeBlock(snippet) {
     pre.appendChild(code);
     bodyWrap.appendChild(pre);
 
+    if (snippet.output) bodyWrap.appendChild(renderCodeOutput(snippet.output));
+
     block.appendChild(header);
     block.appendChild(bodyWrap);
 
@@ -450,6 +452,55 @@ function renderCodeBlock(snippet) {
     });
 
     return block;
+}
+
+/* Two panes, and the difference between them is the point.
+
+   `stdout` is literal console text from a program that was compiled and run by
+   tools/run-snippets.js, so it is shown as a terminal. `trace` is prose — a
+   numbered account of what happens when code with no stdout runs — so it is
+   shown as a numbered list under a heading that says so. Dressing a described
+   trace up as console output would teach a beginner something false about the
+   platform, which is worse than showing them nothing. */
+function renderCodeOutput(output) {
+    const stdout = output.kind === 'stdout';
+
+    const pane = document.createElement('div');
+    pane.className = `code-output code-output-${stdout ? 'stdout' : 'trace'}`;
+
+    const label = document.createElement('div');
+    label.className = 'code-output-label';
+    label.textContent = stdout ? 'Output' : 'What happens, in order';
+    pane.appendChild(label);
+
+    const lines = output.lines || [];
+
+    if (stdout) {
+        // textContent, not innerHTML: this is a console dump, and a program is
+        // free to print something that looks like markup.
+        const pre = document.createElement('pre');
+        pre.className = 'code-output-console';
+        pre.textContent = lines.join('\n');
+        pane.appendChild(pre);
+    } else {
+        const list = document.createElement('ol');
+        list.className = 'code-output-steps';
+        lines.forEach((line) => {
+            const item = document.createElement('li');
+            item.textContent = line;
+            list.appendChild(item);
+        });
+        pane.appendChild(list);
+    }
+
+    if (output.explain) {
+        const explain = document.createElement('div');
+        explain.className = 'code-output-explain';
+        explain.innerHTML = output.explain;
+        pane.appendChild(explain);
+    }
+
+    return pane;
 }
 
 /* --------------------------------------------------------------------------
