@@ -291,7 +291,7 @@ const androidData = {
         },
         {
             "id": "android-zygote",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How does Zygote make Android apps start faster?",
             "answer": "<p><strong>🔑 Zygote</strong> is a pre-warmed system process that every app process is <strong>forked</strong> from, avoiding a cold VM boot per app.</p><ul><li>At boot, <code>init</code> starts <strong>Zygote</strong>, which loads the <strong>core Java/Kotlin framework classes</strong>, common resources, and initializes the ART runtime once.</li><li>When a new app launches, <strong>ActivityManagerService</strong> asks Zygote to <code>fork()</code> itself — the child process inherits an already-warmed heap and preloaded classes via <strong>copy-on-write</strong> memory pages.</li><li>This avoids re-parsing/re-loading the same framework classes and resources for every app, cutting startup time dramatically compared to spawning a fresh process from scratch.</li><li><strong>Zygote64/Zygote32</strong> exist for 64-bit and 32-bit ABI support; <strong>Zygote's app forks memory-share</strong> unmodified pages with the parent, only diverging (copy-on-write) when they write to memory.</li><li>Related: <strong>App Startup</strong> tracing distinguishes cold, warm, and hot starts — Zygote fork only affects cold start of the process itself, not warm/hot resumes of an already-running process.</li></ul>",
             "referenceLinks": [
@@ -339,7 +339,7 @@ const androidData = {
         },
         {
             "id": "android-project-structure",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is the project structure of an Android Application?",
             "answer": "<p><strong>🔑 A Gradle multi-module project</strong> with a conventional source-set layout under each module.</p><ul><li><strong>manifests/</strong> — <code>AndroidManifest.xml</code>, declaring components, permissions, and app metadata.</li><li><strong>java/kotlin/</strong> — source code, organized in package folders; separate <code>androidTest</code> (instrumented, runs on device) and <code>test</code> (local JVM unit tests) source sets.</li><li><strong>res/</strong> — resources: <code>layout/</code>, <code>drawable/</code>, <code>values/</code> (strings, colors, styles, dimens), <code>mipmap/</code> (launcher icons), qualifiers like <code>values-night/</code> or <code>layout-sw600dp/</code> for configuration-specific resources.</li><li><strong>assets/</strong> — raw files bundled as-is (fonts, ML models, JSON) accessed via <code>AssetManager</code>, not resource-IDed.</li><li><strong>build.gradle(.kts)</strong> (module + project level) — dependencies, build variants, signing configs; <strong>gradle.properties</strong> and <strong>settings.gradle</strong> at the project root wire modules together.</li></ul>",
             "referenceLinks": [
@@ -363,7 +363,7 @@ const androidData = {
         },
         {
             "id": "android-manifest",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is AndroidManifest.xml?",
             "answer": "<p><strong>🔑 The manifest</strong> is the app's declarative contract with the Android system — it must exist at the root of every module.</p><ul><li>Declares all <strong>application components</strong> (<code>&lt;activity&gt;</code>, <code>&lt;service&gt;</code>, <code>&lt;receiver&gt;</code>, <code>&lt;provider&gt;</code>) so the OS can find and launch them.</li><li>Declares <strong>permissions</strong> the app requires (<code>&lt;uses-permission&gt;</code>) and permissions it defines for other apps to request.</li><li>Specifies <strong>hardware/software feature requirements</strong> (<code>&lt;uses-feature&gt;</code>, e.g. camera) that affect Play Store filtering.</li><li>Sets the <strong>minSdkVersion/targetSdkVersion</strong> (usually via Gradle, merged in), app <code>theme</code>, <code>icon</code>, and the <strong>launcher activity</strong> via an intent-filter with <code>MAIN</code>/<code>LAUNCHER</code>.</li><li>Multiple manifests (per module/build variant) are combined by the <strong>Manifest Merger</strong> tool at build time into one final manifest.</li></ul>",
             "referenceLinks": [
@@ -392,7 +392,7 @@ const androidData = {
         },
         {
             "id": "android-application-class",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is the Application class in Android?",
             "answer": "<p><strong>🔑 Application</strong> is the base class for maintaining <strong>global application state</strong> — instantiated once, before any other component, and lives for the whole process lifetime.</p><ul><li>Subclass it and register it via <code>android:name</code> in the manifest to run app-wide init logic in <code>onCreate()</code> — e.g. initializing DI graphs (Hilt/Dagger), crash reporting, logging, WorkManager configuration.</li><li>Provides <code>onCreate()</code>, <code>onTerminate()</code> (rarely called on real devices, mainly emulator), <code>onLowMemory()</code>, and <code>onTrimMemory(level)</code> callbacks for global memory pressure handling.</li><li>It <strong>is</strong> a <code>Context</code> (Application Context) — safe to store long-lived references to it since it doesn't leak a UI hierarchy.</li><li><strong>⚠️ Pitfall:</strong> avoid heavy synchronous work in <code>Application.onCreate()</code> — it runs before your first Activity and directly delays app startup/cold-start time.</li></ul>",
             "referenceLinks": [
@@ -511,7 +511,7 @@ const androidData = {
         },
         {
             "id": "android-ondestroy-without-onpause-onstop",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "When is only onDestroy() called for an activity without onPause() and onStop()?",
             "answer": "<p><strong>🔑 Direct-to-onDestroy()</strong> happens when you call <code>finish()</code> from inside <code>onCreate()</code> before the Activity ever becomes visible.</p><ul><li>If <code>finish()</code> is invoked during <code>onCreate()</code> (e.g. a guard clause redirecting to a login screen), the Activity never reaches <code>onStart()</code>/<code>onResume()</code>, so the system skips straight to <code>onDestroy()</code> without calling <code>onPause()</code> or <code>onStop()</code> since it was never paused or stopped.</li><li>This is documented behavior, not a bug — the lifecycle callbacks that represent \"was visible\"/\"was in foreground\" states simply don't apply to an Activity that was destroyed before reaching those states.</li><li>Contrast with the normal teardown path: <code>onPause()</code> → <code>onStop()</code> → <code>onDestroy()</code>, which happens once the Activity has actually been visible/foregrounded at some point.</li></ul>",
             "referenceLinks": [
@@ -540,7 +540,7 @@ const androidData = {
         },
         {
             "id": "android-setcontentview-in-oncreate",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "Why do we need to call setContentView() in onCreate() of Activity class?",
             "answer": "<p><strong>🔑 setContentView() attaches and inflates the layout</strong> into the Activity's window, and <code>onCreate()</code> is the earliest lifecycle point where the window is available and one-time setup happens.</p><ul><li><code>onCreate()</code> runs exactly once per Activity instance, making it the right place for <strong>one-time initialization</strong> like layout inflation, view binding setup, and restoring instance state — doing it in <code>onStart()</code>/<code>onResume()</code> would re-run it unnecessarily on every visibility change.</li><li>Until <code>setContentView()</code> (or <code>ComponentActivity</code>'s Compose <code>setContent</code>) is called, <code>findViewById()</code> calls will fail because there's no view hierarchy attached yet.</li><li>It must happen <strong>before</strong> the Activity becomes visible (<code>onStart()</code>) so the framework has a view tree to measure/layout/draw when the window is first shown.</li></ul>",
             "referenceLinks": [
@@ -632,7 +632,7 @@ const androidData = {
         },
         {
             "id": "android-bundle",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is Bundle in Android?",
             "answer": "<p><strong>🔑 Bundle</strong> is a key-value container used to pass data between components and to persist small amounts of state.</p><ul><li>Implements <code>Parcelable</code> for efficient <strong>inter-process/IPC</strong>-safe serialization — it's how data crosses process boundaries via Binder (e.g. Activity-to-Activity via Intent extras).</li><li>Stores primitives, <code>String</code>, arrays, and objects implementing <code>Parcelable</code> or <code>Serializable</code>; keys are Strings.</li><li>Used in multiple places: <code>Intent.putExtras()</code>, <code>Fragment.setArguments()</code>, <code>onSaveInstanceState(Bundle)</code>/<code>onCreate(Bundle?)</code> for state restoration.</li><li>Backed by a <code>Parcel</code> under the hood, which is optimized for <strong>same-process</strong> and cross-process marshaling — not intended for large data (there's a binder transaction size limit, ~1MB shared across the whole process).</li><li><strong>PersistableBundle</strong> is a restricted variant used with <code>JobScheduler</code>/<code>JobService</code> that only supports primitive types, since it may be persisted to disk.</li></ul>",
             "referenceLinks": [
@@ -883,7 +883,7 @@ const androidData = {
         },
         {
             "id": "android-view",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is View in Android?",
             "answer": "<p><strong>🔑 View</strong> is the base class for all UI widgets — the fundamental building block for anything drawn on screen and capable of handling user interaction.</p><ul><li>Occupies a rectangular area, is responsible for <strong>drawing itself</strong> (<code>onDraw(Canvas)</code>) and <strong>handling events</strong> (<code>onTouchEvent()</code>, click listeners).</li><li>Goes through the <strong>measure → layout → draw</strong> pipeline every time it needs to update its size, position, or appearance.</li><li>Concrete widgets (<code>TextView</code>, <code>Button</code>, <code>ImageView</code>) extend <code>View</code> directly; container widgets extend <code>ViewGroup</code>, itself a subclass of <code>View</code>, to hold and arrange children.</li><li>Has state (<code>id</code>, visibility, padding, background, layout params) and participates in the accessibility, focus, and input systems.</li></ul>",
             "referenceLinks": [
@@ -929,7 +929,7 @@ const androidData = {
         },
         {
             "id": "android-custom-view",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "Can you create a custom view? How?",
             "answer": "<p><strong>🔑 Yes</strong> — subclass <code>View</code> (or an existing widget) and override the measurement/drawing hooks to control exactly how it sizes and renders itself.</p><ul><li>Override <code>onMeasure(widthMeasureSpec, heightMeasureSpec)</code> to determine the view's size, respecting the <code>MeasureSpec</code> mode (<code>EXACTLY</code>, <code>AT_MOST</code>, <code>UNSPECIFIED</code>) passed down by the parent, then call <code>setMeasuredDimension()</code>.</li><li>Override <code>onDraw(Canvas)</code> to render content using <code>Paint</code>/<code>Canvas</code> APIs; keep object allocation <strong>out</strong> of <code>onDraw()</code> since it can run on every frame.</li><li>Override <code>onSizeChanged()</code> for size-dependent setup, and <code>onTouchEvent()</code> for custom gesture handling.</li><li>Expose custom XML attributes via a <code>&lt;declare-styleable&gt;</code> in <code>attrs.xml</code>, read them in a constructor via <code>context.obtainStyledAttributes()</code>.</li><li>Implement <code>onSaveInstanceState()</code>/<code>onRestoreInstanceState()</code> (returning a custom <code>Parcelable</code>) if the view holds UI state that should survive rotation.</li></ul>",
             "referenceLinks": [
@@ -959,7 +959,7 @@ const androidData = {
         },
         {
             "id": "android-viewgroups-vs-views",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What are ViewGroups and how are they different from Views?",
             "answer": "<table><thead><tr><th>View</th><th>ViewGroup</th></tr></thead><tbody><tr><td>A single drawable/interactive UI element (leaf node)</td><td>A <strong>container</strong> that holds and arranges child Views (and other ViewGroups) — an invisible/structural node</td></tr><tr><td>Draws its own content via <code>onDraw()</code></td><td>Additionally implements <code>onLayout()</code> to position its children, and often overrides <code>onMeasure()</code> to size itself based on children</td></tr><tr><td>Examples: <code>TextView</code>, <code>ImageView</code>, <code>Button</code></td><td>Examples: <code>LinearLayout</code>, <code>ConstraintLayout</code>, <code>FrameLayout</code>, <code>RecyclerView</code></td></tr></tbody></table><ul><li><code>ViewGroup</code> <strong>extends</strong> <code>View</code>, so every ViewGroup is itself a View that can be nested inside another ViewGroup — this is what forms the tree-shaped view hierarchy rendered per frame.</li></ul>",
             "referenceLinks": [
@@ -1028,7 +1028,7 @@ const androidData = {
         },
         {
             "id": "android-relative-vs-linear-layout",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is the difference between RelativeLayout and LinearLayout?",
             "answer": "<table><thead><tr><th>LinearLayout</th><th>RelativeLayout</th></tr></thead><tbody><tr><td>Arranges children in a single <strong>row or column</strong>, in order</td><td>Positions children <strong>relative to each other</strong> or to the parent (e.g. <code>layout_toRightOf</code>, <code>layout_centerInParent</code>)</td></tr><tr><td>Simple, predictable, single measure pass in most cases</td><td>Can require <strong>two measure passes</strong> internally to resolve interdependent constraints between siblings</td></tr><tr><td>Weighted children (<code>layout_weight</code>) let it act like a proportional grid, but nested weighted LinearLayouts get expensive</td><td>Can express complex layouts flatly without nesting, but is harder to reason about and edit than ConstraintLayout</td></tr></tbody></table><ul><li>In modern development, <strong>ConstraintLayout</strong> generally replaces both for anything beyond a trivial single-axis stack, since it flattens complex relative positioning into one layout pass without nesting.</li></ul>",
             "referenceLinks": [
@@ -1051,7 +1051,7 @@ const androidData = {
         },
         {
             "id": "android-constraintlayout-optimization",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How does ConstraintLayout optimize performance?",
             "answer": "<p><strong>🔑 ConstraintLayout flattens the view hierarchy</strong> — complex, previously-nested layouts collapse into a single flat ViewGroup, resolved by a constraint solver.</p><ul><li>Avoids the <strong>nested measure passes</strong> that deeply nested <code>LinearLayout</code>/<code>RelativeLayout</code> trees require — fewer view groups means fewer <code>onMeasure()</code>/<code>onLayout()</code> invocations overall.</li><li>Uses the <strong>Cassowary constraint-solving algorithm</strong> to resolve all sibling relationships (positions, sizes, chains) in one coordinated pass rather than iteratively.</li><li><strong>Barriers, guidelines, and chains</strong> let you express layouts (that would otherwise need nested weighted LinearLayouts) flatly.</li><li><code>ConstraintSet</code> lets you animate/swap entire constraint configurations efficiently (via <code>TransitionManager</code>) without inflating a new layout.</li><li><strong>⚠️ Caveat:</strong> for very simple, shallow layouts, a plain <code>FrameLayout</code>/<code>LinearLayout</code> can actually measure faster since there's no solver overhead — ConstraintLayout's win shows up as complexity/nesting grows.</li></ul>",
             "referenceLinks": [
@@ -1074,7 +1074,7 @@ const androidData = {
         },
         {
             "id": "android-view-tree-optimization",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is the view tree? How can you optimize its depth?",
             "answer": "<p><strong>🔑 The view tree</strong> is the hierarchy of nested Views/ViewGroups rooted at the window's <code>DecorView</code> — its depth and breadth directly determine measure/layout/draw cost per frame.</p><ul><li>Every level of nesting adds a recursive <code>measure()</code>/<code>layout()</code> call; deep trees mean more traversal work, and weighted <code>LinearLayout</code>s at multiple levels can force <strong>double-measure passes</strong> at each level.</li><li><strong>Flatten with ConstraintLayout</strong> to express what used to require several nested containers in a single layer.</li><li>Use <code>&lt;merge&gt;</code> at the root of reusable/included layouts to avoid an extra redundant ViewGroup wrapper.</li><li>Use <code>&lt;ViewStub&gt;</code> for conditionally-shown UI so it isn't inflated (and doesn't add to the tree) until actually needed.</li><li>Inspect with <strong>Layout Inspector</strong> (Android Studio) to visualize the live hierarchy and depth, and use <strong>Hierarchy Viewer</strong>/Perfetto traces to spot expensive subtrees.</li></ul>",
             "referenceLinks": [
@@ -1247,7 +1247,7 @@ const androidData = {
         },
         {
             "id": "android-nested-recyclerview-optimization",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How to optimize nested RecyclerView?",
             "answer": "<p><strong>🔑 Share resources across the nested RecyclerViews</strong> — the main cost of nesting is that each inner list would otherwise maintain its own separate view pool.</p><ul><li>Share a single <strong>RecycledViewPool</strong> across all inner RecyclerViews (e.g. horizontal carousels inside a vertical outer list) so scrolled-off inner item views are reused across different rows instead of re-inflated each time.</li><li>Call <code>setHasFixedSize(true)</code> on inner RecyclerViews when their size is stable.</li><li>Set <code>setItemViewCacheSize()</code> higher on the outer RecyclerView to reduce how often inner RecyclerViews are recreated as the outer list scrolls.</li><li>Use <code>RecyclerView.Adapter.setHasStableIds(true)</code> so inner state (e.g. scroll position) can be correctly retained per row.</li><li>Nest sparingly — consider whether a flat single RecyclerView (with multiple view types, or a <code>ConcatAdapter</code>) can replace deep nesting.</li></ul>",
             "referenceLinks": [
@@ -1293,7 +1293,7 @@ const androidData = {
         },
         {
             "id": "android-recyclerview-components",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What are the components of a RecyclerView?",
             "answer": "<p><strong>🔑 Five collaborating pieces</strong>, each with a single responsibility.</p><ul><li><strong>Adapter</strong> — supplies data-to-view binding logic (<code>onCreateViewHolder</code>, <code>onBindViewHolder</code>, <code>getItemCount</code>).</li><li><strong>ViewHolder</strong> — caches references to a single item's child views, avoiding repeated <code>findViewById()</code> calls.</li><li><strong>LayoutManager</strong> — positions items and decides scroll behavior (<code>LinearLayoutManager</code>, <code>GridLayoutManager</code>, <code>StaggeredGridLayoutManager</code>).</li><li><strong>ItemDecoration</strong> — draws dividers, spacing, or offsets around items without modifying the item layouts themselves.</li><li><strong>ItemAnimator</strong> — animates item add/remove/move/change events (<code>DefaultItemAnimator</code> out of the box).</li><li>Plus the internal <strong>Recycler</strong> — manages the scrap/cache/RecycledViewPool recycling machinery described earlier, mostly invisible to app code.</li></ul>",
             "referenceLinks": [
@@ -1317,7 +1317,7 @@ const androidData = {
         },
         {
             "id": "android-adapter-viewholder-role",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "Explain the role of RecyclerView.Adapter and RecyclerView.ViewHolder.",
             "answer": "<p><strong>🔑 Adapter = data source translator, ViewHolder = per-item view cache.</strong></p><ul><li><strong>RecyclerView.Adapter&lt;VH&gt;</strong> bridges your data set and the RecyclerView: <code>onCreateViewHolder()</code> inflates the item layout and wraps it in a ViewHolder (called only when a fresh view is genuinely needed), <code>onBindViewHolder()</code> populates that ViewHolder's views with data for a given position (called every time a view is (re)bound, including on recycle), and <code>getItemCount()</code> reports the data set size.</li><li><strong>RecyclerView.ViewHolder</strong> holds direct references to an item view's child Views, computed once at creation — this is what eliminates repeated <code>findViewById()</code> traversal on every bind, a major win over the old ListView pattern.</li><li>The Adapter also supports <code>getItemViewType(position)</code> for heterogeneous lists, and optional <code>onBindViewHolder(holder, position, payloads)</code> for partial/payload-based updates from DiffUtil.</li></ul>",
             "referenceLinks": [
@@ -1346,7 +1346,7 @@ const androidData = {
         },
         {
             "id": "android-layoutmanager",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is a LayoutManager in RecyclerView?",
             "answer": "<p><strong>🔑 LayoutManager</strong> is the strategy object that positions child views and controls scrolling behavior, fully decoupled from the Adapter's data logic.</p><ul><li><strong>LinearLayoutManager</strong> — arranges items in a single vertical or horizontal line; supports reverse layout.</li><li><strong>GridLayoutManager</strong> — arranges items in a fixed-span grid, supports variable span sizes per item via <code>SpanSizeLookup</code>.</li><li><strong>StaggeredGridLayoutManager</strong> — a Pinterest-style grid where item heights vary and items flow to fill gaps.</li><li>Responsible for measuring/positioning children, deciding which items are attached/detached as the viewport scrolls, and driving <strong>prefetching</strong> during fling for smoother scroll.</li><li>You can write a <strong>custom LayoutManager</strong> by extending <code>RecyclerView.LayoutManager</code> for specialized layouts (e.g. carousels, circular layouts) — this pluggability is one of RecyclerView's core advantages over ListView.</li></ul>",
             "referenceLinks": [
@@ -1369,7 +1369,7 @@ const androidData = {
         },
         {
             "id": "android-multiple-view-types",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How do you handle multiple view types in a single RecyclerView?",
             "answer": "<p><strong>🔑 Override getItemViewType()</strong> so the Adapter can inflate and bind different layouts for different items in the same list.</p><ul><li>Override <code>getItemViewType(position)</code> to return a distinct <code>Int</code> constant per type (e.g. header vs item vs footer, or based on a sealed class discriminant in your data model).</li><li>In <code>onCreateViewHolder(parent, viewType)</code>, branch on <code>viewType</code> to inflate the correct layout and return the matching <code>ViewHolder</code> subclass.</li><li>In <code>onBindViewHolder()</code>, cast the holder/data appropriately per type (often modeled with a <strong>sealed class</strong> of UI models for exhaustive <code>when</code> handling).</li><li>For grids, pair with <code>GridLayoutManager.SpanSizeLookup</code> so e.g. a header can span the full width while items take one column each.</li><li>Alternative: compose multiple single-type Adapters together with <strong>ConcatAdapter</strong>, which avoids type-branching entirely by giving each section its own Adapter.</li></ul>",
             "referenceLinks": [
@@ -1427,7 +1427,7 @@ const androidData = {
         },
         {
             "id": "android-sethasfixedsize",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is the purpose of RecyclerView.setHasFixedSize(true)?",
             "answer": "<p><strong>🔑 A layout-pass optimization hint</strong> — tells RecyclerView that its own size (width/height) won't change as a result of adapter content changes.</p><ul><li>When set, RecyclerView can <strong>skip re-measuring/re-laying-out itself</strong> in response to <code>notifyDataSetChanged()</code> or item insert/remove calls, since it already knows its bounds won't shift.</li><li>Only affects RecyclerView's <strong>own</strong> size — it does not stop individual item views from being measured/laid out as content changes.</li><li>Set it to <code>true</code> whenever the RecyclerView has fixed dimensions (e.g. <code>match_parent</code>/fixed dp, not <code>wrap_content</code> sized off its content) — a very common and safe case.</li><li><strong>⚠️ Pitfall:</strong> setting it <code>true</code> when the RecyclerView's size actually does depend on content (e.g. <code>wrap_content</code> inside a scrolling parent) can cause incorrect layout/clipping.</li></ul>",
             "referenceLinks": [
@@ -1616,7 +1616,7 @@ const androidData = {
         },
         {
             "id": "android-implicit-intent",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is an Implicit Intent?",
             "answer": "<p><strong>🔑 Implicit Intent</strong> declares an action to perform without naming a specific target component, letting the system find a matching handler.</p><ul><li>You specify an <strong>action</strong> (e.g. <code>ACTION_SEND</code>, <code>ACTION_VIEW</code>), optionally a <strong>data URI/MIME type</strong> and <strong>category</strong>; the system matches this against every app's declared <code>&lt;intent-filter&gt;</code>.</li><li>If multiple apps can handle it, the user sees a <strong>chooser</strong> (or app disambiguation dialog); if exactly one matches and it's marked default, it launches directly.</li><li>Common uses: opening a URL in a browser, sharing content (<code>ACTION_SEND</code>), dialing a number, picking a photo from the gallery — reaching functionality your app doesn't implement itself.</li><li><strong>⚠️ Since Android 11 (API 30)</strong>, <strong>package visibility</strong> restrictions mean you must declare <code>&lt;queries&gt;</code> in the manifest to check/resolve intents for other apps, or <code>resolveActivity()</code>/<code>queryIntentActivities()</code> may return nothing even if a handler exists.</li></ul>",
             "referenceLinks": [
@@ -1645,7 +1645,7 @@ const androidData = {
         },
         {
             "id": "android-explicit-intent",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is an Explicit Intent?",
             "answer": "<p><strong>🔑 Explicit Intent</strong> names the exact target component (by class or package/component name) — used for navigation within your own app.</p><ul><li>Constructed with a <code>Context</code> and the target <code>Class</code>, e.g. <code>Intent(this, DetailActivity::class.java)</code>, or via <code>ComponentName</code> for cross-package but still explicit targeting.</li><li>No resolution/chooser step — the system launches exactly that component; fails with <code>ActivityNotFoundException</code> if it doesn't exist or isn't exported when called from another app.</li><li>The standard way to start Activities/Services <strong>within the same app</strong>, since you know the concrete class you want.</li><li>Since Android 12 (API 31), a <strong>non-exported</strong> component can only be targeted by explicit intents from within the same app/UID, adding a security boundary for cross-app access.</li></ul>",
             "referenceLinks": [
@@ -1703,7 +1703,7 @@ const androidData = {
         },
         {
             "id": "android-broadcasts-intents-messaging",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How do broadcasts and intents work to pass messages around your app?",
             "answer": "<p><strong>🔑 Broadcasts are a publish/subscribe layer built on Intents</strong> — a sender fires an Intent, and any registered receiver whose filter matches gets it, without a direct reference between sender and receiver.</p><ul><li><code>sendBroadcast(intent)</code> dispatches the Intent to <strong>all</strong> matching registered receivers asynchronously; <code>sendOrderedBroadcast()</code> delivers it to receivers <strong>sequentially</strong> by priority, each able to abort or modify it for the next.</li><li>The system's <strong>global broadcast</strong> mechanism is process/app-boundary crossing, which is powerful but comes with security exposure (any app could send/intercept unless permissions/exported flags restrict it) and battery cost.</li><li>For <strong>intra-app</strong> messaging, prefer <code>LocalBroadcastManager</code> (now deprecated) or better, in-process solutions: a shared <code>ViewModel</code>, <code>SharedFlow</code>/<code>Channel</code>, or an event bus — these avoid the IPC overhead and security surface of a system-wide broadcast.</li><li>For app-to-app messaging where you specifically want cross-process delivery, broadcasts remain appropriate, ideally scoped with a custom permission or <code>setPackage()</code> to limit who can receive/send.</li></ul>",
             "referenceLinks": [
@@ -1755,7 +1755,7 @@ const androidData = {
         },
         {
             "id": "android-broadcast-types",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What are the different types of Broadcasts?",
             "answer": "<p><strong>🔑 Broadcasts vary along two axes:</strong> normal vs ordered delivery, and system vs custom origin.</p><ul><li><strong>Normal broadcasts</strong> (<code>sendBroadcast()</code>) — delivered to all matching receivers <strong>asynchronously and in undefined order</strong>; receivers can't abort or affect each other.</li><li><strong>Ordered broadcasts</strong> (<code>sendOrderedBroadcast()</code>) — delivered to receivers <strong>one at a time, by priority</strong>; each can modify the result data or <code>abortBroadcast()</code> to stop propagation.</li><li><strong>Sticky broadcasts</strong> (<code>sendStickyBroadcast()</code>) — the Intent stays around so future <code>registerReceiver()</code> calls get it immediately; deprecated since API 21 due to security/lack of protection concerns.</li><li><strong>System broadcasts</strong> — sent by the OS itself, e.g. <code>ACTION_BOOT_COMPLETED</code>, <code>ACTION_BATTERY_LOW</code>, <code>CONNECTIVITY_ACTION</code>; many implicit ones are restricted for background apps since API 26.</li><li><strong>Local broadcasts</strong> — confined to the sending app's own process, historically via the now-deprecated <code>LocalBroadcastManager</code>, superseded by in-process alternatives like <code>SharedFlow</code>.</li></ul>",
             "referenceLinks": [
@@ -1864,7 +1864,7 @@ const androidData = {
         },
         {
             "id": "android-service",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is a Service in Android?",
             "answer": "<p><strong>🔑 Service</strong> is an application component that performs long-running operations <strong>without a UI</strong>, even while the user is in a different app.</p><ul><li>Three flavors: <strong>started</strong> (fire-and-forget background work), <strong>bound</strong> (a client-server relationship via <code>IBinder</code>, lives while clients are bound), and <strong>foreground</strong> (must show a persistent notification, used for user-visible ongoing work).</li><li>Runs on the <strong>main thread by default</strong> — it is not automatically a background thread; you must create your own worker thread/coroutine for actual blocking work inside it.</li><li>Declared in the manifest with <code>&lt;service&gt;</code>; since Android 9 (API 28), starting background services from the background is restricted — <code>startForegroundService()</code> plus a timely <code>startForeground()</code> call is required in many cases.</li><li>Modern guidance increasingly favors <strong>WorkManager</strong> for deferrable background work and reserves raw Services for cases needing immediate execution or genuine binding (e.g. media playback, IPC).</li></ul>",
             "referenceLinks": [
@@ -1916,7 +1916,7 @@ const androidData = {
         },
         {
             "id": "android-service-vs-intentservice",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is the difference between Service and IntentService?",
             "answer": "<table><thead><tr><th>Service</th><th>IntentService</th></tr></thead><tbody><tr><td>Runs on the <strong>main thread</strong> by default; you manage threading yourself</td><td>Automatically runs work on a <strong>single background worker thread</strong></td></tr><tr><td>Handles concurrent requests as you implement them — can process multiple things at once</td><td>Processes queued Intents <strong>one at a time, sequentially</strong> via a work queue</td></tr><tr><td>Must call <code>stopSelf()</code> yourself when done</td><td>Automatically <strong>stops itself</strong> after the work queue is empty</td></tr><tr><td>General-purpose base class</td><td>Purpose-built for simple, sequential background tasks triggered by Intents</td></tr></tbody></table><ul><li><strong>IntentService is deprecated</strong> (API 30) in favor of <code>JobIntentService</code> (bridges to <code>JobScheduler</code> on newer APIs) and, in modern practice, <strong>WorkManager</strong>, which additionally handles constraints, retries, and chaining that IntentService never supported.</li></ul>",
             "referenceLinks": [
@@ -1968,7 +1968,7 @@ const androidData = {
         },
         {
             "id": "android-jobscheduler",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is a JobScheduler?",
             "answer": "<p><strong>🔑 JobScheduler</strong> (API 21+) lets you schedule conditional, deferrable background work that the system batches and runs at an opportune time to save battery.</p><ul><li>You define a <code>JobInfo</code> with <strong>constraints</strong> — network type, charging state, device idle, minimum latency — and the system decides exactly when to run the matching <code>JobService</code>.</li><li>Jobs execute in <code>JobService.onStartJob()</code>, which itself runs on the <strong>main thread</strong>; you must offload real work and call <code>jobFinished()</code> when done (or return <code>true</code> to signal async work continuing on another thread).</li><li>The system may <strong>batch multiple apps' jobs together</strong> and defer them to reduce radio/wake-up overhead, especially interacting with Doze mode and App Standby buckets.</li><li>In modern development, <strong>WorkManager</strong> is preferred — it wraps JobScheduler (API 23+), <code>AlarmManager</code>+BroadcastReceiver (older APIs), or a <code>GreedyExecutor</code> depending on the platform version, giving one consistent API plus chaining/retry policies JobScheduler alone doesn't provide.</li></ul>",
             "referenceLinks": [
@@ -1991,7 +1991,7 @@ const androidData = {
         },
         {
             "id": "android-workmanager-guarantee",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How does WorkManager guarantee task execution?",
             "answer": "<p><strong>🔑 Persistence + platform-appropriate scheduling backend</strong> — WorkManager survives app/process restart and even device reboot by design.</p><ul><li>Every enqueued <code>WorkRequest</code> is written to an internal <strong>Room database (SQLite)</strong> immediately — it survives process death; when the app/process restarts, WorkManager re-reads pending work and reschedules it.</li><li>Internally it delegates to the <strong>best available executor</strong> for the API level: <code>JobScheduler</code> on API 23+, a combination of <code>AlarmManager</code> + <code>BroadcastReceiver</code> on older APIs — always giving you one consistent API regardless of platform version.</li><li>Supports <strong>constraints</strong> (network connectivity, charging, storage-not-low, battery-not-low, idle) — work only runs when constraints are satisfied, re-evaluated automatically.</li><li>Built-in <strong>retry/backoff policy</strong> (<code>BackoffPolicy.LINEAR</code>/<code>EXPONENTIAL</code>) and chaining via <code>WorkContinuation</code> for sequential/parallel work graphs with output passed between steps.</li><li>For guaranteed execution even if the app is force-stopped by the user, an <code>OnBootReceiver</code> mechanism inside WorkManager itself reschedules pending work after reboot (registering a boot broadcast receiver internally).</li></ul>",
             "referenceLinks": [
@@ -2044,7 +2044,7 @@ const androidData = {
         },
         {
             "id": "android-multiple-processes",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "Is it possible to run an Android app in multiple processes? How?",
             "answer": "<p><strong>🔑 Yes</strong> — declare <code>android:process</code> on a component in the manifest to run it in a separate process from the app's default one.</p><ul><li>Any component (Activity, Service, ContentProvider, BroadcastReceiver) can specify <code>android:process=\":remote\"</code> (leading colon = private process local to this app) or a fully-qualified name (shared globally with other apps signed with the same key, sharing a UID).</li><li>Common use cases: isolating a crash-prone or memory-heavy component (e.g. a WebView-heavy feature, a large SDK) so it doesn't take down the main process; running a persistent Service in its own process to survive the main UI process being killed; security isolation.</li><li>Each process gets its <strong>own Application instance, its own memory heap, and its own instance of static state</strong> — singletons are NOT automatically shared across processes, a very common source of subtle bugs.</li><li>Communication between the processes then requires actual IPC (Binder/AIDL, ContentProvider, or broadcasts) — you can't just call a method or reference an object across the process boundary.</li></ul>",
             "referenceLinks": [
@@ -2190,7 +2190,7 @@ const androidData = {
         },
         {
             "id": "android-parallel-tasks-callback",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How to run parallel tasks and get a callback when all are complete?",
             "answer": "<p><strong>🔑 Structured concurrency with async/await</strong> is the modern idiom — launch tasks concurrently, then suspend until all complete.</p><ul><li><strong>Coroutines:</strong> use <code>coroutineScope { }</code> with multiple <code>async { }</code> blocks, then call <code>.await()</code> on each — the scope suspends until all children finish, and if one throws, the others are cancelled automatically (structured concurrency).</li><li><strong>Java/legacy alternative:</strong> submit tasks to an <code>ExecutorService</code>, collect the returned <code>Future</code>s, and either poll them or use <code>CountDownLatch</code> to block until all complete.</li><li><strong>CompletableFuture.allOf(...)</strong> — combines multiple futures and completes when all of them do, offering a callback-style <code>.thenRun()</code>.</li><li>For truly independent parallel work with no dependency between results, prefer coroutines' <code>async</code>/<code>awaitAll()</code> — it's cancellation-aware, structured, and avoids manual thread/latch bookkeeping.</li></ul>",
             "referenceLinks": [
@@ -2362,7 +2362,7 @@ const androidData = {
         },
         {
             "id": "android-garbage-collection",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How does Garbage Collection work in Android?",
             "answer": "<p><strong>🔑 ART's generational, mostly-concurrent GC</strong> reclaims unreachable objects automatically, minimizing (but not eliminating) main-thread pauses.</p><ul><li>ART (Android RunTime, replacing Dalvik since Lollipop) tracks object reachability from <strong>GC roots</strong> (static fields, active thread stacks, JNI references); anything unreachable is eligible for collection.</li><li>Uses a <strong>generational</strong> approach conceptually — young/short-lived objects are collected more frequently and cheaply than long-lived ones, reducing overall GC work.</li><li>Modern ART GCs (e.g. <strong>Concurrent Copying GC</strong>) run <strong>concurrently</strong> with the app on most operations, meaning brief, low-impact pauses instead of long stop-the-world collections — though some phases still briefly pause all threads.</li><li>ART also does <strong>AOT (ahead-of-time) and JIT compilation</strong> alongside interpretation, but this is separate from GC — worth distinguishing in an interview if asked about ART broadly.</li><li>App code can influence GC pressure by minimizing allocations in hot paths (e.g. <code>onDraw()</code>, <code>onBindViewHolder()</code>), reusing objects/object pools, and avoiding unnecessary boxing.</li></ul>",
             "referenceLinks": [
@@ -2408,7 +2408,7 @@ const androidData = {
         },
         {
             "id": "android-runnable-vs-thread",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is the difference between a Runnable and a Thread in Android?",
             "answer": "<table><thead><tr><th>Runnable</th><th>Thread</th></tr></thead><tbody><tr><td>An <strong>interface</strong> describing a unit of work (<code>run()</code>) with no thread of execution of its own</td><td>An actual <strong>execution context</strong> — a class that can run a <code>Runnable</code> on its own OS-level thread</td></tr><tr><td>Can be handed to any executor — a <code>Handler</code>, an <code>ExecutorService</code>, a new <code>Thread</code> — decoupling <em>what</em> runs from <em>where/how</em> it runs</td><td>Directly tied to one specific OS thread; creating one always costs a real thread's worth of resources</td></tr><tr><td>Encourages reuse — the same <code>Runnable</code> can be posted to different queues/threads</td><td>Not reusable once <code>start()</code>ed — a <code>Thread</code> object can only run once</td></tr></tbody></table><ul><li><code>Thread</code> can implement <code>Runnable</code> directly (<code>class MyThread : Thread(), Runnable</code>-like usage) or be constructed with one: <code>Thread(myRunnable).start()</code> — but in modern Android code you rarely construct raw Threads, preferring coroutines or an <code>ExecutorService</code> that consumes Runnables/Callables.</li></ul>",
             "referenceLinks": [
@@ -2461,7 +2461,7 @@ const androidData = {
         },
         {
             "id": "android-bitmap-pool",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is a Bitmap pool?",
             "answer": "<p><strong>🔑 Bitmap pool</strong> is a reuse cache of already-allocated Bitmap memory buffers, letting new image decodes reuse existing pixel storage instead of allocating fresh memory every time.</p><ul><li>When a Bitmap is no longer displayed, instead of discarding it for GC, its underlying pixel buffer is kept in the pool, keyed roughly by size/config.</li><li>A new decode of a matching size can pass the pooled bitmap as <code>BitmapFactory.Options.inBitmap</code>, letting <code>BitmapFactory</code> write directly into the <strong>existing memory</strong> rather than allocating new native memory — this significantly cuts allocation churn and GC pressure, especially in fast-scrolling image-heavy lists.</li><li><strong>Glide</strong> and other image-loading libraries implement bitmap pools internally (<code>BitmapPool</code> in Glide) and manage reuse automatically as views scroll on/off screen.</li><li>Requires matching or compatible configs/dimensions (rules loosened over API levels) — the pool checks reuse eligibility (<code>canUseForInBitmap()</code>-style logic) before handing out a buffer.</li></ul>",
             "referenceLinks": [
@@ -2484,7 +2484,7 @@ const androidData = {
         },
         {
             "id": "android-datastore-preferences",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is Jetpack DataStore Preferences?",
             "answer": "<p><strong>🔑 Modern replacement for SharedPreferences</strong></p><ul><li><strong>DataStore Preferences</strong> stores key-value pairs asynchronously using Kotlin <code>Flow</code>, backed by protocol buffers under the hood for the Proto variant, and by a plain file for the Preferences variant.</li><li>All reads and writes happen off the main thread via coroutines — there is no synchronous <code>getString()</code> that can block UI like <code>SharedPreferences.getX()</code> can on first access.</li><li>Transactional <code>updateData()</code> guarantees atomic read-modify-write; concurrent edits are serialized instead of silently racing.</li><li>Errors (e.g. corrupted file, IOException) are surfaced through the <code>Flow</code> as exceptions instead of being swallowed.</li></ul><p><strong>⚖️ vs SharedPreferences</strong></p><ul><li>No <code>SharedPreferences.Editor</code> footguns, no synchronous main-thread I/O, built-in migration support from existing SharedPreferences files via <code>SharedPreferencesMigration</code>.</li><li>Preferences DataStore is still stringly-typed (no schema); Proto DataStore adds full type safety at the cost of writing a <code>.proto</code> schema.</li></ul><p><strong>🎯 Interview tip:</strong> Mention that Google now recommends DataStore over SharedPreferences for all new code — SharedPreferences is effectively in maintenance mode.</p>",
             "referenceLinks": [
@@ -2538,7 +2538,7 @@ const androidData = {
         },
         {
             "id": "android-orm",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is ORM? How does it work?",
             "answer": "<p><strong>🔑 Object-Relational Mapping</strong></p><ul><li>An <strong>ORM</strong> maps table rows to objects (and back), letting you query and persist data using classes/annotations instead of hand-written SQL and manual <code>Cursor</code> traversal.</li><li>On Android, <strong>Room</strong> is the standard ORM: <code>@Entity</code> classes map to tables, <code>@Dao</code> interfaces declare typed queries, and <code>@Database</code> ties them together with a generated <code>SQLiteOpenHelper</code>-based implementation.</li></ul><p><strong>⚙️ How it works</strong></p><ul><li>At compile time, an annotation processor (KAPT/KSP) generates the boilerplate: statement binding, cursor-to-object mapping, and compile-time verification of <code>@Query</code> SQL against your schema.</li><li>Room also generates a schema export you can diff for migrations, and supports observable return types (<code>Flow</code>, <code>LiveData</code>) that auto-emit when the underlying tables change.</li></ul><p><strong>⚖️ Trade-offs</strong></p><ul><li>Convenience and compile-time safety vs. a thin abstraction leak — complex joins or bulk operations sometimes still need raw <code>@RawQuery</code> SQL.</li></ul>",
             "referenceLinks": [
@@ -2598,7 +2598,7 @@ const androidData = {
         },
         {
             "id": "android-data-storage-options",
-            "importance": "must-know",
+            "importance": "good-to-know",
             "question": "What are different ways to store data in your Android app?",
             "answer": "<p><strong>🔑 Same decision, framed by scope and access pattern</strong></p><ul><li><strong>App-private, structured</strong> — Room/SQLite for relational/queryable data.</li><li><strong>App-private, key-value</strong> — DataStore (preferred) or SharedPreferences (legacy) for settings/flags.</li><li><strong>App-private, files</strong> — <code>context.filesDir</code> / <code>cacheDir</code> for arbitrary blobs; cleared automatically for cache when space is needed.</li><li><strong>Shared with user / other apps</strong> — <code>MediaStore</code> under scoped storage for media, or a <code>ContentProvider</code> to expose your own structured data.</li><li><strong>Remote</strong> — network APIs, typically fronted by a local cache (Room) so the app works offline.</li></ul><p><strong>⚠️ Pitfall</strong></p><ul><li>Since Android 10 (API 29), raw file-path access to shared/external storage is restricted by Scoped Storage — you generally can't just write anywhere on external storage anymore.</li></ul>",
             "referenceLinks": [
@@ -2716,7 +2716,7 @@ const androidData = {
         },
         {
             "id": "android-spannable",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is a Spannable in Android?",
             "answer": "<p><strong>🔑 Mutable, markup-annotated text</strong></p><ul><li>A <strong>Spannable</strong> is a <code>CharSequence</code> that lets you attach markup objects (&quot;spans&quot;) to ranges of text — color, size, clickability, style — without splitting the string into multiple <code>TextView</code>s.</li><li>Common span types: <code>ForegroundColorSpan</code>, <code>StyleSpan</code> (bold/italic), <code>ClickableSpan</code>, <code>ImageSpan</code>, <code>UnderlineSpan</code>.</li><li><code>Spannable</code> is the mutable interface; <code>SpannableStringBuilder</code> is the standard mutable implementation used when you need to add/remove spans dynamically after creation.</li><li>Applied via <code>TextView.setText(spannable)</code> — the <code>TextView</code> renders each span's effect over its character range at draw time.</li></ul>",
             "referenceLinks": [
@@ -2745,7 +2745,7 @@ const androidData = {
         },
         {
             "id": "android-spannablestring",
-            "importance": "must-know",
+            "importance": "good-to-know",
             "question": "What is a SpannableString?",
             "answer": "<p><strong>🔑 The immutable-length counterpart to SpannableStringBuilder</strong></p><ul><li><strong>SpannableString</strong> implements <code>Spannable</code> over a fixed underlying string — you can add/remove/modify <em>spans</em> after construction, but you cannot change the <em>text</em> itself (no insert/delete of characters).</li><li>Use it when the text content is already final and you only need to decorate it with styling — e.g. highlighting a search match in a fixed label.</li></ul><table><thead><tr><th>Type</th><th>Text mutable?</th><th>Spans mutable?</th></tr></thead><tbody><tr><td><code>SpannableString</code></td><td>No</td><td>Yes</td></tr><tr><td><code>SpannableStringBuilder</code></td><td>Yes</td><td>Yes</td></tr><tr><td><code>String</code>/<code>CharSequence</code></td><td>No</td><td>No spans</td></tr></tbody></table>",
             "referenceLinks": [
@@ -2768,7 +2768,7 @@ const androidData = {
         },
         {
             "id": "android-text-best-practices",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What are the best practices for using text in Android?",
             "answer": "<p><strong>🔑 Readable, scalable, localizable text</strong></p><ul><li><strong>Use <code>sp</code> for text size</strong>, never <code>dp</code>/<code>px</code> — <code>sp</code> respects the user's system font-size accessibility setting.</li><li><strong>Extract all copy into <code>strings.xml</code></strong> — never hardcode strings in layouts or code; enables localization and lint's hardcoded-string checks.</li><li>Use <strong>string resource plurals</strong> (<code>&lt;plurals&gt;</code>) and format arguments instead of manual concatenation, which breaks in RTL/other-grammar locales.</li><li>Prefer <strong>Material typography scale</strong> (<code>MaterialTheme.typography</code> / theme text appearances) over ad-hoc sizes for visual consistency.</li><li>Test with <strong>large font scale</strong> and <strong>RTL pseudolocales</strong> to catch truncation and layout breakage.</li><li>Use <code>autoSizeTextType=&quot;uniform&quot;</code> for text that must fit dynamic containers without hardcoding size steps.</li></ul>",
             "referenceLinks": [
@@ -2792,7 +2792,7 @@ const androidData = {
         },
         {
             "id": "android-dark-mode",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How to implement Dark mode in an application?",
             "answer": "<p><strong>🔑 DayNight theme + resource qualifiers</strong></p><ul><li>Base your theme on <code>Theme.MaterialComponents.DayNight</code> (or Material3's default, which is DayNight-aware out of the box) instead of a fixed light/dark parent.</li><li>Define colors twice: default <code>values/colors.xml</code> for light, and <code>values-night/colors.xml</code> for dark — the system picks the right set automatically based on <code>Configuration.uiMode</code>.</li><li>Use theme attributes (<code>?attr/colorSurface</code>, <code>?attr/colorOnSurface</code>) in layouts rather than literal colors, so both variants apply without per-view branching.</li><li>Programmatically force a mode with <code>AppCompatDelegate.setDefaultNightMode(MODE_NIGHT_YES/NO/FOLLOW_SYSTEM)</code>, typically wired to a user-facing settings toggle.</li><li>With <strong>Material 3 dynamic color</strong> (Android 12+), <code>dynamicDarkColorScheme(context)</code>/<code>dynamicLightColorScheme(context)</code> derive both palettes from the user's wallpaper automatically.</li></ul>",
             "referenceLinks": [
@@ -2846,7 +2846,7 @@ const androidData = {
         },
         {
             "id": "android-ontrimmemory",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is the onTrimMemory() method?",
             "answer": "<p><strong>🔑 System memory-pressure callback</strong></p><ul><li><code>ComponentCallbacks2.onTrimMemory(int level)</code> is called on your <code>Application</code>/<code>Activity</code>/<code>Service</code> when the system wants apps to proactively free memory, before resorting to killing processes.</li><li>Levels while your process is in the <strong>foreground/visible</strong>: <code>TRIM_MEMORY_RUNNING_MODERATE</code>, <code>TRIM_MEMORY_RUNNING_LOW</code>, <code>TRIM_MEMORY_RUNNING_CRITICAL</code>.</li><li>Levels while <strong>backgrounded</strong>: <code>TRIM_MEMORY_UI_HIDDEN</code> (UI no longer visible — release UI-only resources), <code>TRIM_MEMORY_BACKGROUND</code>, <code>TRIM_MEMORY_MODERATE</code>, <code>TRIM_MEMORY_COMPLETE</code> (process is a prime kill candidate).</li><li>Typical response: clear image caches, release non-essential singletons, cancel non-critical prefetch work.</li></ul><p><strong>⚠️ Pitfall</strong></p><ul><li><code>onLowMemory()</code> is the older, coarser signal — <code>onTrimMemory()</code> supersedes it with finer granularity and should be preferred.</li></ul>",
             "referenceLinks": [
@@ -2875,7 +2875,7 @@ const androidData = {
         },
         {
             "id": "android-fix-oom",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How to identify and fix OutOfMemory issues?",
             "answer": "<p><strong>🔑 Find the leak or the bloat, then fix the root cause</strong></p><ul><li><strong>Identify</strong> — capture a heap dump (Android Studio Profiler &gt; Memory, or <code>Debug.dumpHprof()</code>) at high memory usage; look for large retained object counts, duplicate bitmaps, or an activity/fragment count that never returns to zero.</li><li><strong>LeakCanary</strong> automates this — it dumps the heap when an object that should be garbage should've been collected isn't, and prints the retention path (the leak trace) straight to Logcat/notification.</li><li><strong>Common OOM causes</strong>: full-resolution bitmaps loaded without downsampling, unbounded caches/lists, static references to <code>Activity</code>/<code>Context</code>/<code>View</code>, listeners registered but never unregistered.</li><li><strong>Fixes</strong>: use <code>BitmapFactory.Options.inSampleSize</code> or an image loader (Coil/Glide) that handles sizing/pooling automatically, cap cache size with <code>LruCache</code>, unregister listeners in the matching lifecycle callback (<code>onDestroy</code>/<code>onStop</code>), and use <code>WeakReference</code> where a long-lived object must reference a short-lived one.</li></ul>",
             "referenceLinks": [
@@ -2933,7 +2933,7 @@ const androidData = {
         },
         {
             "id": "android-adaptive-battery-ml",
-            "importance": "should-know",
+            "importance": "good-to-know",
             "question": "How does Android implement Adaptive Battery using ML?",
             "answer": "<p><strong>🔑 On-device ML predicts what you'll actually use</strong></p><ul><li><strong>Adaptive Battery</strong> (Android 9+) uses an on-device machine-learning model to predict which apps you're likely to use in the next few hours and which you probably won't touch today.</li><li>Apps predicted as unlikely to be used soon are placed into more restrictive <strong>App Standby buckets</strong> (<code>rare</code>/<code>restricted</code>), which throttles their background CPU/network/job/alarm access — deferring their <strong>WorkManager</strong>/<code>JobScheduler</code> jobs and delaying <code>AlarmManager</code> alarms.</li><li>Predictions adapt continuously to usage patterns (time of day, day of week, sequence of app launches) rather than using a static allowlist.</li><li>This is layered on top of <strong>Doze</strong> and standard App Standby — Adaptive Battery decides bucket placement more intelligently; Doze/Standby enforce the actual restrictions.</li></ul>",
             "referenceLinks": [
@@ -2987,7 +2987,7 @@ const androidData = {
         },
         {
             "id": "android-doze-app-standby",
-            "importance": "should-know",
+            "importance": "must-know",
             "question": "What is Doze? What about App Standby?",
             "answer": "<p><strong>🔑 Two complementary power-saving states</strong></p><ul><li><strong>Doze</strong> (Android 6+) activates when the device is stationary, unplugged, and screen-off for a while. It periodically suspends network access, defers jobs/syncs/alarms, and ignores wakelocks for the whole device, cycling through short <strong>maintenance windows</strong> where deferred work is allowed to run before going back to sleep.</li><li><strong>App Standby</strong> is per-app: apps the user hasn't interacted with recently are placed into <strong>standby buckets</strong> — <code>active</code>, <code>working_set</code>, <code>frequent</code>, <code>rare</code>, <code>restricted</code> — each capping how often that app's jobs/alarms/FCM high-priority messages may run, independent of whether the whole device is Dozing.</li><li>Both are bypassed by <strong>high-priority FCM messages</strong> and can be worked around by declaring proper <strong>WorkManager constraints</strong> instead of raw alarms/services.</li><li><strong>Whitelisting</strong> via <code>REQUEST_IGNORE_BATTERY_OPTIMIZATIONS</code> exists but is reserved for apps with a genuine always-on need (e.g. VoIP) and requires explicit user opt-in.</li></ul><p><strong>🎯 Interview tip:</strong> Doze = device-wide, triggered by inactivity + stillness; App Standby = per-app, triggered by lack of user engagement with that app. Keep the distinction crisp.</p>",
             "referenceLinks": [
@@ -3021,7 +3021,7 @@ const androidData = {
         },
         {
             "id": "android-overdraw",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is overdraw in Android?",
             "answer": "<p><strong>🔑 Painting the same pixel more than once per frame</strong></p><ul><li><strong>Overdraw</strong> happens when the GPU draws the same screen pixel multiple times within one frame — e.g. a solid-colored window background, under an opaque Activity background, under a card background, under a solid list-item background all stacked on top of each other.</li><li>It wastes GPU fill-rate and can cause jank, especially on lower-end devices with limited pixel throughput.</li><li><strong>Debug GPU overdraw</strong> (Developer Options) color-codes the screen: true color = no overdraw, blue/green/pink/red = increasing levels of redundant drawing.</li></ul><p><strong>✅ Fixes</strong></p><ul><li>Remove unnecessary/duplicate backgrounds (e.g. don't set a window background <em>and</em> a root layout background if only one is ever visible).</li><li>Flatten view hierarchies with <code>ConstraintLayout</code> instead of nested opaque containers.</li><li>Use <code>clipRect</code>/<code>quickReject</code> in custom <code>onDraw()</code> to skip drawing off-screen content.</li></ul>",
             "referenceLinks": [
@@ -3045,7 +3045,7 @@ const androidData = {
         },
         {
             "id": "android-screen-resolutions",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How do you support different types of resolutions?",
             "answer": "<p><strong>🔑 Density-independent units + qualified resources</strong></p><ul><li>Design in <strong>dp</strong> (density-independent pixels) for layout dimensions and <strong>sp</strong> for text — the system scales them per-device density automatically, so 1dp always renders as roughly the same physical size.</li><li>Provide bitmap assets in <strong>density buckets</strong>: <code>mdpi</code> (1x baseline), <code>hdpi</code> (1.5x), <code>xhdpi</code> (2x), <code>xxhdpi</code> (3x), <code>xxxhdpi</code> (4x) — the system auto-selects the closest match, or use a single <strong>vector drawable</strong> (<code>VectorDrawable</code>) to sidestep density buckets entirely for icons/simple art.</li><li>Use <strong>ConstraintLayout</strong> with relative constraints/percentage guidelines instead of fixed dp positions so layouts adapt across screen sizes.</li><li>Add configuration-qualified layout resources (<code>layout-sw600dp</code>, <code>layout-land</code>) for tablets/foldables/landscape, or better, use <strong>Window Size Classes</strong> (compact/medium/expanded) to branch layout logic responsively rather than per-device hacks.</li><li>Test with the Android Studio device previews across phone, tablet and foldable reference devices.</li></ul>",
             "referenceLinks": [
@@ -3102,7 +3102,7 @@ const androidData = {
         },
         {
             "id": "android-ndk",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is the NDK and why is it useful?",
             "answer": "<p><strong>🔑 Native Development Kit for C/C++ code on Android</strong></p><ul><li>The <strong>NDK</strong> is a toolset that lets you implement parts of an app in <strong>C/C++</strong>, compiled to native <code>.so</code> libraries, and invoke them from Kotlin/Java via <strong>JNI</strong> (Java Native Interface).</li><li><strong>Use cases</strong>: CPU-intensive work (codecs, physics, image/signal processing, game engines), reusing existing cross-platform C/C++ libraries, or squeezing out performance that the JVM/ART layer can't match.</li><li>Build integration is typically via <strong>CMake</strong> or <code>ndk-build</code>, configured in <code>build.gradle</code> (<code>externalNativeBuild</code>) and a <code>CMakeLists.txt</code> describing native sources/targets.</li></ul><p><strong>⚠️ Trade-offs</strong></p><ul><li>Native code adds build complexity, per-ABI binary size (<code>armeabi-v7a</code>, <code>arm64-v8a</code>, <code>x86_64</code>...), harder debugging, and loses ART's memory-safety guarantees (manual memory management, potential native crashes that bypass the JVM's exception model).</li><li>Should be a targeted choice for specific hot paths, not a default — most apps never need it.</li></ul>",
             "referenceLinks": [
@@ -3132,7 +3132,7 @@ const androidData = {
         },
         {
             "id": "android-renderscript",
-            "importance": "must-know",
+            "importance": "good-to-know",
             "question": "What is RenderScript?",
             "answer": "<p><strong>🔑 A deprecated high-performance compute framework</strong></p><ul><li><strong>RenderScript</strong> was Android's framework (introduced API 11) for running data-parallel computations — image filters, math-heavy transforms — across CPU, GPU or DSP without writing platform-specific native code, using a C99-based kernel language.</li><li>It auto-selected the best available compute device at runtime, aiming for performance portability across the fragmented Android hardware landscape.</li><li><strong>Deprecated</strong> since Android 12 (API 31) — Google now recommends <code>Vulkan</code> for GPU compute/graphics, or the <strong>NDK</strong> with libraries like <strong>RenderEffect</strong> (for view/Compose blur and visual effects) or <strong>oboe</strong>/other targeted native APIs, since RenderScript's toolchain fell behind and hardware vendor support was inconsistent.</li></ul>",
             "referenceLinks": [
@@ -3156,7 +3156,7 @@ const androidData = {
         },
         {
             "id": "android-runtime",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is Android Runtime?",
             "answer": "<p><strong>🔑 The execution environment that runs your app's compiled code</strong></p><ul><li><strong>ART (Android Runtime)</strong> is the managed runtime that executes app bytecode (<code>.dex</code>) on-device, replacing the older <strong>Dalvik</strong> runtime since Android 5.0 (Lollipop).</li><li>ART combines <strong>Ahead-Of-Time (AOT)</strong> compilation (at install/idle time, guided by Baseline Profiles), <strong>Just-In-Time (JIT)</strong> compilation (compiling hot methods at runtime), and an interpreter — a hybrid strategy that balances install time, storage, and runtime speed.</li><li>It also owns <strong>garbage collection</strong> (concurrent, generational GC tuned for low pause times) and provides improved debugging/profiling hooks (better stack traces, heap analysis) compared to Dalvik.</li><li>ART sits directly on top of the Linux kernel via the Hardware Abstraction Layer, below the Java API framework in the Android system stack.</li></ul>",
             "referenceLinks": [
@@ -3244,7 +3244,7 @@ const androidData = {
         },
         {
             "id": "android-dalvik-vs-art",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What are the differences between Dalvik and ART?",
             "answer": "<p><strong>🔑 Same bytecode, very different execution strategy</strong></p><table><thead><tr><th></th><th>Dalvik</th><th>ART</th></tr></thead><tbody><tr><td>Compilation</td><td>JIT only (compiles on every run)</td><td>AOT + JIT + interpreter hybrid</td></tr><tr><td>App install</td><td>Fast (no upfront compilation)</td><td>Slower historically (AOT at install); modern ART uses profile-guided partial AOT to reduce this</td></tr><tr><td>Runtime performance</td><td>Slower startup, ongoing JIT overhead</td><td>Faster steady-state execution, smoother after warm-up</td></tr><tr><td>Garbage collection</td><td>Single GC pass, more pauses</td><td>Improved concurrent, generational GC with shorter pauses</td></tr><tr><td>Debugging</td><td>Limited introspection</td><td>Better heap/allocation tracking, improved stack traces</td></tr><tr><td>Introduced</td><td>Original Android runtime</td><td>Android 5.0 (Lollipop), default since</td></tr></tbody></table>",
             "referenceLinks": [
@@ -3268,7 +3268,7 @@ const androidData = {
         },
         {
             "id": "android-baseline-profiles",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What are Baseline Profiles in Android?",
             "answer": "<p><strong>🔑 A hint file telling ART what to AOT-compile up front</strong></p><ul><li>A <strong>Baseline Profile</strong> is a human-readable list of classes/methods identified as critical to your app's startup and key user-journey performance.</li><li>ART uses it to <strong>AOT-compile just those methods at install time</strong>, instead of interpreting/JIT-warming them on first use — directly reducing startup jank and improving frame timing on first runs.</li><li>Generated using the <strong>Macrobenchmark</strong> library's <code>BaselineProfileRule</code>, which runs your critical user journeys and records which code executes, then ships as a <code>baseline-prof.txt</code> bundled into the APK/AAB.</li><li>Google Play also aggregates anonymized <strong>cloud profiles</strong> from real user devices to further improve on-device compilation for apps that don't ship their own.</li></ul>",
             "referenceLinks": [
@@ -3298,7 +3298,7 @@ const androidData = {
         },
         {
             "id": "android-dex",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is DEX in Android?",
             "answer": "<p><strong>🔑 The bytecode format Android runs</strong></p><ul><li><strong>DEX (Dalvik Executable)</strong> is a compact, register-based bytecode format that all compiled app code (Kotlin/Java, via <code>.class</code> files) is converted into for execution on Android.</li><li>The <strong>D8 compiler</strong> converts JVM <code>.class</code> bytecode into one or more <code>.dex</code> files during the build; <strong>R8</strong> additionally shrinks, obfuscates and optimizes on top of D8's conversion for release builds.</li><li>DEX is register-based (unlike the JVM's stack-based bytecode), which reduces instruction count and duplicate constant-pool data across classes — designed to be compact and efficient for constrained mobile hardware.</li><li>A single classic DEX file is capped at <strong>65,536 methods</strong> that can be referenced (the &quot;64K method limit&quot;), which is what makes <strong>Multidex</strong> necessary for larger apps.</li></ul>",
             "referenceLinks": [
@@ -3322,7 +3322,7 @@ const androidData = {
         },
         {
             "id": "android-multidex",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is Multidex in Android?",
             "answer": "<p><strong>🔑 Splitting code across multiple DEX files past the 64K method limit</strong></p><ul><li>A single <code>.dex</code> file can reference at most <strong>65,536 methods</strong> (including framework/library methods). Apps that exceed this — common once you add several large libraries — need <strong>Multidex</strong> to split compiled code across multiple <code>classes.dex</code>, <code>classes2.dex</code>, etc.</li><li>Since <strong>minSdkVersion 21+</strong> (ART), the platform natively supports loading multiple DEX files from the APK at install time, so it's largely automatic once enabled in Gradle.</li><li>For <code>minSdkVersion &lt; 21</code> (legacy Dalvik), the app must extend <code>MultiDexApplication</code> (or call <code>MultiDex.install()</code>) so the extra DEX files are loaded manually at app startup via a custom classloader.</li><li><strong>D8</strong>'s <em>minimal main dex</em> logic automatically determines which classes must stay in the primary DEX (e.g. the <code>Application</code> class and its dependency graph) so the app can bootstrap before the rest load.</li></ul>",
             "referenceLinks": [
@@ -3351,7 +3351,7 @@ const androidData = {
         },
         {
             "id": "android-force-gc",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "Can you manually call the Garbage Collector?",
             "answer": "<p><strong>🔑 You can suggest it, but it's not guaranteed</strong></p><ul><li><code>System.gc()</code> (or <code>Runtime.getRuntime().gc()</code>) requests that the JVM/ART run garbage collection soon — it's only a <strong>hint</strong>; the runtime is free to ignore or delay it.</li><li>ART's GC is already <strong>concurrent and generational</strong>, tuned to run automatically when needed with minimal pause times — manual calls rarely help and can actively hurt by triggering a full GC pause at an arbitrary, possibly performance-sensitive moment (e.g. mid-animation).</li><li>Calling it repeatedly can also mask a real leak instead of fixing it — the object still gets collected eventually if truly unreferenced, whether or not you called <code>System.gc()</code>.</li></ul><p><strong>✅ Better approach</strong></p><ul><li>Fix the root cause (release references promptly, use appropriately-scoped caches) and use the <strong>Memory Profiler</strong>'s manual GC trigger only as a diagnostic aid to distinguish &quot;leaked&quot; from &quot;not yet collected&quot; — never ship <code>System.gc()</code> calls in production logic.</li></ul>",
             "referenceLinks": [
@@ -3487,7 +3487,7 @@ const androidData = {
         },
         {
             "id": "android-shared-viewmodel",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What is SharedViewModel in Android?",
             "answer": "<p><strong>🔑 A ViewModel scoped above a single Fragment for cross-Fragment communication</strong></p><ul><li>A <strong>SharedViewModel</strong> isn't a distinct API — it's the pattern of scoping a regular <code>ViewModel</code> to the host <strong>Activity</strong> (or a shared <strong>Navigation graph</strong>) instead of an individual Fragment, so multiple Fragments obtain the <em>same instance</em>.</li><li>Common use: a list Fragment and a detail Fragment both need the selected item — they observe the same ViewModel instead of communicating via target fragments, interfaces, or a global event bus.</li><li>Fragments opt in via <code>by activityViewModels()</code> (Activity scope) or <code>by navGraphViewModels(R.id.nav_graph)</code> (scoped to a Navigation subgraph, so it's cleared when that subgraph is popped).</li></ul>",
             "referenceLinks": [
@@ -3516,7 +3516,7 @@ const androidData = {
         },
         {
             "id": "android-architecture-components",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What are Android Architecture Components?",
             "answer": "<p><strong>🔑 The Jetpack subset for building robust, testable app architecture</strong></p><ul><li><strong>ViewModel</strong> — retains UI state across configuration changes.</li><li><strong>LiveData</strong> (and increasingly <code>StateFlow</code>/<code>SharedFlow</code>) — observable, lifecycle-aware data holders.</li><li><strong>Room</strong> — SQLite ORM with compile-time query verification.</li><li><strong>WorkManager</strong> — guaranteed, constraint-aware deferrable background work.</li><li><strong>Navigation</strong> — declarative in-app navigation graph, back stack and argument-safe transitions (Safe Args).</li><li><strong>Paging</strong> — loads and displays large datasets in chunks from local/remote sources.</li><li><strong>Hilt</strong> — dependency injection built on Dagger, tailored to Android component lifecycles.</li><li><strong>DataBinding</strong> — binds UI components in layouts directly to app data sources declaratively.</li></ul><p>Together they encourage a layered, unidirectional-data-flow architecture: UI observes ViewModel state; ViewModel calls into a Repository; Repository coordinates Room/network/WorkManager.</p>",
             "referenceLinks": [
@@ -3639,7 +3639,7 @@ const androidData = {
         },
         {
             "id": "android-share-viewmodel-fragments",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How do you share ViewModel between Fragments?",
             "answer": "<p><strong>🔑 Scope the ViewModel to a common owner</strong></p><ul><li>Use the <strong>hosting Activity</strong> as the <code>ViewModelStoreOwner</code>: each Fragment requests the ViewModel with <code>by activityViewModels()</code> instead of <code>by viewModels()</code> — both Fragments then get the exact same instance, since it's keyed to the Activity's store, not each Fragment's own.</li><li>For Navigation-Component apps, prefer <strong>navGraphViewModels(graphId)</strong> to scope sharing to a specific subgraph — narrower lifetime than the whole Activity, cleared when that subgraph is popped off the back stack, avoiding state leaking into unrelated flows.</li><li>Communication then flows one way: Fragment A calls a method on the shared ViewModel to update state; Fragment B observes that state (<code>StateFlow</code>/<code>LiveData</code>) and reacts — no direct Fragment-to-Fragment references needed.</li></ul>",
             "referenceLinks": [
@@ -3691,7 +3691,7 @@ const androidData = {
         },
         {
             "id": "android-workmanager-repeat-interval",
-            "importance": "must-know",
+            "importance": "good-to-know",
             "question": "What is the minimum repeat interval for PeriodicWorkRequest?",
             "answer": "<p><strong>🔑 15 minutes, enforced by the platform</strong></p><ul><li>The minimum interval for a <code>PeriodicWorkRequest</code> is <strong>15 minutes</strong> (<code>PeriodicWorkRequest.MIN_PERIODIC_INTERVAL_MILLIS</code>) — requesting anything shorter is silently clamped up to 15 minutes by WorkManager.</li><li>This mirrors the underlying <code>JobScheduler</code>'s own minimum periodic interval, which exists to protect battery life by preventing apps from waking the device too frequently.</li><li>An optional <strong>flex interval</strong> can be set (must also be ≥ some minimum, and ≤ the repeat interval) to let the system choose the most battery-efficient moment within the trailing window of each period, rather than firing at an exact instant.</li><li>For anything needing sub-15-minute cadence, WorkManager is the wrong tool — that's a case for a foreground service or push-triggered work instead.</li></ul>",
             "referenceLinks": [
@@ -3720,7 +3720,7 @@ const androidData = {
         },
         {
             "id": "android-workmanager-guarantee-execution",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How does WorkManager guarantee task execution?",
             "answer": "<p><strong>🔑 A persisted work graph plus a resilient scheduling backend</strong></p><ul><li>Every enqueued <code>WorkRequest</code> is written to WorkManager's internal <strong>Room database</strong> immediately, so the work definition survives app process death and even device reboot — nothing lives only in memory.</li><li>WorkManager delegates actual scheduling to the best available OS mechanism: <strong>JobScheduler</strong> on API 23+, a combination of <strong>AlarmManager + BroadcastReceiver + a wake lock</strong> on older APIs — abstracted behind an internal <code>Scheduler</code> interface so callers don't care which backend is active.</li><li>A <strong>boot-completed BroadcastReceiver</strong> (<code>RescheduleReceiver</code>) reschedules any pending work after device reboot, since OS-level schedulers forget everything on restart.</li><li>Failed work is retried according to the configured <strong>backoff policy</strong> (linear or exponential) up to <code>Worker.Result.retry()</code> semantics; work with unmet constraints simply waits until constraints are satisfied rather than failing.</li><li>All of this is coordinated through <code>WorkManager</code>'s own <code>GreedyScheduler</code>/<code>CommandHandler</code> pipeline, which observes the Room-backed work state and reacts to constraint and execution changes.</li></ul>",
             "referenceLinks": [
@@ -3885,7 +3885,7 @@ const androidData = {
         },
         {
             "id": "android-bundle-vs-map",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "Why is Bundle used for data passing instead of a simple Map?",
             "answer": "<p><strong>🔑 Bundle is built for cross-process transport, Map isn't</strong></p><ul><li><strong>Bundle</strong> is backed by a <code>Parcel</code> internally, so it can be efficiently serialized and sent across process boundaries — required when data crosses an <code>Activity</code>/<code>Service</code> that may live in a different process, or when the OS itself persists it (e.g. <code>onSaveInstanceState</code>, written by the system server on your behalf).</li><li>A plain <code>HashMap&lt;String, Any&gt;</code> has no defined serialization contract for arbitrary value types — the OS has no generic way to marshal it across a Binder transaction or write it to disk for state restoration.</li><li><strong>Type-safe, key-based getters</strong> (<code>getString()</code>, <code>getInt()</code>, <code>getParcelable()</code>) avoid unchecked casts and give clearer failure behavior (default values) versus a raw <code>Map</code> that requires manual casting.</li><li>Bundle's lazy unparceling means values are only deserialized when actually read, which is more efficient than eagerly deserializing an entire Map up front.</li></ul>",
             "referenceLinks": [
@@ -3936,7 +3936,7 @@ const androidData = {
         },
         {
             "id": "android-push-notifications",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "How does the Android push notification system work?",
             "answer": "<p><strong>🔑 A persistent connection from Google Play services delivers messages to your app</strong></p><ul><li>The app registers with <strong>Firebase Cloud Messaging (FCM)</strong> and receives a unique <strong>registration token</strong> identifying that app install on that device; the app sends this token to its own backend server.</li><li>Your backend sends a message (with the target token, or a topic) to <strong>FCM's servers</strong>; FCM routes it to the correct device over a long-lived, battery-efficient connection maintained by <strong>Google Play services</strong> — the same connection handles messages for every app on the device, so individual apps don't each hold a socket open.</li><li>On the device, the message arrives at your app's <code>FirebaseMessagingService.onMessageReceived()</code> (for data/foreground messages) or is handled automatically by the system tray (for notification-only messages while the app is backgrounded).</li><li>Your code builds and posts the visible notification via <code>NotificationCompat.Builder</code> + <code>NotificationManagerCompat.notify()</code>, targeting a <strong>notification channel</strong> (required since Android 8/API 26) that controls importance/sound/vibration at the OS level.</li><li>High-priority FCM messages can wake the device even from Doze, which is why push is preferred over polling for anything time-sensitive.</li></ul>",
             "referenceLinks": [
@@ -4001,7 +4001,7 @@ const androidData = {
         },
         {
             "id": "android-aapt",
-            "importance": "must-know",
+            "importance": "good-to-know",
             "question": "What is AAPT?",
             "answer": "<p><strong>🔑 The Android Asset Packaging Tool</strong></p><ul><li><strong>AAPT</strong> (and its successor <strong>AAPT2</strong>) compiles and packages an app's resources — layouts, drawables, strings, manifest — into the binary format Android runs, and generates the <code>R.java</code> class with integer IDs mapping to each resource.</li><li>It produces <code>resources.arsc</code>, the compiled binary resource table bundled in the APK, and compiles XML resources into a compact binary XML format rather than shipping raw text XML.</li><li><strong>AAPT2</strong> (default since Android Gradle Plugin 3.0) splits compilation into two phases — <em>compile</em> (per-file, incremental) and <em>link</em> (merges everything, resolves references) — enabling much faster incremental builds than the original single-pass AAPT.</li><li>It also performs resource validation at build time, catching malformed XML or missing resource references before runtime.</li></ul>",
             "referenceLinks": [
@@ -4082,7 +4082,7 @@ const androidData = {
         },
         {
             "id": "android-sparsearray-advantages",
-            "importance": "must-know",
+            "importance": "should-know",
             "question": "What are the advantages of SparseArray in Android?",
             "answer": "<p><strong>🔑 Memory-efficient mapping for primitive int keys</strong></p><ul><li><strong>No autoboxing</strong> — keys are stored as a primitive <code>int[]</code> instead of boxed <code>Integer</code> objects, eliminating both the per-key object allocation and its GC pressure.</li><li><strong>No Map.Entry objects</strong> — values live in a plain parallel array rather than wrapper Entry instances that <code>HashMap</code> allocates per pair, reducing memory overhead further.</li><li><strong>Good fit for typical Android use</strong> — most in-app maps (view-type caches, adapter position maps) are small, so <code>SparseArray</code>'s O(log n) binary-search lookup cost is negligible while the memory savings are real.</li><li>Variants exist for other primitive combinations: <code>SparseBooleanArray</code>, <code>SparseIntArray</code>, <code>SparseLongArray</code>, <code>LongSparseArray</code> — each avoiding boxing on both sides where applicable.</li></ul><p><strong>⚠️ Trade-off</strong></p><ul><li>Not a drop-in replacement for very large collections — <code>HashMap</code>'s O(1) average lookup wins once you have thousands of entries, since binary search's log n factor starts to matter.</li></ul>",
             "referenceLinks": [
