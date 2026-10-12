@@ -150,8 +150,19 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Overloading vs overriding side by side",
-                code: "class Printer {\n    void print(String s) { System.out.println(s); }         // overload 1\n    void print(int i) { System.out.println(i); }             // overload 2 (different param type)\n}\n\nclass Animal {\n    void speak() { System.out.println(\"...\"); }\n}\n\nclass Dog extends Animal {\n    @Override\n    void speak() { System.out.println(\"Woof\"); } // same signature, runtime dispatch\n}\n\nAnimal a = new Dog();\na.speak(); // prints \"Woof\" — decided at runtime by actual object type"
+                title: "Overloads chosen at compile time, overrides at runtime",
+                code: "class Printer {\n    void print(String s) { System.out.println(\"String overload: \" + s); }   // overload 1\n    void print(int i)    { System.out.println(\"int overload: \" + i); }      // overload 2\n    void print(Object o) { System.out.println(\"Object overload: \" + o); }   // overload 3\n}\n\nclass Animal {\n    void speak() { System.out.println(\"...\"); }\n}\n\nclass Dog extends Animal {\n    @Override\n    void speak() { System.out.println(\"Woof\"); }   // same signature, runtime dispatch\n}\n\npublic class OverloadingVsOverriding {\n    public static void main(String[] args) {\n        Printer p = new Printer();\n        p.print(\"hello\");   // picks the String overload\n        p.print(42);        // picks the int overload\n        p.print(3.14);      // no double overload, so it boxes and picks Object\n\n        Animal a = new Dog();\n        a.speak();          // overriding: decided by the object, at runtime\n\n        Object o = \"I am really a String\";\n        p.print(o);         // overloading: decided by the variable, at compile time\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "String overload: hello",
+                        "int overload: 42",
+                        "Object overload: 3.14",
+                        "Woof",
+                        "Object overload: I am really a String"
+                    ],
+                    explain: "<p>The last two lines are the whole distinction, and they point opposite ways.</p><p><code>a.speak()</code> printed <strong>Woof</strong> even though <code>a</code> is declared <code>Animal</code> — <strong>overriding is resolved at runtime, by the object</strong>. Then <code>p.print(o)</code> chose the <code>Object</code> overload even though <code>o</code> holds a <code>String</code> — <strong>overloading is resolved at compile time, by the declared type</strong>. The compiler picked that method before the program ever ran, and nothing at runtime revisits it.</p><p>Line three is the same rule with a different cause: there is no <code>print(double)</code>, so <code>3.14</code> was boxed to <code>Double</code> and matched <code>Object</code>.</p>"
+                }
             }],
             subsection: "oop"
         },
@@ -167,8 +178,20 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "String pool behavior",
-                code: "String a = \"hello\";\nString b = \"hello\";\nSystem.out.println(a == b); // true — both reference the pooled literal\n\nString c = new String(\"hello\");\nSystem.out.println(a == c);        // false — c is a distinct heap object\nSystem.out.println(a.equals(c));   // true — same content\n\nString d = c.intern(); // pull c's content into (or find in) the pool\nSystem.out.println(a == d); // true — d now references the pooled instance"
+                title: "The string pool, ==, and intern()",
+                code: "public class StringPool {\n    public static void main(String[] args) {\n        String a = \"hello\";\n        String b = \"hello\";\n        System.out.println(\"a == b            \" + (a == b));  // pooled literal, same object\n\n        String c = new String(\"hello\");\n        System.out.println(\"a == c            \" + (a == c));       // distinct heap object\n        System.out.println(\"a.equals(c)       \" + a.equals(c));    // same content\n\n        String d = c.intern();   // find (or place) this content in the pool\n        System.out.println(\"a == c.intern()   \" + (a == d));\n\n        // Concatenating constants is done by the compiler, so this is pooled too.\n        String e = \"hel\" + \"lo\";\n        System.out.println(\"a == \\\"hel\\\"+\\\"lo\\\"    \" + (a == e));\n\n        // Concatenating a variable is not, so this one is built at runtime.\n        String part = \"hel\";\n        String f = part + \"lo\";\n        System.out.println(\"a == part+\\\"lo\\\"    \" + (a == f));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "a == b            true",
+                        "a == c            false",
+                        "a.equals(c)       true",
+                        "a == c.intern()   true",
+                        "a == \"hel\"+\"lo\"    true",
+                        "a == part+\"lo\"    false"
+                    ],
+                    explain: "<p>Identical literals are the same object because the compiler puts one copy in the pool and points both names at it. <code>new String(\"hello\")</code> is an explicit instruction to allocate anyway, so it is a different object holding the same characters — hence <code>==</code> false, <code>equals</code> true.</p><p>The last two lines are the ones that catch people out. <code>\"hel\" + \"lo\"</code> is folded by the <em>compiler</em> into the literal <code>\"hello\"</code>, so it is pooled and <code>==</code> succeeds. Put one half in a variable and the concatenation has to happen at runtime, which builds a fresh object and <code>==</code> fails. Same characters, same expression shape, different answer — which is the argument for never using <code>==</code> on strings.</p>"
+                }
             }],
             subsection: "oop"
         },
@@ -342,8 +365,19 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Unboxing NullPointerException trap",
-                code: "Integer boxed = null;\nint primitive;\ntry {\n    primitive = boxed; // auto-unboxing attempts boxed.intValue() -> NPE\n} catch (NullPointerException e) {\n    System.out.println(\"Unboxing null throws NPE\");\n}\n\nMap<String, Integer> scores = new HashMap<>();\nint score = scores.getOrDefault(\"missing\", 0); // safe default avoids the trap"
+                title: "Where Integer and int actually differ",
+                code: "import java.util.HashMap;\nimport java.util.Map;\n\npublic class IntegerVsInt {\n    public static void main(String[] args) {\n        Integer boxed = null;          // a wrapper can be null\n        // int primitive = null;       // a primitive cannot — this would not compile\n\n        try {\n            int primitive = boxed;     // auto-unboxing calls boxed.intValue()\n            System.out.println(primitive);\n        } catch (NullPointerException e) {\n            System.out.println(\"unboxing null threw \" + e.getClass().getSimpleName());\n        }\n\n        Map<String, Integer> scores = new HashMap<>();\n        System.out.println(\"get(\\\"missing\\\")           = \" + scores.get(\"missing\"));\n\n        // The usual source of the NPE above: a map miss unboxed straight into an int.\n        int safe = scores.getOrDefault(\"missing\", 0);\n        System.out.println(\"getOrDefault(\\\"missing\\\",0) = \" + safe);\n\n        // The same difference shows up in array defaults.\n        int[] primitives = new int[1];\n        Integer[] wrappers = new Integer[1];\n        System.out.println(\"int[] default     = \" + primitives[0]);\n        System.out.println(\"Integer[] default = \" + wrappers[0]);\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "unboxing null threw NullPointerException",
+                        "get(\"missing\")           = null",
+                        "getOrDefault(\"missing\",0) = 0",
+                        "int[] default     = 0",
+                        "Integer[] default = null"
+                    ],
+                    explain: "<p>Everything here follows from one fact: <code>Integer</code> is an object and can be <code>null</code>, <code>int</code> is a value and cannot.</p><p>The first line is the failure that fact causes in real code. Assigning a <code>null Integer</code> to an <code>int</code> compiles cleanly — the compiler quietly inserts <code>.intValue()</code> — and then throws at runtime. It is a <code>NullPointerException</code> on a line with no visible method call on it, which is why it is so often misread.</p><p>The map lines show where the <code>null</code> usually comes from: a lookup that missed. <code>getOrDefault</code> is the fix, because it never hands you a <code>null</code> to unbox.</p>"
+                }
             }],
             subsection: "objects-primitives"
         },
@@ -359,8 +393,17 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Pass-by-value with reference semantics",
-                code: "class Box { String label; }\n\nstatic void mutate(Box b) {\n    b.label = \"mutated\"; // visible to caller — same object\n}\n\nstatic void reassign(Box b) {\n    b = new Box();        // only repoints the local copy\n    b.label = \"invisible\";\n}\n\nBox box = new Box();\nbox.label = \"original\";\nmutate(box);\nSystem.out.println(box.label);   // \"mutated\"\nreassign(box);\nSystem.out.println(box.label);   // still \"mutated\" — reassign had no external effect"
+                title: "Java passes references by value",
+                code: "class Box {\n    String label;\n}\n\npublic class PassByValue {\n\n    static void mutate(Box b) {\n        b.label = \"mutated\";      // follows the reference — the caller sees this\n    }\n\n    static void reassign(Box b) {\n        b = new Box();            // repoints this method's own copy of the reference\n        b.label = \"invisible\";    // and so the caller never sees it\n    }\n\n    static void bump(int n) {\n        n = n + 1;                // same story for primitives\n    }\n\n    public static void main(String[] args) {\n        Box box = new Box();\n        box.label = \"original\";\n\n        mutate(box);\n        System.out.println(\"after mutate(box)   : \" + box.label);\n\n        reassign(box);\n        System.out.println(\"after reassign(box) : \" + box.label);\n\n        int count = 1;\n        bump(count);\n        System.out.println(\"after bump(count)   : \" + count);\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "after mutate(box)   : mutated",
+                        "after reassign(box) : mutated",
+                        "after bump(count)   : 1"
+                    ],
+                    explain: "<p>This settles a thirty-year argument in three lines. <code>mutate</code> changed the caller's object, so it looks like pass-by-reference. <code>reassign</code> then pointed its parameter at a brand-new <code>Box</code> and the caller saw nothing — so it is not.</p><p>Both are the same rule. The method receives a <strong>copy of the reference</strong>. Following that copy to the object and changing a field affects the one object both names point at. Assigning to the copy only changes the copy, and the caller's reference still points where it did. <code>bump</code> is the same thing with a primitive, where there is no object to reach through at all.</p><p>Java is pass-by-value, always. What gets passed by value is sometimes a reference.</p>"
+                }
             }],
             subsection: "objects-primitives"
         },
@@ -551,8 +594,25 @@ const javaData = {
             },
             codeSnippets: [{
                 language: "java",
-                title: "try-with-resources vs manual finally",
-                code: "// Manual cleanup\nFileInputStream fis = null;\ntry {\n    fis = new FileInputStream(\"data.txt\");\n    fis.read();\n} catch (IOException e) {\n    log(e);\n} finally {\n    if (fis != null) {\n        try { fis.close(); } catch (IOException ignored) {}\n    }\n}\n\n// try-with-resources: close() called automatically\ntry (FileInputStream in = new FileInputStream(\"data.txt\")) {\n    in.read();\n} catch (IOException e) {\n    log(e);\n}"
+                title: "What runs, and in what order",
+                code: "public class TryCatchFinally {\n\n    // finally runs after the return value is computed but before the caller sees it.\n    static String order() {\n        try {\n            System.out.println(\"1. try\");\n            throw new IllegalStateException(\"boom\");\n        } catch (IllegalStateException e) {\n            System.out.println(\"2. catch: \" + e.getMessage());\n            return \"3. returning from catch\";\n        } finally {\n            System.out.println(\"   finally runs before that return lands\");\n        }\n    }\n\n    // A return inside finally silently discards the try's return value.\n    @SuppressWarnings(\"finally\")\n    static int finallyWins() {\n        try {\n            return 1;\n        } finally {\n            return 2;\n        }\n    }\n\n    static class Resource implements AutoCloseable {\n        private final String name;\n        Resource(String name) {\n            this.name = name;\n            System.out.println(\"   open  \" + name);\n        }\n        @Override public void close() {\n            System.out.println(\"   close \" + name);\n        }\n    }\n\n    public static void main(String[] args) {\n        System.out.println(order());\n\n        System.out.println(\"finallyWins() = \" + finallyWins());\n\n        // try-with-resources closes in reverse order, and needs no finally at all.\n        System.out.println(\"try-with-resources:\");\n        try (Resource a = new Resource(\"a\"); Resource b = new Resource(\"b\")) {\n            System.out.println(\"   body\");\n        }\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "1. try",
+                        "2. catch: boom",
+                        "   finally runs before that return lands",
+                        "3. returning from catch",
+                        "finallyWins() = 2",
+                        "try-with-resources:",
+                        "   open  a",
+                        "   open  b",
+                        "   body",
+                        "   close b",
+                        "   close a"
+                    ],
+                    explain: "<p>Read the first four lines in order. The <code>return</code> in the catch block computed its value, then <code>finally</code> ran, and only then did the method actually return. <code>finally</code> is not \"code after the try\" — it runs between the return being evaluated and the caller receiving it.</p><p><code>finallyWins()</code> returns <strong>2</strong>. The <code>try</code> block's <code>return 1</code> was fully evaluated and then thrown away, silently, because <code>finally</code> returned as well. This is why a <code>return</code> inside <code>finally</code> is a compiler warning and, in practice, a bug.</p><p>The resources close in <strong>reverse order</strong> — <code>b</code> then <code>a</code> — which matters when the second resource was built from the first. try-with-resources gets this right for free; a hand-written <code>finally</code> has to remember it.</p>"
+                }
             }],
             subsection: "exceptions"
         },
@@ -585,8 +645,20 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Shallow clone vs manual deep copy",
-                code: "class Address { String city; }\nclass Person implements Cloneable {\n    String name;\n    Address address;\n\n    @Override\n    protected Person clone() throws CloneNotSupportedException {\n        return (Person) super.clone(); // shallow: address is SHARED\n    }\n\n    Person deepCopy() {\n        Person copy = new Person();\n        copy.name = this.name;\n        copy.address = new Address();\n        copy.address.city = this.address.city; // independent nested object\n        return copy;\n    }\n}"
+                title: "Shallow clone shares nested objects; deep copy does not",
+                code: "class Address {\n    String city;\n    Address(String city) { this.city = city; }\n}\n\nclass Person implements Cloneable {\n    String name;\n    Address address;\n\n    Person(String name, Address address) {\n        this.name = name;\n        this.address = address;\n    }\n\n    @Override\n    protected Person clone() throws CloneNotSupportedException {\n        return (Person) super.clone();   // shallow: the Address is SHARED\n    }\n\n    Person deepCopy() {\n        return new Person(this.name, new Address(this.address.city));\n    }\n}\n\npublic class ShallowVsDeepCopy {\n    public static void main(String[] args) throws Exception {\n        Person original = new Person(\"Aditya\", new Address(\"Pune\"));\n\n        Person shallow = original.clone();\n        Person deep = original.deepCopy();\n\n        System.out.println(\"shares Address with shallow copy? \" + (original.address == shallow.address));\n        System.out.println(\"shares Address with deep copy?    \" + (original.address == deep.address));\n\n        // Change the nested object through the original.\n        original.address.city = \"Bengaluru\";\n\n        System.out.println(\"original.city = \" + original.address.city);\n        System.out.println(\"shallow.city  = \" + shallow.address.city);\n        System.out.println(\"deep.city     = \" + deep.address.city);\n\n        // The top-level field is copied either way, so this stays independent.\n        original.name = \"Riya\";\n        System.out.println(\"shallow.name  = \" + shallow.name);\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "shares Address with shallow copy? true",
+                        "shares Address with deep copy?    false",
+                        "original.city = Bengaluru",
+                        "shallow.city  = Bengaluru",
+                        "deep.city     = Pune",
+                        "shallow.name  = Aditya"
+                    ],
+                    explain: "<p>One line was changed — <code>original.address.city</code> — and it appeared in the shallow copy too. That is the bug this question is really about: the copy looked independent right up until someone reached through it.</p><p><code>Object.clone()</code> copies fields, and the <code>address</code> field is a <em>reference</em>. Copying it faithfully gives you a second reference to the same <code>Address</code>. The deep copy built a new <code>Address</code>, so it kept \"Pune\".</p><p>The last line shows why the problem hides: <code>name</code> is a <code>String</code>, which is immutable, so reassigning it on the original could never have affected the copy. Shallow copies are safe for every immutable field and dangerous for exactly the mutable ones.</p>"
+                }
             }],
             subsection: "others-java"
         },
@@ -649,8 +721,20 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "== vs equals() on Strings and custom objects",
-                code: "String a = new String(\"hi\");\nString b = new String(\"hi\");\nSystem.out.println(a == b);       // false: different objects\nSystem.out.println(a.equals(b));  // true: same content\n\nclass Point {\n    int x, y;\n    Point(int x, int y) { this.x = x; this.y = y; }\n    @Override public boolean equals(Object o) {\n        if (!(o instanceof Point)) return false;\n        Point p = (Point) o;\n        return x == p.x && y == p.y;\n    }\n}\nSystem.out.println(new Point(1,2).equals(new Point(1,2))); // true, content compared"
+                title: "== compares identity, equals() compares content",
+                code: "class Point {\n    int x, y;\n    Point(int x, int y) { this.x = x; this.y = y; }\n\n    @Override public boolean equals(Object o) {\n        if (!(o instanceof Point)) return false;\n        Point p = (Point) o;\n        return x == p.x && y == p.y;\n    }\n}\n\npublic class EqualsVsDoubleEquals {\n    public static void main(String[] args) {\n        String a = new String(\"hi\");\n        String b = new String(\"hi\");\n        System.out.println(\"a == b       \" + (a == b));        // two distinct objects\n        System.out.println(\"a.equals(b)  \" + a.equals(b));     // same characters\n\n        Point p = new Point(1, 2);\n        Point q = new Point(1, 2);\n        System.out.println(\"p == q       \" + (p == q));        // reference comparison\n        System.out.println(\"p.equals(q)  \" + p.equals(q));     // our override compares fields\n\n        // Without an override, equals() is just ==. Object's version does nothing else.\n        Object o1 = new Object();\n        Object o2 = new Object();\n        System.out.println(\"o1.equals(o2) \" + o1.equals(o2));\n\n        // Primitives have no identity, so == is the only comparison there is.\n        int i = 5, j = 5;\n        System.out.println(\"i == j       \" + (i == j));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "a == b       false",
+                        "a.equals(b)  true",
+                        "p == q       false",
+                        "p.equals(q)  true",
+                        "o1.equals(o2) false",
+                        "i == j       true"
+                    ],
+                    explain: "<p><code>==</code> asks \"are these the same object?\" and <code>equals()</code> asks whatever the class decided it should ask. For <code>String</code> and for our <code>Point</code>, that is \"do the contents match?\" — so the two operators disagree, correctly.</p><p>The fifth line is the one worth remembering. <code>Object.equals()</code> is <em>defined as</em> <code>==</code>. A class that does not override it gets identity comparison under a name that suggests otherwise, which is why two freshly built objects with identical fields can still be unequal.</p><p>The last line is the exception that confuses beginners: primitives have no identity, so <code>==</code> on <code>int</code> compares values and is the only comparison available.</p>"
+                }
             }],
             subsection: "others-java"
         },
@@ -666,8 +750,22 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Consistent equals/hashCode implementation",
-                code: "import java.util.Objects;\n\nclass Point {\n    final int x, y;\n    Point(int x, int y) { this.x = x; this.y = y; }\n\n    @Override public boolean equals(Object o) {\n        if (this == o) return true;\n        if (!(o instanceof Point)) return false;\n        Point p = (Point) o;\n        return x == p.x && y == p.y;\n    }\n\n    @Override public int hashCode() {\n        return Objects.hash(x, y); // derived from the same fields as equals()\n    }\n}"
+                title: "What breaks when hashCode is left out",
+                code: "import java.util.HashSet;\nimport java.util.Objects;\nimport java.util.Set;\n\n// Correct: equals and hashCode derived from the same fields.\nclass Point {\n    final int x, y;\n    Point(int x, int y) { this.x = x; this.y = y; }\n\n    @Override public boolean equals(Object o) {\n        if (this == o) return true;\n        if (!(o instanceof Point)) return false;\n        Point p = (Point) o;\n        return x == p.x && y == p.y;\n    }\n\n    @Override public int hashCode() {\n        return Objects.hash(x, y);\n    }\n}\n\n// Broken: equals overridden, hashCode left as Object's identity hash.\nclass BadPoint {\n    final int x, y;\n    BadPoint(int x, int y) { this.x = x; this.y = y; }\n\n    @Override public boolean equals(Object o) {\n        if (!(o instanceof BadPoint)) return false;\n        BadPoint p = (BadPoint) o;\n        return x == p.x && y == p.y;\n    }\n}\n\npublic class HashCodeAndEquals {\n    public static void main(String[] args) {\n        Point a = new Point(1, 2), b = new Point(1, 2);\n        System.out.println(\"Point equal?        \" + a.equals(b));\n        System.out.println(\"Point same hash?    \" + (a.hashCode() == b.hashCode()));\n\n        Set<Point> good = new HashSet<>();\n        good.add(a);\n        good.add(b);\n        System.out.println(\"HashSet<Point> size \" + good.size());\n        System.out.println(\"contains new(1,2)   \" + good.contains(new Point(1, 2)));\n\n        BadPoint c = new BadPoint(1, 2), d = new BadPoint(1, 2);\n        System.out.println(\"BadPoint equal?     \" + c.equals(d));\n        System.out.println(\"BadPoint same hash? \" + (c.hashCode() == d.hashCode()));\n\n        Set<BadPoint> bad = new HashSet<>();\n        bad.add(c);\n        bad.add(d);\n        System.out.println(\"HashSet<BadPoint>   \" + bad.size());\n        System.out.println(\"contains new(1,2)   \" + bad.contains(new BadPoint(1, 2)));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "Point equal?        true",
+                        "Point same hash?    true",
+                        "HashSet<Point> size 1",
+                        "contains new(1,2)   true",
+                        "BadPoint equal?     true",
+                        "BadPoint same hash? false",
+                        "HashSet<BadPoint>   2",
+                        "contains new(1,2)   false"
+                    ],
+                    explain: "<p><code>BadPoint</code> overrides <code>equals</code> and not <code>hashCode</code>, and the bottom four lines are the consequence. Two <code>BadPoint</code> objects report themselves <strong>equal</strong>, and a <code>HashSet</code> still stored <strong>both</strong> of them.</p><p>That is not a contradiction — it is how a hash container works. It goes to the bucket the hash code names, and only compares with <code>equals</code> once it is there. Different hash codes mean different buckets, so the equal object is never even looked at. The last line is the same failure from the other side: a lookup for an equal key returns nothing, because it searched the wrong bucket.</p><p>Hence the contract: <strong>equal objects must have equal hash codes.</strong> Overriding one without the other produces objects that are equal everywhere except the places it matters.</p>"
+                }
             }],
             subsection: "others-java"
         },
@@ -815,8 +913,21 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Autoboxing performance pitfall",
-                code: "// Autoboxing/unboxing happening implicitly\nList<Integer> list = new ArrayList<>();\nlist.add(5); // autobox: int -> Integer\nint x = list.get(0); // unbox: Integer -> int\n\n// Performance trap: boxing on every iteration\nLong sum = 0L;\nfor (long i = 0; i < 1_000_000; i++) {\n    sum += i; // unboxes sum, adds, reboxes -- allocates each time\n}\n\n// Fix: use the primitive directly\nlong fastSum = 0L;\nfor (long i = 0; i < 1_000_000; i++) {\n    fastSum += i; // no boxing\n}"
+                title: "Autoboxing, the remove() trap, and wrapper identity",
+                code: "import java.util.ArrayList;\nimport java.util.List;\n\npublic class AutoboxingAndUnboxing {\n    public static void main(String[] args) {\n        List<Integer> list = new ArrayList<>();\n        list.add(5);              // autobox: int -> Integer\n        int x = list.get(0);      // unbox:   Integer -> int\n        System.out.println(\"round trip = \" + x);\n\n        // The classic overload trap: List has remove(int index) AND remove(Object).\n        List<Integer> nums = new ArrayList<>(List.of(10, 20, 30));\n        nums.remove(1);                      // int -> remove BY INDEX\n        System.out.println(\"after remove(1)                = \" + nums);\n\n        List<Integer> again = new ArrayList<>(List.of(10, 20, 30));\n        again.remove(Integer.valueOf(10));   // Object -> remove BY VALUE\n        System.out.println(\"after remove(Integer.valueOf(10)) = \" + again);\n\n        // Arithmetic on a wrapper unboxes, adds, and boxes the result again.\n        Long boxedSum = 0L;\n        for (long i = 1; i <= 5; i++) boxedSum += i;\n        System.out.println(\"boxedSum   = \" + boxedSum + \" (a \" + boxedSum.getClass().getSimpleName() + \")\");\n\n        long fastSum = 0L;\n        for (long i = 1; i <= 5; i++) fastSum += i;\n        System.out.println(\"fastSum    = \" + fastSum + \" (a primitive long)\");\n\n        // And because they are objects, == compares identity, not value.\n        Long m = 1000L, n = 1000L;\n        System.out.println(\"m == n     \" + (m == n));\n        System.out.println(\"m.equals(n) \" + m.equals(n));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "round trip = 5",
+                        "after remove(1)                = [10, 30]",
+                        "after remove(Integer.valueOf(10)) = [20, 30]",
+                        "boxedSum   = 15 (a Long)",
+                        "fastSum    = 15 (a primitive long)",
+                        "m == n     false",
+                        "m.equals(n) true"
+                    ],
+                    explain: "<p>Lines two and three are the trap. <code>List</code> has both <code>remove(int index)</code> and <code>remove(Object)</code>, and autoboxing does <em>not</em> happen when an exact primitive overload already matches. So <code>nums.remove(1)</code> removed the element at <strong>index 1</strong> — the value 20 — while <code>remove(Integer.valueOf(10))</code> removed the <strong>value</strong> 10. Same method name, same-looking argument, entirely different operation.</p><p>The <code>boxedSum</code> loop looks identical to the primitive one and is not: each <code>+=</code> unboxes, adds, and allocates a new <code>Long</code>. Over a million iterations that is a million short-lived objects, which is why the type of an accumulator is worth a glance.</p><p>The last pair is the reason to distrust <code>==</code> on wrappers entirely — see the Integer cache question for why 1000 behaves differently from 100.</p>"
+                }
             }],
             subsection: "others-java"
         },
@@ -849,8 +960,22 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Integer cache boundary trap",
-                code: "Integer a = 100;\nInteger b = 100;\nSystem.out.println(a == b); // true -- both from the -128..127 cache\n\nInteger c = 200;\nInteger d = 200;\nSystem.out.println(c == d); // false -- outside cache, distinct objects\nSystem.out.println(c.equals(d)); // true -- always compare wrappers with equals()"
+                title: "The Integer cache boundary",
+                code: "public class IntegerCaching {\n    public static void main(String[] args) {\n        Integer a = 100, b = 100;\n        System.out.println(\"100 == 100   \" + (a == b));   // served from the cache\n\n        Integer c = 200, d = 200;\n        System.out.println(\"200 == 200   \" + (c == d));   // outside it, so new objects\n        System.out.println(\"200.equals   \" + c.equals(d));\n\n        // The cache covers -128..127, so the flip happens between these two.\n        Integer e = 127, f = 127;\n        Integer g = 128, h = 128;\n        System.out.println(\"127 == 127   \" + (e == f));\n        System.out.println(\"128 == 128   \" + (g == h));\n\n        // new Integer(...) always allocates, which is why it is deprecated.\n        Integer i = Integer.valueOf(100);\n        Integer j = new Integer(100);\n        System.out.println(\"valueOf == new \" + (i == j));\n\n        // Other wrappers cache too. Character caches 0..127, Boolean caches both.\n        Character p = 'A', q = 'A';\n        Boolean r = true, s = true;\n        System.out.println(\"'A' == 'A'   \" + (p == q));\n        System.out.println(\"true == true \" + (r == s));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "100 == 100   true",
+                        "200 == 200   false",
+                        "200.equals   true",
+                        "127 == 127   true",
+                        "128 == 128   false",
+                        "valueOf == new false",
+                        "'A' == 'A'   true",
+                        "true == true true"
+                    ],
+                    explain: "<p>The middle pair is the whole question. <code>127 == 127</code> is <strong>true</strong> and <code>128 == 128</code> is <strong>false</strong>, with nothing changed but the number. Autoboxing calls <code>Integer.valueOf</code>, which hands back a shared instance for <code>-128..127</code> and allocates a new one above that. So <code>==</code> — which compares identity — succeeds inside the cache and fails one step outside it.</p><p>This is the most dangerous kind of bug: code that compares boxed integers with <code>==</code> works perfectly on small test values and fails in production on real ones.</p><p><code>new Integer(100)</code> bypasses the cache and always allocates, which is why it is deprecated. <code>Character</code> and <code>Boolean</code> cache too, so the same trap exists with a friendlier failure mode.</p>"
+                }
             }],
             subsection: "others-java"
         },
