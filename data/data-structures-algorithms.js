@@ -58,8 +58,18 @@ const dataStructuresAlgorithmsData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Simple singly linked list node",
-                    "code": "class Node<T>(val value: T, var next: Node<T>? = null)\n\nclass LinkedList<T> {\n    private var head: Node<T>? = null\n\n    fun addFirst(value: T) {           // O(1)\n        head = Node(value, head)\n    }\n\n    fun get(index: Int): T? {          // O(n)\n        var current = head\n        repeat(index) { current = current?.next }\n        return current?.value\n    }\n}"
+                    "title": "A singly linked list, and what indexing costs",
+                    "code": "class Node<T>(val value: T, var next: Node<T>? = null)\n\nclass LinkedList<T> {\n    private var head: Node<T>? = null\n\n    fun addFirst(value: T) {           // O(1) -- no shifting, just repoint head\n        head = Node(value, head)\n    }\n\n    fun get(index: Int): T? {          // O(n) -- must walk from the head\n        var current = head\n        repeat(index) { current = current?.next }\n        return current?.value\n    }\n}\n\nfun main() {\n    val list = LinkedList<String>()\n    list.addFirst(\"c\")\n    list.addFirst(\"b\")\n    list.addFirst(\"a\")\n\n    println(\"get(0) = \" + list.get(0))\n    println(\"get(2) = \" + list.get(2))\n    println(\"get(5) = \" + list.get(5))\n\n    val array = arrayListOf(\"a\", \"b\", \"c\")\n    array.add(0, \"z\")\n    println(\"ArrayList after add(0): \" + array)\n}",
+                    "output": {
+                        "kind": "stdout",
+                        "lines": [
+                            "get(0) = a",
+                            "get(2) = c",
+                            "get(5) = null",
+                            "ArrayList after add(0): [z, a, b, c]"
+                        ],
+                        "explain": "<p><code>get(0)</code> was instant, <code>get(2)</code> had to walk two nodes to reach <code>c</code>, and <code>get(5)</code> walked off the end and returned <code>null</code>. That walk is what makes indexing a linked list <code>O(n)</code> — there is no arithmetic that jumps to the fifth node, only five hops.</p><p>The last line is the opposite trade. <code>ArrayList.add(0, \"z\")</code> put <code>z</code> at the front, which meant shifting every other element one place right.</p>"
+                    }
                 }
             ],
             "subsection": null,
@@ -88,8 +98,20 @@ const dataStructuresAlgorithmsData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Stack and Queue via ArrayDeque",
-                    "code": "val stack = ArrayDeque<Int>()\nstack.addLast(1); stack.addLast(2)\nval top = stack.removeLast()      // 2 -- LIFO, O(1)\n\nval queue = ArrayDeque<Int>()\nqueue.addLast(1); queue.addLast(2)\nval front = queue.removeFirst()   // 1 -- FIFO, O(1)"
+                    "title": "Stack and queue from one ArrayDeque",
+                    "code": "fun main() {\n    val stack = ArrayDeque<Int>()\n    stack.addLast(1); stack.addLast(2); stack.addLast(3)\n    println(\"stack     = \" + stack)\n    println(\"removeLast -> \" + stack.removeLast())   // LIFO, O(1)\n    println(\"removeLast -> \" + stack.removeLast())\n\n    val queue = ArrayDeque<Int>()\n    queue.addLast(1); queue.addLast(2); queue.addLast(3)\n    println(\"queue     = \" + queue)\n    println(\"removeFirst -> \" + queue.removeFirst()) // FIFO, O(1)\n    println(\"removeFirst -> \" + queue.removeFirst())\n}",
+                    "output": {
+                        "kind": "stdout",
+                        "lines": [
+                            "stack     = [1, 2, 3]",
+                            "removeLast -> 3",
+                            "removeLast -> 2",
+                            "queue     = [1, 2, 3]",
+                            "removeFirst -> 1",
+                            "removeFirst -> 2"
+                        ],
+                        "explain": "<p>Both structures were filled with the same <code>1, 2, 3</code>. The stack gave back 3 then 2 — last in, first out. The queue gave back 1 then 2 — first in, first out. Only the <em>end you remove from</em> differs, which is why a single <code>ArrayDeque</code> serves as both and why each operation is <code>O(1)</code>.</p>"
+                    }
                 }
             ],
             "subsection": null,
@@ -118,8 +140,17 @@ const dataStructuresAlgorithmsData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "BST insert and in-order traversal",
-                    "code": "class TreeNode(val value: Int) {\n    var left: TreeNode? = null\n    var right: TreeNode? = null\n}\n\nfun insert(root: TreeNode?, value: Int): TreeNode {   // O(log n) avg, O(n) worst\n    if (root == null) return TreeNode(value)\n    if (value < root.value) root.left = insert(root.left, value)\n    else root.right = insert(root.right, value)\n    return root\n}\n\nfun inOrder(node: TreeNode?, result: MutableList<Int>) { // O(n)\n    node ?: return\n    inOrder(node.left, result)\n    result.add(node.value)\n    inOrder(node.right, result)\n}"
+                    "title": "BST insert, in-order traversal, and how a tree degenerates",
+                    "code": "class TreeNode(val value: Int) {\n    var left: TreeNode? = null\n    var right: TreeNode? = null\n}\n\nfun insert(root: TreeNode?, value: Int): TreeNode {   // O(log n) avg, O(n) worst\n    if (root == null) return TreeNode(value)\n    if (value < root.value) root.left = insert(root.left, value)\n    else root.right = insert(root.right, value)\n    return root\n}\n\nfun inOrder(node: TreeNode?, result: MutableList<Int>) { // O(n)\n    node ?: return\n    inOrder(node.left, result)\n    result.add(node.value)\n    inOrder(node.right, result)\n}\n\nfun height(node: TreeNode?): Int =\n    if (node == null) 0 else 1 + maxOf(height(node.left), height(node.right))\n\nfun main() {\n    var balanced: TreeNode? = null\n    for (v in listOf(50, 30, 70, 20, 40, 60, 80)) balanced = insert(balanced, v)\n\n    val sorted = mutableListOf<Int>()\n    inOrder(balanced, sorted)\n    println(\"in-order  = \" + sorted)\n    println(\"height    = \" + height(balanced))\n\n    // Inserting already-sorted data degenerates the tree into a linked list.\n    var skewed: TreeNode? = null\n    for (v in listOf(20, 30, 40, 50, 60, 70, 80)) skewed = insert(skewed, v)\n    println(\"skewed height = \" + height(skewed) + \" for the same 7 values\")\n}",
+                    "output": {
+                        "kind": "stdout",
+                        "lines": [
+                            "in-order  = [20, 30, 40, 50, 60, 70, 80]",
+                            "height    = 3",
+                            "skewed height = 7 for the same 7 values"
+                        ],
+                        "explain": "<p>In-order traversal printed the values sorted without sorting anything — that ordering <em>is</em> the BST invariant, not extra work done at the end.</p><p>The two heights are the warning. Seven values inserted in mixed order built a tree of height 3. The same seven inserted already sorted built a tree of height 7 — every node hanging off the right of the last, which is a linked list wearing a tree's type. Search has quietly gone from <code>O(log n)</code> to <code>O(n)</code>, and that is the whole reason AVL and red-black trees exist.</p>"
+                    }
                 }
             ],
             "subsection": null,
@@ -148,8 +179,21 @@ const dataStructuresAlgorithmsData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "HashMap usage and a manual hash bucket sketch",
-                    "code": "val ages = HashMap<String, Int>()\nages[\"Aditya\"] = 29        // O(1) average\nval age = ages[\"Aditya\"]  // O(1) average\n\n// Conceptually: bucketIndex = key.hashCode() and (capacity - 1)\ndata class Employee(val id: Int, val name: String) // auto hashCode/equals"
+                    "title": "Which bucket a key lands in, and why equals matters",
+                    "code": "data class Employee(val id: Int, val name: String) // data class generates hashCode/equals\n\nfun main() {\n    val ages = HashMap<String, Int>()\n    ages[\"Aditya\"] = 29                  // O(1) average\n    println(\"get -> \" + ages[\"Aditya\"])  // O(1) average\n\n    // What put/get actually do: reduce the key's hash to a bucket index.\n    // Capacity is a power of two, so the modulo is a bit-mask.\n    val capacity = 16\n    for (key in listOf(\"Aditya\", \"Riya\", \"Sam\")) {\n        val bucket = key.hashCode() and (capacity - 1)\n        println(key + \": hashCode=\" + key.hashCode() + \" bucket=\" + bucket)\n    }\n\n    // Equal objects must produce equal hash codes, or lookup fails.\n    val a = Employee(1, \"Aditya\")\n    val b = Employee(1, \"Aditya\")\n    println(\"a == b            -> \" + (a == b))\n    println(\"same hashCode     -> \" + (a.hashCode() == b.hashCode()))\n    println(\"found by equal key-> \" + hashMapOf(a to \"engineer\")[b])\n}",
+                    "output": {
+                        "kind": "stdout",
+                        "lines": [
+                            "get -> 29",
+                            "Aditya: hashCode=1956490294 bucket=6",
+                            "Riya: hashCode=2547615 bucket=15",
+                            "Sam: hashCode=82879 bucket=15",
+                            "a == b            -> true",
+                            "same hashCode     -> true",
+                            "found by equal key-> engineer"
+                        ],
+                        "explain": "<p>Look at the third and fourth lines. <code>Riya</code> and <code>Sam</code> have completely unrelated hash codes and still land in bucket 15. That is a <strong>collision</strong>, and it is ordinary — sixteen buckets cannot keep every possible string apart. The map copes by chaining both entries inside that one bucket, which is exactly why the worst case is <code>O(n)</code> and not <code>O(1)</code>.</p><p>The last three lines are why keys must implement <code>hashCode</code> and <code>equals</code> consistently: two separately constructed <code>Employee</code> objects compare equal, hash to the same bucket, and so one finds the other's entry. A class that overrode only <code>equals</code> would have printed <code>null</code> there — the lookup would have gone to a different bucket entirely.</p>"
+                    }
                 }
             ],
             "subsection": null,
@@ -178,8 +222,22 @@ const dataStructuresAlgorithmsData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Merge sort — O(n log n) time, O(n) space",
-                    "code": "fun mergeSort(arr: IntArray): IntArray {\n    if (arr.size <= 1) return arr\n    val mid = arr.size / 2\n    val left = mergeSort(arr.copyOfRange(0, mid))\n    val right = mergeSort(arr.copyOfRange(mid, arr.size))\n    return merge(left, right)\n}\n\nfun merge(left: IntArray, right: IntArray): IntArray {\n    val result = IntArray(left.size + right.size)\n    var i = 0; var j = 0; var k = 0\n    while (i < left.size && j < right.size) {\n        result[k++] = if (left[i] <= right[j]) left[i++] else right[j++]\n    }\n    while (i < left.size) result[k++] = left[i++]\n    while (j < right.size) result[k++] = right[j++]\n    return result\n}"
+                    "title": "Merge sort, printing every merge step",
+                    "code": "fun mergeSort(arr: IntArray): IntArray {\n    if (arr.size <= 1) return arr\n    val mid = arr.size / 2\n    val left = mergeSort(arr.copyOfRange(0, mid))\n    val right = mergeSort(arr.copyOfRange(mid, arr.size))\n    return merge(left, right)\n}\n\nfun merge(left: IntArray, right: IntArray): IntArray {\n    val result = IntArray(left.size + right.size)\n    var i = 0; var j = 0; var k = 0\n    while (i < left.size && j < right.size) {\n        result[k++] = if (left[i] <= right[j]) left[i++] else right[j++]\n    }\n    while (i < left.size) result[k++] = left[i++]\n    while (j < right.size) result[k++] = right[j++]\n    println(\"merge \" + left.toList() + \" + \" + right.toList() + \" -> \" + result.toList())\n    return result\n}\n\nfun main() {\n    val input = intArrayOf(38, 27, 43, 3, 9, 82, 10)\n    println(\"input  = \" + input.toList())\n    println(\"sorted = \" + mergeSort(input).toList())\n}",
+                    "output": {
+                        "kind": "stdout",
+                        "lines": [
+                            "input  = [38, 27, 43, 3, 9, 82, 10]",
+                            "merge [27] + [43] -> [27, 43]",
+                            "merge [38] + [27, 43] -> [27, 38, 43]",
+                            "merge [3] + [9] -> [3, 9]",
+                            "merge [82] + [10] -> [10, 82]",
+                            "merge [3, 9] + [10, 82] -> [3, 9, 10, 82]",
+                            "merge [27, 38, 43] + [3, 9, 10, 82] -> [3, 9, 10, 27, 38, 43, 82]",
+                            "sorted = [3, 9, 10, 27, 38, 43, 82]"
+                        ],
+                        "explain": "<p>Each <code>merge</code> line is one combine step, and they print from the bottom up: single elements pair off first, those pairs merge into larger runs, and the final line joins the two halves. Seven values took three levels of merging — that is the <code>log n</code> — and every level touches all <code>n</code> values, which gives <code>O(n log n)</code>.</p><p>Notice that both inputs to every <code>merge</code> are already sorted. That is the only reason merging can be a single linear pass, and it is why merge sort recurses <em>before</em> it merges rather than after.</p>"
+                    }
                 }
             ],
             "subsection": null,
@@ -207,8 +265,17 @@ const dataStructuresAlgorithmsData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Fibonacci: naive vs memoized vs tabulated",
-                    "code": "// Naive: O(2^n) time, O(n) stack space\nfun fibNaive(n: Int): Long = if (n < 2) n.toLong() else fibNaive(n - 1) + fibNaive(n - 2)\n\n// Memoized (top-down): O(n) time, O(n) space\nfun fibMemo(n: Int, cache: MutableMap<Int, Long> = mutableMapOf()): Long {\n    if (n < 2) return n.toLong()\n    return cache.getOrPut(n) { fibMemo(n - 1, cache) + fibMemo(n - 2, cache) }\n}\n\n// Tabulated (bottom-up): O(n) time, O(1) space\nfun fibTab(n: Int): Long {\n    if (n < 2) return n.toLong()\n    var a = 0L; var b = 1L\n    repeat(n - 1) { val next = a + b; a = b; b = next }\n    return b\n}"
+                    "title": "Fibonacci: naive vs memoised vs tabulated, with call counts",
+                    "code": "var naiveCalls = 0\nvar memoCalls = 0\n\n// Naive: O(2^n) time, O(n) stack space\nfun fibNaive(n: Int): Long {\n    naiveCalls++\n    return if (n < 2) n.toLong() else fibNaive(n - 1) + fibNaive(n - 2)\n}\n\n// Memoized (top-down): O(n) time, O(n) space\nfun fibMemo(n: Int, cache: MutableMap<Int, Long> = mutableMapOf()): Long {\n    memoCalls++\n    if (n < 2) return n.toLong()\n    return cache.getOrPut(n) { fibMemo(n - 1, cache) + fibMemo(n - 2, cache) }\n}\n\n// Tabulated (bottom-up): O(n) time, O(1) space\nfun fibTab(n: Int): Long {\n    if (n < 2) return n.toLong()\n    var a = 0L; var b = 1L\n    repeat(n - 1) { val next = a + b; a = b; b = next }\n    return b\n}\n\nfun main() {\n    val n = 30\n    println(\"fibNaive(\" + n + \") = \" + fibNaive(n) + \" in \" + naiveCalls + \" calls\")\n    println(\"fibMemo(\" + n + \")  = \" + fibMemo(n) + \" in \" + memoCalls + \" calls\")\n    println(\"fibTab(\" + n + \")   = \" + fibTab(n) + \" in 0 recursive calls\")\n}",
+                    "output": {
+                        "kind": "stdout",
+                        "lines": [
+                            "fibNaive(30) = 832040 in 2692537 calls",
+                            "fibMemo(30)  = 832040 in 59 calls",
+                            "fibTab(30)   = 832040 in 0 recursive calls"
+                        ],
+                        "explain": "<p>This is dynamic programming in three lines. All three functions return the same 832040. The naive version needed <strong>2,692,537</strong> calls to get there; memoising it needed <strong>59</strong>.</p><p>Nothing about the recurrence changed — the cache simply stops a subproblem being solved twice, and the exponential tree of calls collapses into a line of them. Raise <code>n</code> to 40 and the naive version takes minutes while the other two stay instant.</p>"
+                    }
                 }
             ],
             "subsection": null,
@@ -238,8 +305,16 @@ const dataStructuresAlgorithmsData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "BFS and DFS on an adjacency list, O(V + E)",
-                    "code": "fun bfs(start: Int, graph: Map<Int, List<Int>>): List<Int> {\n    val visited = mutableSetOf(start)\n    val order = mutableListOf<Int>()\n    val queue = ArrayDeque<Int>().apply { addLast(start) }\n    while (queue.isNotEmpty()) {\n        val node = queue.removeFirst()\n        order.add(node)\n        for (neighbor in graph[node].orEmpty()) {\n            if (visited.add(neighbor)) queue.addLast(neighbor)\n        }\n    }\n    return order\n}\n\nfun dfs(node: Int, graph: Map<Int, List<Int>>, visited: MutableSet<Int> = mutableSetOf(), order: MutableList<Int> = mutableListOf()): List<Int> {\n    if (!visited.add(node)) return order\n    order.add(node)\n    for (neighbor in graph[node].orEmpty()) dfs(neighbor, graph, visited, order)\n    return order\n}"
+                    "title": "BFS and DFS over the same graph, O(V + E)",
+                    "code": "fun bfs(start: Int, graph: Map<Int, List<Int>>): List<Int> {\n    val visited = mutableSetOf(start)\n    val order = mutableListOf<Int>()\n    val queue = ArrayDeque<Int>().apply { addLast(start) }\n    while (queue.isNotEmpty()) {\n        val node = queue.removeFirst()\n        order.add(node)\n        for (neighbor in graph[node].orEmpty()) {\n            if (visited.add(neighbor)) queue.addLast(neighbor)\n        }\n    }\n    return order\n}\n\nfun dfs(\n    node: Int,\n    graph: Map<Int, List<Int>>,\n    visited: MutableSet<Int> = mutableSetOf(),\n    order: MutableList<Int> = mutableListOf()\n): List<Int> {\n    if (!visited.add(node)) return order\n    order.add(node)\n    for (neighbor in graph[node].orEmpty()) dfs(neighbor, graph, visited, order)\n    return order\n}\n\nfun main() {\n    //     1\n    //    / \\\n    //   2   3\n    //  / \\   \\\n    // 4   5   6\n    val graph = mapOf(\n        1 to listOf(2, 3),\n        2 to listOf(4, 5),\n        3 to listOf(6),\n        4 to emptyList<Int>(),\n        5 to emptyList(),\n        6 to emptyList()\n    )\n\n    println(\"BFS from 1 = \" + bfs(1, graph))\n    println(\"DFS from 1 = \" + dfs(1, graph))\n}",
+                    "output": {
+                        "kind": "stdout",
+                        "lines": [
+                            "BFS from 1 = [1, 2, 3, 4, 5, 6]",
+                            "DFS from 1 = [1, 2, 4, 5, 3, 6]"
+                        ],
+                        "explain": "<p>The two orders are the entire difference, and no amount of prose settles it as quickly. BFS reached <code>1, 2, 3</code> before touching anything at depth two — it finishes a level before going deeper, which is precisely why it finds the shortest path in an unweighted graph. DFS went <code>1, 2, 4</code>, straight down the leftmost branch to the bottom, then backtracked for 5, then crossed to 3 and 6.</p>"
+                    }
                 }
             ],
             "subsection": null,
@@ -268,8 +343,23 @@ const dataStructuresAlgorithmsData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Adjacency list representation",
-                    "code": "val graph: MutableMap<Int, MutableList<Int>> = mutableMapOf()\n\nfun addEdge(u: Int, v: Int) {          // O(1)\n    graph.getOrPut(u) { mutableListOf() }.add(v)\n    graph.getOrPut(v) { mutableListOf() }.add(u) // omit for a directed graph\n}"
+                    "title": "The same graph as an adjacency list and as a matrix",
+                    "code": "val graph: MutableMap<Int, MutableList<Int>> = mutableMapOf()\n\nfun addEdge(u: Int, v: Int) {          // O(1)\n    graph.getOrPut(u) { mutableListOf() }.add(v)\n    graph.getOrPut(v) { mutableListOf() }.add(u) // omit for a directed graph\n}\n\nfun main() {\n    addEdge(1, 2)\n    addEdge(1, 3)\n    addEdge(2, 4)\n\n    println(\"adjacency list = \" + graph)\n    println(\"neighbours of 1 = \" + graph[1])\n    println(\"edge 1-3 exists = \" + (graph[1]?.contains(3) ?: false))\n\n    // The same graph as a matrix over nodes 1..4: 16 cells to hold 3 edges.\n    val nodes = listOf(1, 2, 3, 4)\n    val matrix = Array(nodes.size) { IntArray(nodes.size) }\n    for ((u, neighbours) in graph) for (v in neighbours) matrix[u - 1][v - 1] = 1\n\n    println(\"adjacency matrix:\")\n    println(\"    \" + nodes.joinToString(\" \"))\n    nodes.forEachIndexed { i, node -> println(\"  $node \" + matrix[i].joinToString(\" \")) }\n}",
+                    "output": {
+                        "kind": "stdout",
+                        "lines": [
+                            "adjacency list = {1=[2, 3], 2=[1, 4], 3=[1], 4=[2]}",
+                            "neighbours of 1 = [2, 3]",
+                            "edge 1-3 exists = true",
+                            "adjacency matrix:",
+                            "    1 2 3 4",
+                            "  1 0 1 1 0",
+                            "  2 1 0 0 1",
+                            "  3 1 0 0 0",
+                            "  4 0 1 0 0"
+                        ],
+                        "explain": "<p>Three edges, stored twice. The adjacency list holds four entries and six references. The matrix underneath says exactly the same thing in sixteen cells, ten of which are zero. Scale both to a thousand nodes: the list still grows with the number of edges, while the matrix needs a million cells whether the graph is dense or nearly empty.</p><p>The matrix earns its keep on the third line's question. \"Is there an edge 1–3?\" is one cell lookup in a matrix, where the list has to scan node 1's neighbours.</p>"
+                    }
                 }
             ],
             "subsection": null,
@@ -299,7 +389,16 @@ const dataStructuresAlgorithmsData = {
                 {
                     "language": "kotlin",
                     "title": "Two Sum — O(n) time, O(n) space",
-                    "code": "fun twoSum(nums: IntArray, target: Int): IntArray {\n    val seen = HashMap<Int, Int>() // value -> index\n    nums.forEachIndexed { index, num ->\n        val complement = target - num\n        seen[complement]?.let { return intArrayOf(it, index) }\n        seen[num] = index\n    }\n    return intArrayOf(-1, -1)\n}"
+                    "code": "fun twoSum(nums: IntArray, target: Int): IntArray {\n    val seen = HashMap<Int, Int>() // value -> index\n    nums.forEachIndexed { index, num ->\n        val complement = target - num\n        seen[complement]?.let { return intArrayOf(it, index) }\n        seen[num] = index\n    }\n    return intArrayOf(-1, -1)\n}\n\nfun main() {\n    val nums = intArrayOf(2, 7, 11, 15)\n    println(\"twoSum([2, 7, 11, 15], 9)  = \" + twoSum(nums, 9).toList())\n    println(\"twoSum([2, 7, 11, 15], 26) = \" + twoSum(nums, 26).toList())\n    println(\"twoSum([2, 7, 11, 15], 100)= \" + twoSum(nums, 100).toList())\n}",
+                    "output": {
+                        "kind": "stdout",
+                        "lines": [
+                            "twoSum([2, 7, 11, 15], 9)  = [0, 1]",
+                            "twoSum([2, 7, 11, 15], 26) = [2, 3]",
+                            "twoSum([2, 7, 11, 15], 100)= [-1, -1]"
+                        ],
+                        "explain": "<p>The map is filled as the scan runs, so each element only ever looks backwards — one pass, no nested loop. For target 9 the answer landed at index 1: <code>7</code> looked for its complement <code>9 - 7 = 2</code>, and <code>2</code> had already been recorded at index 0.</p><p>The last call finds nothing and returns the <code>[-1, -1]</code> sentinel. Worth noticing, because a caller that assumes success will happily index into it.</p>"
+                    }
                 }
             ],
             "subsection": null,
