@@ -41,19 +41,55 @@ const kotlinCoroutinesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Suspend function calling suspend function",
-                code: `class UserRepository(private val api: ApiService) {
-    suspend fun fetchUser(id: String): User = withContext(Dispatchers.IO) {
-        api.getUser(id) // suspends here, thread is released
+                title: "A suspend function, and what suspending looks like from outside",
+                code: `import kotlinx.coroutines.*
+
+data class User(val id: String, val name: String)
+
+class ApiService {
+    // A real one would be a Retrofit \`suspend fun\`; the delay stands in for the network.
+    suspend fun getUser(id: String): User {
+        delay(100)
+        return User(id, "Ada")
     }
 }
 
-fun onLoadClicked() {
-    viewModelScope.launch {
-        val user = repository.fetchUser("42") // must be called from a coroutine
-        _uiState.value = UiState.Loaded(user)
+class UserRepository(private val api: ApiService) {
+    suspend fun fetchUser(id: String): User = withContext(Dispatchers.IO) {
+        println("  fetchUser: about to suspend, releasing the thread")
+        val user = api.getUser(id)
+        println("  fetchUser: resumed with \${user.name}")
+        user
     }
-}`
+}
+
+fun main() = runBlocking {
+    val repository = UserRepository(ApiService())
+
+    println("before launch")
+
+    // In an Android app this would be viewModelScope.launch { }.
+    val job = launch {
+        val user = repository.fetchUser("42")
+        println("ui state = Loaded(\${user.name})")
+    }
+
+    println("after launch — this line did not wait")
+    job.join()
+    println("done")
+}`,
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "before launch",
+                        "after launch — this line did not wait",
+                        "  fetchUser: about to suspend, releasing the thread",
+                        "  fetchUser: resumed with Ada",
+                        "ui state = Loaded(Ada)",
+                        "done"
+                    ],
+                    explain: "<p>Read the first two lines together. <code>launch</code> returned <em>before</em> the repository had done anything — that is what \"does not block\" means, and it is why the UI thread stays responsive while a call is in flight.</p><p>The two indented lines are the suspension itself. Between them the coroutine was not running and no thread was held waiting for it; <code>withContext(Dispatchers.IO)</code> handed the work to a background thread and gave the caller's thread back. The function then resumed exactly where it left off, with a local variable it had before suspending, which is what makes suspending code read like blocking code.</p><p>The <code>ApiService</code> here is a stand-in with a <code>delay</code> in place of a network call, so the snippet actually runs. In an app it would be a Retrofit interface and the <code>launch</code> would be <code>viewModelScope.launch</code>.</p>"
+                }
             }],
             subsection: null
         },
@@ -85,7 +121,19 @@ fun onLoadClicked() {
                 title: "Switching dispatcher with withContext",
                 code: `suspend fun getUserFromDb(id: String): User = withContext(Dispatchers.IO) {
     userDao.getUserById(id) // runs on IO dispatcher, resumes caller's dispatcher after
-}`
+}`,
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "The caller is already inside a coroutine — say viewModelScope, which runs on the main thread.",
+                        "It calls getUserFromDb, which immediately hits withContext(Dispatchers.IO).",
+                        "withContext suspends the coroutine and reschedules its body onto a thread from the IO pool. The main thread is released, not blocked.",
+                        "userDao.getUserById runs on that IO thread. The main thread is free to draw frames the whole time.",
+                        "When the query returns, withContext resumes the coroutine back on the dispatcher the caller came from — the main thread.",
+                        "getUserFromDb returns the User to code that has never left the main thread, and never needed a callback to get back to it."
+                    ],
+                    explain: "<p>Step 5 is the part that distinguishes <code>withContext</code> from <code>launch(Dispatchers.IO)</code>: it puts you back where you started. The dispatcher change lasts exactly as long as the block, so the caller does not have to switch back by hand and cannot forget to.</p><p><code>withContext</code> also returns a value and suspends until the block finishes, which makes it the right tool for \"do this bit somewhere else and give me the answer\" — as opposed to <code>launch</code>, which is fire-and-forget.</p>"
+                }
             }],
             subsection: null
         },
@@ -190,7 +238,20 @@ fun onLoadClicked() {
         }
         client.requestLocationUpdates(request, callback, Looper.getMainLooper())
         cont.invokeOnCancellation { client.removeLocationUpdates(callback) }
-    }`
+    }`,
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "A coroutine calls awaitLocation and suspends at suspendCancellableCoroutine.",
+                        "The block runs immediately, on the calling thread, and registers a LocationCallback with the framework.",
+                        "The block returns, but the coroutine stays suspended. It is now waiting on the continuation, holding no thread.",
+                        "Some time later the location framework invokes onLocationResult on its own thread.",
+                        "cont.resume(location) hands the value back and the coroutine resumes, on its own dispatcher rather than the framework's.",
+                        "The callback is unregistered, so the framework stops delivering updates nobody is waiting for.",
+                        "If instead the coroutine is cancelled while suspended, invokeOnCancellation runs and unregisters the callback the same way."
+                    ],
+                    explain: "<p>Step 7 is why this uses <code>suspendCancellableCoroutine</code> rather than plain <code>suspendCoroutine</code>. Without <code>invokeOnCancellation</code> a cancelled coroutine leaves the listener registered, and the framework keeps calling back into an object that will never resume anything — a leak that outlives the screen that caused it.</p><p>The other rule the code obeys: a continuation may be resumed <strong>exactly once</strong>. Resuming twice throws, which is why the callback is removed on the first result.</p>"
+                }
             }],
             subsection: null
         },
@@ -219,7 +280,7 @@ fun onLoadClicked() {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Callback API to suspend function",
+                title: "Turning a callback API into a suspend function",
                 code: `suspend fun getLocation(client: FusedLocationProviderClient): Location =
     suspendCancellableCoroutine { cont ->
         val listener = object : LocationCallback() {
@@ -230,7 +291,19 @@ fun onLoadClicked() {
         }
         client.requestLocationUpdates(request, listener, Looper.getMainLooper())
         cont.invokeOnCancellation { client.removeLocationUpdates(listener) }
-    }`
+    }`,
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Caller writes val location = getLocation(client) — one line, no callback in sight.",
+                        "suspendCancellableCoroutine captures the coroutine's continuation and suspends it.",
+                        "The listener is registered with the callback-based API, exactly as it would be without coroutines.",
+                        "onLocationResult fires on the framework's thread and calls cont.resume(...).",
+                        "The suspended coroutine resumes with that value as the return value of getLocation.",
+                        "The listener is removed, and invokeOnCancellation guarantees it is also removed if the coroutine dies first."
+                    ],
+                    explain: "<p>This is the adapter that lets everything else in the codebase stop dealing in callbacks. The API on the outside is a plain suspending function returning a value, so calls sequence and errors propagate like ordinary code — while the callback machinery stays sealed inside the wrapper.</p><p>The one hazard is <code>result.lastLocation!!</code>: a callback that fires with nothing would throw inside the framework's thread rather than at the call site. Resuming with <code>resumeWithException</code> on the failure path is the more careful form.</p>"
+                }
             }],
             subsection: null
         },
@@ -246,7 +319,7 @@ fun onLoadClicked() {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Suspend Retrofit call with Result wrapper",
+                title: "Suspend Retrofit call wrapped in Result",
                 code: `interface ApiService {
     @GET("users/{id}")
     suspend fun getUser(@Path("id") id: String): User
@@ -260,7 +333,20 @@ class UserRepository(private val api: ApiService) {
     } catch (e: IOException) {
         Result.failure(e)
     }
-}`
+}`,
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "The caller, inside a coroutine, calls fetchUser.",
+                        "api.getUser is a suspend function, so Retrofit enqueues the request and suspends the coroutine rather than blocking it.",
+                        "Retrofit performs the call on OkHttp's own dispatcher and thread pool, which is why no withContext(Dispatchers.IO) is needed here.",
+                        "On a 2xx response the body is parsed and the coroutine resumes with the User, which is wrapped in Result.success.",
+                        "On a 4xx or 5xx, Retrofit throws HttpException at the point of resumption, which the first catch turns into Result.failure.",
+                        "On a socket or DNS failure it throws IOException instead, which the second catch handles the same way.",
+                        "Either way the caller receives a Result and never sees an exception cross the repository boundary."
+                    ],
+                    explain: "<p>Step 3 is the detail most often got wrong: wrapping a suspending Retrofit call in <code>withContext(Dispatchers.IO)</code> is redundant. Retrofit already moves the work off the caller's thread, so the extra dispatcher switch buys nothing.</p><p>Steps 5 and 6 are why there are two catches. <code>HttpException</code> means the server answered and the answer was an error; <code>IOException</code> means the conversation never happened. They usually deserve different messages on screen, and catching <code>Exception</code> flattens the distinction — while also swallowing <code>CancellationException</code>, which must be allowed to propagate.</p>"
+                }
             }],
             subsection: null
         },
@@ -276,8 +362,21 @@ class UserRepository(private val api: ApiService) {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Parallel network calls with async",
-                code: `suspend fun loadDashboard(userId: String): Dashboard = coroutineScope {
+                title: "Three calls at once with async",
+                code: `import kotlinx.coroutines.*
+
+data class Dashboard(val user: String, val posts: Int, val friends: Int)
+
+class Api {
+    suspend fun getUser(id: String): String   { delay(300); println("  user arrived");    return "Ada" }
+    suspend fun getPosts(id: String): Int     { delay(200); println("  posts arrived");   return 12 }
+    suspend fun getFriends(id: String): Int   { delay(100); println("  friends arrived"); return 5 }
+}
+
+val api = Api()
+
+suspend fun loadDashboard(userId: String): Dashboard = coroutineScope {
+    // async starts all three immediately; await only collects the results.
     val userDeferred = async { api.getUser(userId) }
     val postsDeferred = async { api.getPosts(userId) }
     val friendsDeferred = async { api.getFriends(userId) }
@@ -287,7 +386,23 @@ class UserRepository(private val api: ApiService) {
         posts = postsDeferred.await(),
         friends = friendsDeferred.await()
     )
-}`
+}
+
+fun main() = runBlocking {
+    println("requesting all three")
+    println("dashboard = " + loadDashboard("42"))
+}`,
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "requesting all three",
+                        "  friends arrived",
+                        "  posts arrived",
+                        "  user arrived",
+                        "dashboard = Dashboard(user=Ada, posts=12, friends=5)"
+                    ],
+                    explain: "<p>The arrival order is the proof. The three calls were <em>started</em> in the order user, posts, friends, and they <em>finished</em> in the reverse order — friends first, because its delay is shortest. If <code>async</code> had run them one after another the order would have matched the source.</p><p>The reason is that <code>async</code> starts the work immediately and returns a <code>Deferred</code>; <code>await</code> only collects a result that is already on its way. Calling <code>await()</code> on each one in turn does not serialise them, because by then all three are already running.</p><p>The common mistake is <code>async { }.await()</code> on one line, which starts a coroutine and immediately waits for it — all the machinery of concurrency and none of the benefit.</p>"
+                }
             }],
             subsection: null
         },
@@ -320,7 +435,19 @@ class UserRepository(private val dao: UserDao) {
     suspend fun cacheUser(user: UserEntity) = withContext(Dispatchers.IO) {
         dao.insert(user)
     }
-}`
+}`,
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Room sees suspend on the DAO methods at compile time and generates implementations that do not block.",
+                        "A caller inside a coroutine calls dao.insert(user).",
+                        "The generated code dispatches the query to Room's own executor and suspends the coroutine.",
+                        "The write runs on that background thread; the caller's thread is released.",
+                        "When it completes the coroutine resumes on its original dispatcher.",
+                        "Because the DAO is suspend, Room's main-thread check never fires — a blocking DAO call from the main thread would have thrown IllegalStateException instead."
+                    ],
+                    explain: "<p>Step 6 is the practical point. Room refuses to run a blocking query on the main thread and crashes rather than dropping frames silently. Marking DAO functions <code>suspend</code> is what removes that whole category of mistake.</p><p>It also makes the <code>withContext(Dispatchers.IO)</code> in <code>cacheUser</code> unnecessary: Room already dispatches its own work, exactly as Retrofit does. It is harmless, and it is one of the most common redundant lines in Android codebases.</p>"
+                }
             }],
             subsection: null
         },
@@ -336,7 +463,7 @@ class UserRepository(private val dao: UserDao) {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "ViewModel test with runTest",
+                title: "Testing a coroutine ViewModel with runTest",
                 code: `@OptIn(ExperimentalCoroutinesApi::class)
 class UserViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
@@ -354,7 +481,20 @@ class UserViewModelTest {
 
         assertEquals(UiState.Loaded(User("1", "Ada")), viewModel.uiState.value)
     }
-}`
+}`,
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "setUp installs a StandardTestDispatcher as Dispatchers.Main, so viewModelScope inside the ViewModel uses it instead of the real Android main looper.",
+                        "runTest starts the test body on a scheduler that controls virtual time.",
+                        "viewModel.loadUser(\"1\") launches a coroutine on viewModelScope — which is queued on the test dispatcher, not executed yet.",
+                        "advanceUntilIdle runs everything the scheduler has queued, including any delay(), instantly and in order.",
+                        "Any delay in the ViewModel is skipped rather than waited out, so a two-second retry backoff costs the test nothing.",
+                        "The assertion runs with all coroutines settled, so the state is final rather than whatever happened to be there.",
+                        "tearDown resets Dispatchers.Main, because setMain is global and would leak into the next test class."
+                    ],
+                    explain: "<p>Steps 4 and 5 are the reason this setup exists. Without a test dispatcher the assertion races the coroutine and the test either sleeps or flakes; with one, virtual time makes the ordering exact and the suite stays fast.</p><p>Step 7 is the one people forget. <code>Dispatchers.setMain</code> mutates global state, and skipping <code>resetMain</code> produces failures in an unrelated test class that ran afterwards — the hardest kind to trace.</p><p><code>StandardTestDispatcher</code> queues work until you advance it, which is what makes the ordering above observable. <code>UnconfinedTestDispatcher</code> runs eagerly instead, which is convenient and hides exactly the ordering bugs a test like this should catch.</p>"
+                }
             }],
             subsection: null
         },
@@ -370,24 +510,62 @@ class UserViewModelTest {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Handler vs try/catch",
-                code: `val handler = CoroutineExceptionHandler { _, exception ->
-    Log.e("VM", "Unhandled error", exception)
-}
+                title: "Handler versus try/catch, and what neither one catches",
+                code: `import kotlinx.coroutines.*
+import java.io.IOException
 
-viewModelScope.launch(handler) {
-    val user = repository.fetchUser(id) // uncaught throw -> caught by handler
-}
-
-// Expected, recoverable errors: prefer try/catch
-viewModelScope.launch {
-    try {
-        val user = repository.fetchUser(id)
-        _uiState.value = UiState.Loaded(user)
-    } catch (e: IOException) {
-        _uiState.value = UiState.Error("Network error")
+class Repository {
+    suspend fun fetchUser(id: String): String {
+        delay(10)
+        throw IOException("no network")
     }
-}`
+}
+
+val repository = Repository()
+
+fun main() = runBlocking {
+    val handler = CoroutineExceptionHandler { _, exception ->
+        println("handler: \${exception::class.simpleName} — \${exception.message}")
+    }
+
+    // 1. Unexpected failure: the handler is the last line of defence.
+    //    In a ViewModel this is viewModelScope.launch(handler) { }.
+    CoroutineScope(Job() + handler)
+        .launch { repository.fetchUser("42") }
+        .join()
+
+    // 2. Expected failure: try/catch keeps the recovery beside the call.
+    launch {
+        try {
+            val user = repository.fetchUser("42")
+            println("ui state = Loaded($user)")
+        } catch (e: IOException) {
+            println("ui state = Error(\\"Network error\\")")
+        }
+    }.join()
+
+    // 3. try/catch AROUND launch catches nothing. launch returns immediately;
+    //    the throw happens later, inside the child, on another stack.
+    try {
+        CoroutineScope(Job() + handler)
+            .launch { repository.fetchUser("42") }
+            .join()
+    } catch (e: IOException) {
+        println("this line never runs")
+    }
+
+    println("done")
+}`,
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "handler: IOException — no network",
+                        "ui state = Error(\"Network error\")",
+                        "handler: IOException — no network",
+                        "done"
+                    ],
+                    explain: "<p>Three cases, and the third is the one that catches people out. The <code>try</code> wrapped around <code>launch</code> printed nothing — its <code>catch</code> never ran, and the handler reported the failure instead. <code>launch</code> returns as soon as the coroutine is scheduled, so by the time the exception is thrown the <code>try</code> block has long since been left. There is no stack frame for it to unwind into.</p><p>That is the rule: <strong>try/catch has to be inside the coroutine</strong>, around the call that can fail, which is what the middle case does. Use it for failures you expect and can recover from — a network error becoming an error state on screen.</p><p>A <code>CoroutineExceptionHandler</code> is the other end: a last resort for failures you did not anticipate, where the only sensible response is to log. It cannot recover anything, because by the time it runs the coroutine is already dead.</p>"
+                }
             }],
             subsection: null
         },
@@ -428,19 +606,66 @@ viewModelScope.launch {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Cooperative cancellation",
-                code: `viewModelScope.launch {
-    val job = launch {
-        var i = 0
-        while (isActive) { // cooperative check
-            i++
-            delay(500)
+                title: "Cancellation is cooperative, and what happens when code does not cooperate",
+                code: `import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
+
+fun main() = runBlocking {
+    val ticked = Channel<Int>(Channel.UNLIMITED)
+
+    // Cooperative: the loop tests isActive, and delay() is a suspension point.
+    val cooperative = launch {
+        try {
+            var i = 0
+            while (isActive) {
+                ticked.send(i)
+                i++
+                delay(1)
+            }
+        } finally {
+            println("cooperative: finally still runs on cancellation")
         }
     }
-    delay(2000)
-    job.cancel() // requests cancellation
-    job.join()   // waits for it to actually finish
-}`
+
+    repeat(3) { println("tick \${ticked.receive()}") }
+    cooperative.cancelAndJoin()
+    println("cooperative.isCancelled = \${cooperative.isCancelled}")
+
+    // Not cooperative: no suspension point and no isActive check, so cancel()
+    // sets a flag that nothing ever looks at.
+    val started = CompletableDeferred<Unit>()
+    val stubborn = launch(Dispatchers.Default) {
+        started.complete(Unit)
+        var i = 0
+        while (i < 3) {
+            Thread.sleep(5)
+            println("stubborn keeps going: $i")
+            i++
+        }
+        println("stubborn: ran to completion despite being cancelled")
+    }
+
+    started.await()
+    stubborn.cancel()
+    stubborn.join()
+    println("stubborn.isCancelled = \${stubborn.isCancelled}")
+}`,
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "tick 0",
+                        "tick 1",
+                        "tick 2",
+                        "cooperative: finally still runs on cancellation",
+                        "cooperative.isCancelled = true",
+                        "stubborn keeps going: 0",
+                        "stubborn keeps going: 1",
+                        "stubborn keeps going: 2",
+                        "stubborn: ran to completion despite being cancelled",
+                        "stubborn.isCancelled = true"
+                    ],
+                    explain: "<p>The two halves are the same <code>cancel()</code> call with opposite outcomes.</p><p>The cooperative coroutine stopped, because it does two things right: it tests <code>isActive</code>, and it calls <code>delay</code>, which is a suspension point that throws <code>CancellationException</code> when the job is cancelled. Its <code>finally</code> block still ran — cancellation unwinds the coroutine normally, so cleanup is not skipped.</p><p>The stubborn one printed all three iterations and its completion message <em>after</em> being cancelled, and <code>isCancelled</code> was <code>true</code> the whole time. <code>cancel()</code> does not stop a thread; it sets a flag and throws at the next suspension point. A loop with no suspension point and no <code>isActive</code> check never reaches one, so it runs to the end regardless.</p><p>This is why a long CPU-bound loop in a coroutine needs an explicit <code>ensureActive()</code> or <code>yield()</code> — otherwise leaving the screen does not stop the work.</p>"
+                }
             }],
             subsection: null
         }

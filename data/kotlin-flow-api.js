@@ -26,21 +26,41 @@ const kotlinFlowApiData = {
             },
             codeSnippets: [{
                 language: "kotlin",
-                title: "Flow builder, operators, collector",
-                code: `fun tickerFlow(): Flow<Int> = flow {
+                title: "Builder, operators, collector — and bounding an infinite source",
+                code: `import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
+
+fun tickerFlow(): Flow<Int> = flow {
     var count = 0
-    while (true) {
+    while (true) {          // the builder is infinite; the collector decides when to stop
         emit(count++)
-        delay(1000)
+        delay(10)
     }
 }
 
-viewModelScope.launch {
+fun main() = runBlocking {
+    println("flow built — nothing has run yet")
+
     tickerFlow()
         .map { it * 2 }
         .filter { it % 4 == 0 }
-        .collect { value -> println(value) }
-}`
+        .take(4)            // bounds an infinite source, and cancels it on the fourth value
+        .collect { value -> println("collected $value") }
+
+    println("collect returned, so the ticker was cancelled")
+}`,
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "flow built — nothing has run yet",
+                        "collected 0",
+                        "collected 4",
+                        "collected 8",
+                        "collected 12",
+                        "collect returned, so the ticker was cancelled"
+                    ],
+                    explain: "<p>The first line printed before anything else happened, and that is the definition of a cold flow: building it and chaining <code>map</code> and <code>filter</code> onto it runs no code at all. The ticker only started when <code>collect</code> asked for values.</p><p>The collected values are 0, 4, 8, 12 — the ticker emits 0, 1, 2…, <code>map</code> doubles them, and <code>filter</code> keeps only multiples of 4. Each value flows all the way through the chain before the next one is emitted; the operators are not batch steps over a list.</p><p><code>take(4)</code> is load-bearing here. The builder's <code>while (true)</code> never ends on its own, so the collector is what stops it — <code>take</code> cancels the flow once it has enough, which is the last line. Without it this snippet would run forever, which is exactly why it could not be verified before.</p>"
+                }
             }],
             subsection: null
         },
@@ -56,11 +76,23 @@ viewModelScope.launch {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "flowOn moves the upstream dispatcher",
+                title: "flowOn changes the upstream context only",
                 code: `fun observeUsers(): Flow<List<User>> = userDao.getAllUsers()
     .map { entities -> entities.map { it.toDomainModel() } } // runs on IO
     .flowOn(Dispatchers.IO)
-// downstream .collect { } still runs on the caller's (e.g. Main) dispatcher`
+// downstream .collect { } still runs on the caller's (e.g. Main) dispatcher`,
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "The collector runs on the main thread — say inside viewModelScope.",
+                        "collect starts the chain. Execution enters the flow builder.",
+                        "flowOn(Dispatchers.IO) applies to everything ABOVE it, so the builder and any operators declared before it run on an IO thread.",
+                        "Each emitted value is handed across to the collector's own dispatcher.",
+                        "Operators declared BELOW flowOn, and the collect block itself, run on the main thread as if nothing had changed.",
+                        "So the database read never touches the main thread, and the UI update never touches a background one — with no manual switching at either end."
+                    ],
+                    explain: "<p>Step 3 is the rule and it is easy to get backwards: <code>flowOn</code> affects <strong>upstream</strong> only, and it is the one Flow operator that is context-preserving by design. Putting it at the end of a chain therefore changes almost nothing.</p><p>This is also why emitting from a different context inside a <code>flow { }</code> builder throws. The builder must emit on the context it was given; <code>flowOn</code> is the supported way to change that, and a bare <code>withContext</code> around an <code>emit</code> is the unsupported one.</p>"
+                }
             }],
             subsection: null
         },
@@ -128,7 +160,7 @@ viewModelScope.launch {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Exposing StateFlow from a ViewModel",
+                title: "StateFlow and SharedFlow",
                 code: `class UserViewModel(private val repo: UserRepository) : ViewModel() {
     private val _uiState = MutableStateFlow<UiState>(UiState.Loading)
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
@@ -142,7 +174,20 @@ viewModelScope.launch {
             .onSuccess { _uiState.value = UiState.Loaded(it) }
             .onFailure { _events.tryEmit(UiEvent.ShowError(it.message.orEmpty())) }
     }
-}`
+}`,
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "A StateFlow is created with an initial value, so it always has one — .value can be read at any moment without collecting.",
+                        "A collector subscribes and immediately receives the current value, whether or not anything has changed recently.",
+                        "Setting .value to something equal to the current value emits nothing. StateFlow conflates and compares with equals().",
+                        "A second collector subscribing later also gets the current value first, then subsequent updates. Both share one upstream — it is hot.",
+                        "A SharedFlow, by contrast, starts with no value at all and only delivers what is emitted after subscription.",
+                        "With replay = 0, a value emitted while nobody is collecting is simply gone.",
+                        "Setting replay = 1 makes it behave more like StateFlow, minus the equality check and the mandatory initial value."
+                    ],
+                    explain: "<p>Steps 3 and 6 are the two behaviours that decide which to use.</p><p><code>StateFlow</code> conflates and drops duplicates, which is exactly right for UI state — re-emitting an identical state would cause needless recomposition — and exactly wrong for events. Emitting \"show a snackbar\" twice in a row would deliver it once.</p><p><code>SharedFlow</code> keeps every emission and has no notion of a current value, which makes it right for one-off events and wrong for state, because a collector arriving after the event missed it for good.</p><p>The rule of thumb: <strong>state is a StateFlow, events are a SharedFlow.</strong></p>"
+                }
             }],
             subsection: null
         },
@@ -158,7 +203,7 @@ viewModelScope.launch {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Wrapping location updates with callbackFlow",
+                title: "callbackFlow around a listener API",
                 code: `fun locationUpdates(client: FusedLocationProviderClient): Flow<Location> = callbackFlow {
     val callback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -167,7 +212,19 @@ viewModelScope.launch {
     }
     client.requestLocationUpdates(request, callback, Looper.getMainLooper())
     awaitClose { client.removeLocationUpdates(callback) }
-}`
+}`,
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "A collector subscribes, and the callbackFlow block runs.",
+                        "The block registers a listener with the callback-based API, exactly as ordinary code would.",
+                        "Each callback invocation calls trySend, which offers the value into the flow's channel from whatever thread the framework used.",
+                        "The block then reaches awaitClose and suspends, holding the flow open. Without awaitClose the flow would close immediately and the listener would leak.",
+                        "Values arrive at the collector on its own dispatcher, in the order they were sent.",
+                        "When the collector is cancelled — the screen goes away — awaitClose's body runs and unregisters the listener."
+                    ],
+                    explain: "<p>Step 4 is the one the compiler enforces and step 6 is why. <code>callbackFlow</code> requires <code>awaitClose</code>, because a flow builder that returns has finished, and a listener registered by a flow that has finished is a leak with nothing left to unregister it.</p><p><code>trySend</code> rather than <code>send</code> is the other detail: callbacks are not suspending functions, so they cannot wait for a full buffer. <code>trySend</code> returns a result instead of suspending, and dropping a value under back-pressure is usually preferable to blocking the framework's thread.</p>"
+                }
             }],
             subsection: null
         },
@@ -209,17 +266,61 @@ viewModelScope.launch {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Retry with exponential backoff",
-                code: `fun fetchUserFlow(id: String): Flow<User> = flow {
-    emit(api.getUser(id))
+                title: "retryWhen with exponential backoff",
+                code: `import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
+import java.io.IOException
+
+data class User(val name: String)
+
+var attempts = 0
+
+// Fails twice, then succeeds — enough to watch the backoff work.
+suspend fun getUser(id: String): User {
+    attempts++
+    println("  api call $attempts")
+    if (attempts < 3) throw IOException("no network")
+    return User("Ada")
+}
+
+fun fetchUserFlow(id: String): Flow<User> = flow {
+    emit(getUser(id))
 }.retryWhen { cause, attempt ->
     if (cause is IOException && attempt < 3) {
-        delay(1000L * (attempt + 1)) // backoff
-        true
+        println("  attempt $attempt failed with \${cause.message}; backing off")
+        delay(10L * (attempt + 1))
+        true                                  // true = resubscribe and try again
     } else {
-        false
+        false                                 // false = give up, let it throw
     }
-}`
+}
+
+fun main() = runBlocking {
+    fetchUserFlow("42").collect { println("got $it") }
+
+    // Now one that never recovers: retryWhen gives up after 3 attempts.
+    attempts = 100
+    try {
+        flow<User> { throw IOException("still no network") }
+            .retryWhen { cause, attempt -> cause is IOException && attempt < 2 }
+            .collect { }
+    } catch (e: IOException) {
+        println("gave up: \${e.message}")
+    }
+}`,
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "  api call 1",
+                        "  attempt 0 failed with no network; backing off",
+                        "  api call 2",
+                        "  attempt 1 failed with no network; backing off",
+                        "  api call 3",
+                        "got User(name=Ada)",
+                        "gave up: still no network"
+                    ],
+                    explain: "<p>Three API calls for one collect. The first two threw, <code>retryWhen</code> returned <code>true</code> each time, and returning <code>true</code> means <strong>resubscribe to the whole upstream flow</strong> — which is why <code>api call</code> appears again rather than the failed emission being patched up.</p><p><code>attempt</code> is zero-based and counts retries, not calls, so <code>attempt &lt; 3</code> permits three retries after the original. The <code>delay</code> before returning <code>true</code> is the backoff, and doubling it per attempt is what stops a failing server being hammered.</p><p>The last line is the other half: when the predicate returns <code>false</code>, the flow gives up and the original exception reaches the collector. Retry does not swallow anything — a caller still needs <code>catch</code> or a <code>try</code> for the case where retrying did not help.</p>"
+                }
             }],
             subsection: null
         },
@@ -235,12 +336,24 @@ viewModelScope.launch {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Retrofit call wrapped as a Flow",
+                title: "Wrapping a Retrofit call in a Flow",
                 code: `fun getUserFlow(id: String): Flow<User> = flow {
     emit(api.getUser(id))
 }
     .flowOn(Dispatchers.IO)
-    .catch { e -> Log.e("Repo", "fetch failed", e) }`
+    .catch { e -> Log.e("Repo", "fetch failed", e) }`,
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "The collector subscribes; the flow builder runs and emits Loading straight away, so the UI has something to show immediately.",
+                        "The suspending Retrofit call runs. The collector's coroutine is suspended, not blocked.",
+                        "On success the response is emitted as a Success state and the flow completes.",
+                        "On failure Retrofit throws, and the catch operator converts it into an Error state rather than letting it reach the collector.",
+                        "Because the flow is cold, all of this happens again from the top for each new collector — a retry is just a second collect.",
+                        "If the screen goes away mid-request, the collector is cancelled, and the in-flight call is cancelled with it."
+                    ],
+                    explain: "<p>Step 1 is the reason to use a flow for a one-shot call at all: a suspending function can only return once, so it cannot say \"loading\" and then \"loaded\". A flow emits a sequence of states, which is exactly the shape a screen needs.</p><p>Step 5 is the practical consequence of coldness. There is no cached result and no shared subscription — collecting twice makes two requests, which is what you want for a retry and not what you want if two collectors are on screen at once.</p>"
+                }
             }],
             subsection: null
         },
@@ -256,7 +369,7 @@ viewModelScope.launch {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Room DAO returning Flow",
+                title: "An observable Room query",
                 code: `@Dao
 interface UserDao {
     @Query("SELECT * FROM users WHERE id = :id")
@@ -268,7 +381,20 @@ class UserRepository(private val dao: UserDao) {
         dao.observeUser(id)
             .map { it.toDomainModel() }
             .flowOn(Dispatchers.IO)
-}`
+}`,
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "A DAO method declared to return Flow<List<User>> is generated by Room as an observable query.",
+                        "The collector subscribes, and Room runs the query once and emits the first result.",
+                        "Room registers an invalidation tracker on the tables the query touches.",
+                        "Some other code inserts a row into that table — from anywhere in the app, through any DAO.",
+                        "The tracker fires, Room re-runs the query, and the collector receives a fresh list.",
+                        "No polling and no manual refresh call: the database is the single source of truth and the UI follows it.",
+                        "When the collector is cancelled, the observer is removed."
+                    ],
+                    explain: "<p>Steps 4 and 5 are the whole reason to return <code>Flow</code> instead of <code>suspend fun</code>. A suspending DAO gives one answer and goes stale the moment anything else writes; a <code>Flow</code> DAO keeps the screen correct without the writing code needing to know a screen exists.</p><p>The tracking is per <em>table</em>, not per row, so an unrelated write to the same table also re-runs the query. That is usually invisible and occasionally worth knowing when a query is expensive.</p>"
+                }
             }],
             subsection: null
         },
@@ -284,13 +410,50 @@ class UserRepository(private val dao: UserDao) {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Zipping two network Flows",
-                code: `val userFlow: Flow<User> = flow { emit(api.getUser(id)) }
-val postsFlow: Flow<List<Post>> = flow { emit(api.getPosts(id)) }
+                title: "zip, and what it does when the sides differ",
+                code: `import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
 
-userFlow.zip(postsFlow) { user, posts -> Dashboard(user, posts) }
-    .flowOn(Dispatchers.IO)
-    .collect { dashboard -> _uiState.value = UiState.Loaded(dashboard) }`
+data class User(val name: String)
+data class Post(val title: String)
+data class Dashboard(val user: User, val posts: List<Post>)
+
+class Api {
+    suspend fun getUser(id: String): User {
+        delay(200); println("  user arrived"); return User("Ada")
+    }
+    suspend fun getPosts(id: String): List<Post> {
+        delay(100); println("  posts arrived"); return listOf(Post("hello"))
+    }
+}
+
+val api = Api()
+
+fun main() = runBlocking {
+    val userFlow: Flow<User> = flow { emit(api.getUser("42")) }
+    val postsFlow: Flow<List<Post>> = flow { emit(api.getPosts("42")) }
+
+    println("collecting")
+    userFlow.zip(postsFlow) { user, posts -> Dashboard(user, posts) }
+        .flowOn(Dispatchers.IO)
+        .collect { dashboard -> println("ui state = Loaded($dashboard)") }
+
+    // zip pairs by position and stops at the shorter side.
+    val letters = flowOf("a", "b", "c")
+    val numbers = flowOf(1, 2)
+    println("zip pairs: " + letters.zip(numbers) { l, n -> "$l$n" }.toList())
+}`,
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "collecting",
+                        "  posts arrived",
+                        "  user arrived",
+                        "ui state = Loaded(Dashboard(user=User(name=Ada), posts=[Post(title=hello)]))",
+                        "zip pairs: [a1, b2]"
+                    ],
+                    explain: "<p>Posts arrived before the user despite being requested second, which is the point: <code>zip</code> collects both flows concurrently rather than draining one and then the other. The combined value is emitted only once both sides have produced, so the UI gets one complete <code>Dashboard</code> instead of two partial updates.</p><p>The last line is the behaviour that surprises people. <code>zip</code> pairs <strong>by position</strong> and finishes when the <em>shorter</em> flow does — three letters and two numbers give two pairs, and <code>\"c\"</code> is dropped silently. That is fine for two single-emission network flows and wrong for streams of different lengths, where <code>combine</code> — which re-emits whenever <em>either</em> side changes — is usually what was wanted.</p>"
+                }
             }],
             subsection: null
         },
@@ -306,7 +469,7 @@ userFlow.zip(postsFlow) { user, posts -> Dashboard(user, posts) }
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Instant search pipeline",
+                title: "Instant search: debounce, filter, distinct, flatMapLatest",
                 code: `private val query = MutableStateFlow("")
 
 val results: StateFlow<List<Repo>> = query
@@ -318,7 +481,20 @@ val results: StateFlow<List<Repo>> = query
 
 fun onQueryChanged(text: String) {
     query.value = text
-}`
+}`,
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Every keystroke sets a new value on the query StateFlow.",
+                        "debounce(300) drops keystrokes that are followed by another within 300ms, so a fast typist produces one value rather than ten.",
+                        "filter { it.length >= 2 } discards queries too short to be worth a request.",
+                        "distinctUntilChanged drops a query identical to the last one — which is what typing a character and deleting it produces.",
+                        "flatMapLatest starts the search request for the surviving query.",
+                        "If another query arrives before that request finishes, flatMapLatest CANCELS the in-flight one and starts a new search.",
+                        "The collector therefore only ever receives results for the most recent query, and stale responses can never overwrite fresh ones."
+                    ],
+                    explain: "<p>Step 6 is the one that cannot be reproduced with callbacks without real effort. Out-of-order responses are the classic search bug: type \"and\", then \"android\", and the slower \"and\" response lands last and overwrites the right answer. <code>flatMapLatest</code> makes that structurally impossible by cancelling the old request.</p><p>The first four operators are all about not making the request in the first place. Together they turn roughly one network call per keystroke into one per pause in typing, which is the difference between a usable search box and a rate-limit.</p>"
+                }
             }],
             subsection: null
         },
@@ -334,13 +510,56 @@ fun onQueryChanged(text: String) {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "catch operator with fallback emission",
-                code: `userFlow
-    .catch { e ->
-        Log.e("VM", "Stream failed", e)
-        emit(User.EMPTY) // fallback
+                title: "catch sees upstream only",
+                code: `import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.*
+import java.io.IOException
+
+data class User(val name: String) {
+    companion object { val EMPTY = User("(none)") }
+}
+
+fun main() = runBlocking {
+    val failing: Flow<User> = flow {
+        emit(User("Ada"))
+        throw IOException("stream failed")
     }
-    .collect { user -> _uiState.value = UiState.Loaded(user) }`
+
+    // catch sees failures from UPSTREAM only, and may emit a fallback.
+    failing
+        .catch { e ->
+            println("catch saw \${e::class.simpleName}: \${e.message}")
+            emit(User.EMPTY)
+        }
+        .collect { user -> println("ui state = Loaded(\${user.name})") }
+
+    // Placement matters: catch above an operator cannot see what that operator throws.
+    flowOf(1, 2, 0)
+        .catch { println("this never runs") }
+        .map { 10 / it }
+        .catch { e -> println("caught downstream: \${e::class.simpleName}") }
+        .collect { println("10/x = $it") }
+
+    // A throw inside collect { } is NOT caught by catch — it is not upstream.
+    try {
+        flowOf(1).catch { println("never") }.collect { error("thrown in the collector") }
+    } catch (e: IllegalStateException) {
+        println("collector threw, and catch did not see it: \${e.message}")
+    }
+}`,
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "ui state = Loaded(Ada)",
+                        "catch saw IOException: stream failed",
+                        "ui state = Loaded((none))",
+                        "10/x = 10",
+                        "10/x = 5",
+                        "caught downstream: ArithmeticException",
+                        "collector threw, and catch did not see it: thrown in the collector"
+                    ],
+                    explain: "<p>Three cases, and they narrow down what <code>catch</code> actually covers.</p><p>The first works as advertised: the flow emitted a value, then threw, and <code>catch</code> both logged it and emitted a fallback — <code>catch</code> is a flow operator, so it can emit, which a <code>try/catch</code> around <code>collect</code> cannot.</p><p>The second shows <strong>position is everything</strong>. The first <code>catch</code> never ran, because the division by zero happens in the <code>map</code> <em>below</em> it and <code>catch</code> only ever sees failures from upstream. Note also that the two successful values were delivered before the failure — a flow that dies partway through has already emitted what it emitted.</p><p>The third is the exception to remember: an exception thrown <em>inside</em> <code>collect</code> is not upstream of anything, so no <code>catch</code> will see it. That one needs an ordinary <code>try</code> around the collector.</p>"
+                }
             }],
             subsection: null
         },
@@ -356,7 +575,7 @@ fun onQueryChanged(text: String) {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Testing a StateFlow pipeline with Turbine",
+                title: "Testing a Flow with Turbine",
                 code: `@Test
 fun searchEmitsLoadingThenResults() = runTest {
     val viewModel = SearchViewModel(FakeSearchRepository())
@@ -368,7 +587,20 @@ fun searchEmitsLoadingThenResults() = runTest {
         assertEquals(listOf(Repo("kotlin")), awaitItem())
         cancelAndIgnoreRemainingEvents()
     }
-}`
+}`,
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "runTest provides a scheduler with virtual time, so any delay or debounce in the flow costs the test nothing.",
+                        "flow.test { } subscribes to the flow and starts recording emissions.",
+                        "awaitItem() suspends until the next value arrives and returns it, so assertions run in emission order rather than racing it.",
+                        "Each awaitItem consumes one emission; asserting on three values means three calls.",
+                        "awaitComplete() asserts the flow finished, and awaitError() asserts it failed — a flow that does neither fails the test rather than hanging.",
+                        "cancelAndIgnoreRemainingEvents() ends the subscription for an infinite flow that will never complete.",
+                        "If the flow emits something the test never consumed, Turbine fails at the end of the block rather than passing quietly."
+                    ],
+                    explain: "<p>Step 7 is why this is worth a library rather than a <code>toList()</code>. Collecting into a list and asserting on it passes when the flow emits <em>extra</em> values nobody expected; Turbine treats unconsumed emissions as a failure, so the test asserts the whole sequence rather than a prefix of it.</p><p>Step 1 matters for anything with a <code>debounce</code> or a retry backoff. On real time those tests are slow and flaky; on virtual time they are instant and exact.</p>"
+                }
             }],
             subsection: null
         }
