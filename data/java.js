@@ -47,8 +47,16 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Adding a shape without modifying AreaCalculator",
-                code: "interface Shape {\n    double area();\n}\n\nclass Circle implements Shape {\n    private final double radius;\n    Circle(double radius) { this.radius = radius; }\n    public double area() { return Math.PI * radius * radius; }\n}\n\nclass Triangle implements Shape { // new type, zero edits elsewhere\n    private final double base, height;\n    Triangle(double base, double height) { this.base = base; this.height = height; }\n    public double area() { return 0.5 * base * height; }\n}\n\nclass AreaCalculator {\n    double total(List<Shape> shapes) {\n        return shapes.stream().mapToDouble(Shape::area).sum();\n    }\n}"
+                title: "Adding a shape without touching AreaCalculator",
+                code: "import java.util.List;\n\ninterface Shape {\n    double area();\n}\n\nclass Circle implements Shape {\n    private final double radius;\n    Circle(double radius) { this.radius = radius; }\n    public double area() { return Math.PI * radius * radius; }\n}\n\nclass Rectangle implements Shape {\n    private final double w, h;\n    Rectangle(double w, double h) { this.w = w; this.h = h; }\n    public double area() { return w * h; }\n}\n\nclass Triangle implements Shape {          // new type, zero edits elsewhere\n    private final double base, height;\n    Triangle(double base, double height) { this.base = base; this.height = height; }\n    public double area() { return 0.5 * base * height; }\n}\n\nclass AreaCalculator {                     // closed for modification\n    double total(List<Shape> shapes) {\n        return shapes.stream().mapToDouble(Shape::area).sum();\n    }\n}\n\npublic class OpenClosed {\n    public static void main(String[] args) {\n        AreaCalculator calculator = new AreaCalculator();\n\n        List<Shape> shapes = List.of(new Circle(1), new Rectangle(2, 3));\n        System.out.println(\"two shapes   = \" + calculator.total(shapes));\n\n        // Extending the system means adding a class, not editing AreaCalculator.\n        List<Shape> more = List.of(new Circle(1), new Rectangle(2, 3), new Triangle(4, 5));\n        System.out.println(\"three shapes = \" + calculator.total(more));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "two shapes   = 9.141592653589793",
+                        "three shapes = 19.141592653589793"
+                    ],
+                    explain: "<p>The second total includes a <code>Triangle</code>, and <code>AreaCalculator</code> was not edited to make that happen — it was not even recompiled against the new type. It calls <code>area()</code> on whatever it is handed, and each shape supplies its own.</p><p>That is what \"open for extension, closed for modification\" buys: a new requirement becomes a new file rather than a new branch in an existing <code>if</code>. The version this replaces would have needed a fresh <code>instanceof</code> arm inside the calculator, which is a change to code that already worked.</p>"
+                }
             }],
             subsection: "solid-principles"
         },
@@ -77,8 +85,19 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Splitting a fat interface",
-                code: "// Before\ninterface Worker {\n    void work();\n    void eat();\n}\n\n// After: role-specific interfaces\ninterface Workable {\n    void work();\n}\n\ninterface Eatable {\n    void eat();\n}\n\nclass HumanWorker implements Workable, Eatable {\n    public void work() { System.out.println(\"working\"); }\n    public void eat() { System.out.println(\"eating lunch\"); }\n}\n\nclass RobotWorker implements Workable { // no forced eat()\n    public void work() { System.out.println(\"welding\"); }\n}"
+                title: "Splitting a fat interface so nobody implements what they cannot do",
+                code: "// Before: one fat interface forces every implementer to have both\ninterface Worker {\n    void work();\n    void eat();\n}\n\n// After: role-specific interfaces\ninterface Workable { void work(); }\ninterface Eatable  { void eat(); }\n\nclass HumanWorker implements Workable, Eatable {\n    public void work() { System.out.println(\"HumanWorker: working\"); }\n    public void eat()  { System.out.println(\"HumanWorker: eating lunch\"); }\n}\n\nclass RobotWorker implements Workable {       // no forced, meaningless eat()\n    public void work() { System.out.println(\"RobotWorker: welding\"); }\n}\n\npublic class InterfaceSegregation {\n    static void runShift(Workable w) { w.work(); }\n    static void lunchBreak(Eatable e) { e.eat(); }\n\n    public static void main(String[] args) {\n        HumanWorker human = new HumanWorker();\n        RobotWorker robot = new RobotWorker();\n\n        runShift(human);\n        runShift(robot);      // the robot qualifies for this\n        lunchBreak(human);    // and is not even eligible for this\n\n        System.out.println(\"robot is Workable? \" + (robot instanceof Workable));\n        System.out.println(\"robot is Eatable?  \" + (robot instanceof Eatable));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "HumanWorker: working",
+                        "RobotWorker: welding",
+                        "HumanWorker: eating lunch",
+                        "robot is Workable? true",
+                        "robot is Eatable?  false"
+                    ],
+                    explain: "<p>The last two lines are the result worth having. <code>RobotWorker</code> is a <code>Workable</code> and is <em>not</em> an <code>Eatable</code>, so <code>lunchBreak(robot)</code> is not a runtime failure or an empty method — it does not compile.</p><p>Under the original fat <code>Worker</code> interface the robot would have been forced to supply an <code>eat()</code> it could only implement by throwing or doing nothing, and the mistake would have surfaced at runtime instead. Splitting the interface moved the error to the compiler.</p>"
+                }
             }],
             subsection: "solid-principles"
         },
@@ -133,8 +152,22 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Abstract class with shared state vs interface contract",
-                code: "abstract class Animal { // shares state + partial implementation\n    protected final String name;\n    Animal(String name) { this.name = name; }\n    void breathe() { System.out.println(name + \" breathes\"); } // concrete\n    abstract void makeSound(); // must be implemented\n}\n\ninterface Flyable { // pure capability contract\n    void fly();\n    default void land() { System.out.println(\"landing\"); } // Java 8+\n}\n\nclass Eagle extends Animal implements Flyable {\n    Eagle(String name) { super(name); }\n    void makeSound() { System.out.println(name + \" screeches\"); }\n    public void fly() { System.out.println(name + \" soars\"); }\n}"
+                title: "Shared state and implementation, versus a capability contract",
+                code: "abstract class Animal {                 // shares state and partial implementation\n    protected final String name;\n    Animal(String name) { this.name = name; }\n    void breathe() { System.out.println(name + \" breathes\"); }   // concrete, inherited\n    abstract void makeSound();                                   // must be implemented\n}\n\ninterface Flyable {                     // a capability, with no state of its own\n    void fly();\n    default void land() { System.out.println(\"landing\"); }       // Java 8+\n}\n\nclass Eagle extends Animal implements Flyable {\n    Eagle(String name) { super(name); }\n    void makeSound() { System.out.println(name + \" screeches\"); }\n    public void fly() { System.out.println(name + \" soars\"); }\n}\n\nclass Penguin extends Animal {          // same base class, no flying\n    Penguin(String name) { super(name); }\n    void makeSound() { System.out.println(name + \" brays\"); }\n}\n\npublic class AbstractVsInterface {\n    public static void main(String[] args) {\n        Eagle eagle = new Eagle(\"Eagle\");\n        Penguin penguin = new Penguin(\"Penguin\");\n\n        eagle.breathe();      // inherited implementation, not reimplemented\n        eagle.makeSound();\n        eagle.fly();\n        eagle.land();         // default method, never written in Eagle\n\n        penguin.breathe();\n        penguin.makeSound();\n\n        System.out.println(\"penguin is Animal? \" + (penguin instanceof Animal));\n        System.out.println(\"penguin is Flyable? \" + (penguin instanceof Flyable));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "Eagle breathes",
+                        "Eagle screeches",
+                        "Eagle soars",
+                        "landing",
+                        "Penguin breathes",
+                        "Penguin brays",
+                        "penguin is Animal? true",
+                        "penguin is Flyable? false"
+                    ],
+                    explain: "<p><code>Eagle</code> never wrote <code>breathe()</code> or <code>land()</code> and both ran. They come from opposite places, and that difference is the answer to this question.</p><p><code>breathe()</code> is inherited from the abstract class, and it uses <code>name</code> — <strong>state the base class owns</strong>. An interface could not have done that; interfaces hold no instance fields. <code>land()</code> is a default method on the interface: shared behaviour with nothing to remember.</p><p><code>Penguin</code> is the reason the two are separate at all. It is every bit an <code>Animal</code> and not a <code>Flyable</code>. A class has exactly one superclass, so the abstract class models <em>what a thing is</em>; it can implement any number of interfaces, so those model <em>what it can do</em>.</p>"
+                }
             }],
             subsection: "oop"
         },
@@ -220,8 +253,20 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Interface extending multiple interfaces",
-                code: "interface Readable {\n    String read();\n}\n\ninterface Writable {\n    void write(String data);\n}\n\n// An interface EXTENDS other interfaces, it does not implement them\ninterface ReadWritable extends Readable, Writable {\n    default boolean isEmpty() { return read().isEmpty(); }\n}\n\nclass FileChannel implements ReadWritable { // class IMPLEMENTS\n    public String read() { return \"data\"; }\n    public void write(String data) { /* ... */ }\n}"
+                title: "An interface extends interfaces; a class implements them",
+                code: "interface Readable {\n    String read();\n}\n\ninterface Writable {\n    void write(String data);\n}\n\n// An interface EXTENDS other interfaces — it never implements them.\ninterface ReadWritable extends Readable, Writable {\n    default boolean isEmpty() { return read().isEmpty(); }\n}\n\nclass MemoryChannel implements ReadWritable {   // a class IMPLEMENTS\n    private String buffer = \"\";\n    public String read() { return buffer; }\n    public void write(String data) { buffer = data; }\n}\n\npublic class InterfaceExtends {\n    public static void main(String[] args) {\n        MemoryChannel channel = new MemoryChannel();\n        System.out.println(\"empty at first?  \" + channel.isEmpty());\n\n        channel.write(\"payload\");\n        System.out.println(\"read()           \" + channel.read());\n        System.out.println(\"empty now?       \" + channel.isEmpty());\n\n        // One object satisfies all three interfaces at once.\n        System.out.println(\"is Readable?     \" + (channel instanceof Readable));\n        System.out.println(\"is Writable?     \" + (channel instanceof Writable));\n        System.out.println(\"is ReadWritable? \" + (channel instanceof ReadWritable));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "empty at first?  true",
+                        "read()           payload",
+                        "empty now?       false",
+                        "is Readable?     true",
+                        "is Writable?     true",
+                        "is ReadWritable? true"
+                    ],
+                    explain: "<p><code>ReadWritable</code> uses <code>extends</code>, not <code>implements</code> — an interface has nothing to implement, only a contract to widen. It can extend several at once, which is the multiple inheritance Java allows because no state comes along with it.</p><p>The last three lines show what <code>MemoryChannel</code> got for one <code>implements</code>: it satisfies all three types. And <code>isEmpty()</code> is a default method calling <code>read()</code>, an abstract method it has no implementation for — an interface may build on its own contract.</p>"
+                }
             }],
             subsection: "oop"
         },
@@ -237,8 +282,20 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Inheritance enabling runtime polymorphism",
-                code: "class Shape {\n    double area() { return 0; }\n}\n\nclass Circle extends Shape {\n    private final double r;\n    Circle(double r) { this.r = r; }\n    @Override double area() { return Math.PI * r * r; }\n}\n\nclass Square extends Shape {\n    private final double side;\n    Square(double side) { this.side = side; }\n    @Override double area() { return side * side; }\n}\n\nList<Shape> shapes = List.of(new Circle(2), new Square(3));\nfor (Shape s : shapes) {\n    System.out.println(s.area()); // dispatch resolved per actual object at runtime\n}"
+                title: "One call site, three method bodies",
+                code: "import java.util.List;\n\nclass Shape {\n    double area() { return 0; }\n}\n\nclass Circle extends Shape {\n    private final double r;\n    Circle(double r) { this.r = r; }\n    @Override double area() { return Math.PI * r * r; }\n}\n\nclass Square extends Shape {\n    private final double side;\n    Square(double side) { this.side = side; }\n    @Override double area() { return side * side; }\n}\n\npublic class Polymorphism {\n    public static void main(String[] args) {\n        List<Shape> shapes = List.of(new Shape(), new Circle(2), new Square(3));\n\n        for (Shape s : shapes) {\n            // One call site, three different method bodies — chosen by the object.\n            System.out.println(s.getClass().getSimpleName() + \".area() = \" + s.area());\n        }\n\n        // The variable is a Shape. The object is a Circle. The object wins.\n        Shape declaredAsShape = new Circle(2);\n        System.out.println(\"declared Shape, runtime \" + declaredAsShape.getClass().getSimpleName());\n        System.out.println(\"area() gives            \" + declaredAsShape.area());\n        System.out.println(\"Shape's own area() is   \" + new Shape().area());\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "Shape.area() = 0.0",
+                        "Circle.area() = 12.566370614359172",
+                        "Square.area() = 9.0",
+                        "declared Shape, runtime Circle",
+                        "area() gives            12.566370614359172",
+                        "Shape's own area() is   0.0"
+                    ],
+                    explain: "<p>The loop has one <code>s.area()</code> in it and three different methods ran. Nothing in the loop knows which types exist, so adding a fourth shape would not change it.</p><p>The last three lines separate the two things people conflate. The <em>variable</em> is a <code>Shape</code>; the <em>object</em> is a <code>Circle</code>. Java calls the object's method, not the variable's — <code>12.57</code>, not the <code>0.0</code> that <code>Shape.area()</code> would have returned. That is dynamic dispatch, and it is decided fresh on every call.</p>"
+                }
             }],
             subsection: "oop"
         },
@@ -254,8 +311,21 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Array vs ArrayList",
-                code: "int[] fixed = new int[3];       // fixed size, primitives, no boxing\nfixed[0] = 10;\n\nList<Integer> dynamic = new ArrayList<>(); // resizable, boxed Integers\ndynamic.add(10);\ndynamic.add(20);\ndynamic.remove(Integer.valueOf(10)); // remove by value, not index\nSystem.out.println(dynamic.size());"
+                title: "Fixed array against a growing list",
+                code: "import java.util.ArrayList;\nimport java.util.Arrays;\nimport java.util.List;\n\npublic class ArraysVsArrayList {\n    public static void main(String[] args) {\n        int[] fixed = new int[3];        // fixed size, primitives, no boxing\n        fixed[0] = 10;\n        System.out.println(\"array          = \" + Arrays.toString(fixed));\n        System.out.println(\"array length   = \" + fixed.length);\n\n        try {\n            fixed[3] = 40;               // no room, and no growing\n        } catch (ArrayIndexOutOfBoundsException e) {\n            System.out.println(\"fixed[3] = 40  -> \" + e.getClass().getSimpleName());\n        }\n\n        List<Integer> dynamic = new ArrayList<>();   // resizable, boxed Integers\n        dynamic.add(10);\n        dynamic.add(20);\n        dynamic.add(30);\n        System.out.println(\"list           = \" + dynamic);\n        System.out.println(\"list size      = \" + dynamic.size());\n\n        dynamic.remove(Integer.valueOf(10));   // by value\n        System.out.println(\"remove value 10 = \" + dynamic);\n\n        dynamic.remove(0);                     // by index\n        System.out.println(\"remove index 0  = \" + dynamic);\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "array          = [10, 0, 0]",
+                        "array length   = 3",
+                        "fixed[3] = 40  -> ArrayIndexOutOfBoundsException",
+                        "list           = [10, 20, 30]",
+                        "list size      = 3",
+                        "remove value 10 = [20, 30]",
+                        "remove index 0  = [30]"
+                    ],
+                    explain: "<p>The first line shows something an <code>ArrayList</code> has no equivalent for: <code>new int[3]</code> already holds three <code>0</code>s. A primitive array is allocated full of default values and has a fixed <code>length</code>; the third line is what happens when you want a fourth slot.</p><p>The last two lines are the trap worth carrying away. <code>remove(Integer.valueOf(10))</code> removes the <strong>value</strong> and <code>remove(0)</code> removes the element at <strong>index</strong> 0. Both compile, they read almost identically, and they call different methods.</p>"
+                }
             }],
             subsection: "collections-generics"
         },
@@ -284,8 +354,21 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "HashSet backed by HashMap",
-                code: "// Conceptually, java.util.HashSet does this internally:\nclass MyHashSet<E> {\n    private static final Object PRESENT = new Object();\n    private final HashMap<E, Object> map = new HashMap<>();\n\n    boolean add(E e) {\n        return map.put(e, PRESENT) == null; // null return means key was new\n    }\n\n    boolean contains(E e) {\n        return map.containsKey(e);\n    }\n}"
+                title: "A HashSet is a HashMap with the values thrown away",
+                code: "import java.util.HashMap;\nimport java.util.HashSet;\nimport java.util.Set;\n\n// Conceptually, java.util.HashSet does exactly this internally.\nclass MyHashSet<E> {\n    private static final Object PRESENT = new Object();\n    private final HashMap<E, Object> map = new HashMap<>();\n\n    boolean add(E e) {\n        return map.put(e, PRESENT) == null;   // null return means the key was new\n    }\n\n    boolean contains(E e) { return map.containsKey(e); }\n\n    int size() { return map.size(); }\n}\n\npublic class HashSetBackedByMap {\n    public static void main(String[] args) {\n        MyHashSet<String> mine = new MyHashSet<>();\n        System.out.println(\"add(\\\"a\\\") first time  \" + mine.add(\"a\"));\n        System.out.println(\"add(\\\"a\\\") again       \" + mine.add(\"a\"));\n        System.out.println(\"contains(\\\"a\\\")        \" + mine.contains(\"a\"));\n        System.out.println(\"size                 \" + mine.size());\n\n        // The real HashSet behaves identically, for the same reason.\n        Set<String> real = new HashSet<>();\n        System.out.println(\"HashSet add first    \" + real.add(\"a\"));\n        System.out.println(\"HashSet add again    \" + real.add(\"a\"));\n        System.out.println(\"HashSet size         \" + real.size());\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "add(\"a\") first time  true",
+                        "add(\"a\") again       false",
+                        "contains(\"a\")        true",
+                        "size                 1",
+                        "HashSet add first    true",
+                        "HashSet add again    false",
+                        "HashSet size         1"
+                    ],
+                    explain: "<p>The hand-written set and the real <code>java.util.HashSet</code> print the same thing, because they are the same thing. A <code>HashSet</code> holds a <code>HashMap</code> and files every element as a <em>key</em>, with one shared dummy object as the value.</p><p>That is where <code>add</code>'s return value comes from: <code>map.put</code> returns the previous value for the key, so a <code>null</code> means nobody was there and the element is new. It also explains the properties people memorise separately — a set has no duplicates because a map has no duplicate keys, and lookup is <code>O(1)</code> for exactly the same reason.</p>"
+                }
             }],
             subsection: "collections-generics"
         },
@@ -301,8 +384,19 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Bounded types and PECS wildcards",
-                code: "// Bounded type parameter\nstatic <T extends Comparable<T>> T max(List<T> list) {\n    T result = list.get(0);\n    for (T item : list) if (item.compareTo(result) > 0) result = item;\n    return result;\n}\n\n// PECS: Producer Extends, Consumer Super\nstatic void copy(List<? extends Number> source, List<? super Integer> dest) {\n    for (Number n : source) {   // source only produces values\n        dest.add(n.intValue()); // dest only consumes values\n    }\n}"
+                title: "Bounded types, PECS wildcards, and erasure",
+                code: "import java.util.ArrayList;\nimport java.util.List;\n\npublic class GenericsInJava {\n\n    // Bounded type parameter: T must be comparable with itself.\n    static <T extends Comparable<T>> T max(List<T> list) {\n        T result = list.get(0);\n        for (T item : list) if (item.compareTo(result) > 0) result = item;\n        return result;\n    }\n\n    // PECS: Producer Extends, Consumer Super.\n    static void copy(List<? extends Number> source, List<? super Integer> dest) {\n        for (Number n : source) {      // source only produces\n            dest.add(n.intValue());    // dest only consumes\n        }\n    }\n\n    public static void main(String[] args) {\n        System.out.println(\"max of ints    = \" + max(List.of(3, 9, 2)));\n        System.out.println(\"max of strings = \" + max(List.of(\"pear\", \"apple\", \"fig\")));\n\n        List<Object> destination = new ArrayList<>();\n        copy(List.of(1.9, 2.5, 3.1), destination);   // List<Double> into List<Object>\n        System.out.println(\"copied         = \" + destination);\n\n        // Erasure: the type argument is gone by runtime.\n        List<String> strings = new ArrayList<>();\n        List<Integer> ints = new ArrayList<>();\n        System.out.println(\"same class?    \" + (strings.getClass() == ints.getClass()));\n        System.out.println(\"class is       \" + strings.getClass().getName());\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "max of ints    = 9",
+                        "max of strings = pear",
+                        "copied         = [1, 2, 3]",
+                        "same class?    true",
+                        "class is       java.util.ArrayList"
+                    ],
+                    explain: "<p>One <code>max</code> served both <code>Integer</code> and <code>String</code>. The bound <code>T extends Comparable&lt;T&gt;</code> is what lets the method call <code>compareTo</code> at all — without it <code>T</code> is only an <code>Object</code> and the code does not compile.</p><p><code>copy</code> moved <code>Double</code>s into a <code>List&lt;Object&gt;</code>, which is PECS working: the source is <code>? extends Number</code> so it can be read from, the destination is <code>? super Integer</code> so it can be written to. The values print as <code>1, 2, 3</code> because <code>intValue()</code> truncates.</p><p>The last two lines are <strong>erasure</strong>. <code>List&lt;String&gt;</code> and <code>List&lt;Integer&gt;</code> are the same class at runtime — the type argument exists only for the compiler, which is why you cannot write <code>new T[]</code> or ask <code>instanceof List&lt;String&gt;</code>.</p>"
+                }
             }],
             subsection: "collections-generics"
         },
@@ -318,8 +412,23 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Every String operation returns a new object",
-                code: "String original = \"hello\";\nString upper = original.toUpperCase(); // new object\nSystem.out.println(original); // still \"hello\" — unchanged\nSystem.out.println(upper);    // \"HELLO\"\nSystem.out.println(original == upper); // false — different objects"
+                title: "Every String method returns a new object",
+                code: "public class StringImmutability {\n    public static void main(String[] args) {\n        String original = \"hello\";\n        String upper = original.toUpperCase();   // returns a NEW object\n\n        System.out.println(\"original       \" + original);   // untouched\n        System.out.println(\"upper          \" + upper);\n        System.out.println(\"original==upper \" + (original == upper));\n\n        // Every \"modifying\" method is really a factory.\n        System.out.println(\"replace        \" + original.replace('l', 'L'));\n        System.out.println(\"substring      \" + original.substring(1, 3));\n        System.out.println(\"concat         \" + original.concat(\" there\"));\n        System.out.println(\"original still \" + original);\n\n        // Immutability is why a String is safe as a HashMap key: its hash\n        // cannot change after it has been filed under one.\n        System.out.println(\"hash before    \" + original.hashCode());\n        original.toUpperCase();\n        System.out.println(\"hash after     \" + original.hashCode());\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "original       hello",
+                        "upper          HELLO",
+                        "original==upper false",
+                        "replace        heLLo",
+                        "substring      el",
+                        "concat         hello there",
+                        "original still hello",
+                        "hash before    99162322",
+                        "hash after     99162322"
+                    ],
+                    explain: "<p>Four different operations ran against <code>original</code> and it still says <code>hello</code>. None of these methods modifies anything — each builds and returns a new <code>String</code>, which is why the results have to be captured to be useful.</p><p>The last two lines are the payoff for putting up with that. Because the characters can never change, the hash code can never change either, so a <code>String</code> filed as a <code>HashMap</code> key stays findable forever. A mutable key that changed after insertion would be lost in the map — still there, unreachable.</p>"
+                }
             }],
             subsection: "objects-primitives"
         },
@@ -335,8 +444,19 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Immutability trap",
-                code: "String s = \"abc\";\ns.toUpperCase();     // return value discarded — bug!\nSystem.out.println(s); // still \"abc\"\n\ns = s.toUpperCase(); // correct — reassign the reference\nSystem.out.println(s); // \"ABC\""
+                title: "The discarded return value",
+                code: "public class ImmutabilityTrap {\n    public static void main(String[] args) {\n        String s = \"abc\";\n\n        s.toUpperCase();                 // return value discarded — this is the bug\n        System.out.println(\"after s.toUpperCase();      \" + s);\n\n        s = s.toUpperCase();             // correct: reassign the reference\n        System.out.println(\"after s = s.toUpperCase();  \" + s);\n\n        // The same mistake, one step further along.\n        String padded = \"  trim me  \";\n        padded.trim();\n        System.out.println(\"after padded.trim();        [\" + padded + \"]\");\n        System.out.println(\"after padded = padded.trim()[\" + padded.trim() + \"]\");\n\n        // A StringBuilder does mutate, which is exactly the difference.\n        StringBuilder sb = new StringBuilder(\"abc\");\n        sb.append(\"def\");                // return value ignored, and it still worked\n        System.out.println(\"StringBuilder after append  \" + sb);\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "after s.toUpperCase();      abc",
+                        "after s = s.toUpperCase();  ABC",
+                        "after padded.trim();        [  trim me  ]",
+                        "after padded = padded.trim()[trim me]",
+                        "StringBuilder after append  abcdef"
+                    ],
+                    explain: "<p><code>s.toUpperCase();</code> on its own line looks like a command and is not one. It computed <code>\"ABC\"</code>, returned it, and the value went nowhere. The variable never changed, the compiler had nothing to complain about, and the bug is invisible until something downstream reads the wrong value.</p><p>The last line is the contrast that makes it stick. <code>sb.append(\"def\")</code> also had its return value ignored and the <code>StringBuilder</code> changed anyway — because a <code>StringBuilder</code> really does mutate. Same-looking statement, opposite outcome, and the only difference is whether the type is immutable.</p>"
+                }
             }],
             subsection: "objects-primitives"
         },
@@ -704,8 +824,19 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Anonymous class vs lambda",
-                code: "// Anonymous class implementing an interface\nComparator<String> byLength = new Comparator<String>() {\n    @Override\n    public int compare(String a, String b) {\n        return a.length() - b.length();\n    }\n};\n\n// Equivalent lambda (Java 8+, SAM interface only)\nComparator<String> byLengthLambda = (a, b) -> a.length() - b.length();\n\nbutton.setOnClickListener(new View.OnClickListener() { // still common in older Android code\n    @Override public void onClick(View v) { System.out.println(\"clicked\"); }\n});"
+                title: "Anonymous class and lambda, side by side",
+                code: "import java.util.ArrayList;\nimport java.util.Comparator;\nimport java.util.List;\n\npublic class AnonymousClasses {\n    public static void main(String[] args) {\n        // Anonymous class implementing an interface\n        Comparator<String> byLength = new Comparator<String>() {\n            @Override\n            public int compare(String a, String b) {\n                return a.length() - b.length();\n            }\n        };\n\n        // Equivalent lambda — only possible because Comparator is a SAM interface\n        Comparator<String> byLengthLambda = (a, b) -> a.length() - b.length();\n\n        List<String> words = new ArrayList<>(List.of(\"banana\", \"fig\", \"cherry\"));\n\n        words.sort(byLength);\n        System.out.println(\"anonymous class \" + words);\n\n        words.sort(byLengthLambda);\n        System.out.println(\"lambda          \" + words);\n\n        // They are not the same thing underneath. An anonymous class is a real\n        // named class file; a lambda is not.\n        System.out.println(\"anon class name        \" + byLength.getClass().getName());\n        System.out.println(\"anon has enclosing?    \" + (byLength.getClass().getEnclosingClass() != null));\n        System.out.println(\"lambda has enclosing?  \" + (byLengthLambda.getClass().getEnclosingClass() != null));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "anonymous class [fig, banana, cherry]",
+                        "lambda          [fig, banana, cherry]",
+                        "anon class name        AnonymousClasses$1",
+                        "anon has enclosing?    true",
+                        "lambda has enclosing?  false"
+                    ],
+                    explain: "<p>Both comparators sort identically, so as far as the code using them is concerned they are interchangeable. The bottom three lines show they are not the same underneath.</p><p>The anonymous class is a real class — the compiler generated <code>AnonymousClasses$1</code>, a numbered class file with an enclosing class. The lambda is not: it has no enclosing class because it is not a nested type at all, but a method handle wired up at first use.</p><p>That is why lambdas are limited to interfaces with a single abstract method, and why an anonymous class is still the answer when you need two methods, a constructor, or a field.</p>"
+                }
             }],
             subsection: "others-java"
         },
@@ -794,8 +925,22 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "static field, method, block and nested class",
-                code: "class Config {\n    static final String APP_NAME; // shared across all instances\n\n    static { // runs once at class-load time\n        APP_NAME = loadFromManifest();\n    }\n\n    static String loadFromManifest() { return \"DroidDeck\"; } // no 'this' available\n\n    static class Builder { // static nested class -- no outer instance needed\n        Config build() { return new Config(); }\n    }\n}\n\nnew Config.Builder().build();"
+                title: "When a static block runs, and what static actually shares",
+                code: "class Config {\n    static final String APP_NAME;      // one copy, shared by every instance\n    static int instances = 0;\n\n    static {                           // runs once, at class-load time\n        System.out.println(\"2. static block runs (class is being loaded)\");\n        APP_NAME = loadFromManifest();\n    }\n\n    int id;\n\n    Config() {                         // runs per instance\n        instances++;\n        id = instances;\n        System.out.println(\"   constructor runs, id=\" + id);\n    }\n\n    static String loadFromManifest() { return \"DroidDeck\"; }   // no 'this' available\n\n    static class Builder {             // static nested class: needs no outer instance\n        Config build() { return new Config(); }\n    }\n}\n\npublic class StaticKeyword {\n    public static void main(String[] args) {\n        System.out.println(\"1. main starts, Config not loaded yet\");\n\n        Config first = new Config.Builder().build();\n        Config second = new Config.Builder().build();\n\n        System.out.println(\"3. APP_NAME   = \" + Config.APP_NAME);\n        System.out.println(\"   instances  = \" + Config.instances);\n        System.out.println(\"   first.id   = \" + first.id + \", second.id = \" + second.id);\n        System.out.println(\"   same APP_NAME object? \" + (Config.APP_NAME == \"DroidDeck\"));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "1. main starts, Config not loaded yet",
+                        "2. static block runs (class is being loaded)",
+                        "   constructor runs, id=1",
+                        "   constructor runs, id=2",
+                        "3. APP_NAME   = DroidDeck",
+                        "   instances  = 2",
+                        "   first.id   = 1, second.id = 2",
+                        "   same APP_NAME object? true"
+                    ],
+                    explain: "<p>The numbered lines give the ordering. The static block did not run when the program started — it ran when <code>Config</code> was first touched, and then <strong>once only</strong>, no matter how many instances followed. The constructor ran twice, once per object.</p><p>That is the whole distinction. <code>instances</code> is <code>static</code>, so there is one of it and both objects incremented the same counter to 2. <code>id</code> is an instance field, so there are two of them holding 1 and 2.</p><p>Class loading is lazy, which is worth remembering when a static block does real work: it happens at first use, not at startup.</p>"
+                }
             }],
             subsection: "others-java"
         },
@@ -828,8 +973,22 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Efficient string building with StringBuilder",
-                code: "StringBuilder sb = new StringBuilder();\nfor (int i = 0; i < 1000; i++) {\n    sb.append(i).append(\",\"); // mutates one buffer, O(n) overall\n}\nString result = sb.toString();\n\n// vs the O(n^2) anti-pattern:\nString bad = \"\";\nfor (int i = 0; i < 1000; i++) {\n    bad += i + \",\"; // allocates a new String every iteration\n}"
+                title: "Mutating a buffer versus allocating a new String",
+                code: "public class StringBuilding {\n    public static void main(String[] args) {\n        // A StringBuilder mutates one buffer and hands the same object back.\n        StringBuilder sb = new StringBuilder(\"a\");\n        StringBuilder returned = sb.append(\"b\");\n        System.out.println(\"append returned the same object? \" + (sb == returned));\n        System.out.println(\"sb is now                        \" + sb);\n\n        // A String cannot be mutated, so every operation allocates.\n        String s = \"a\";\n        String s2 = s.concat(\"b\");\n        System.out.println(\"concat returned a new object?    \" + (s != s2));\n        System.out.println(\"s is still                       \" + s);\n\n        StringBuilder builder = new StringBuilder();\n        for (int i = 0; i < 5; i++) builder.append(i).append(\",\");   // one buffer\n        System.out.println(\"StringBuilder ->                 \" + builder);\n\n        String concat = \"\";\n        for (int i = 0; i < 5; i++) concat += i + \",\";               // 5 throwaway Strings\n        System.out.println(\"String +=     ->                 \" + concat);\n        System.out.println(\"identical text?                  \" + builder.toString().equals(concat));\n\n        // StringBuffer is the synchronized twin: same API, slower when unshared.\n        StringBuffer buffer = new StringBuffer(\"abc\");\n        System.out.println(\"StringBuffer  ->                 \" + buffer.append(\"def\"));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "append returned the same object? true",
+                        "sb is now                        ab",
+                        "concat returned a new object?    true",
+                        "s is still                       a",
+                        "StringBuilder ->                 0,1,2,3,4,",
+                        "String +=     ->                 0,1,2,3,4,",
+                        "identical text?                  true",
+                        "StringBuffer  ->                 abcdef"
+                    ],
+                    explain: "<p>The first four lines are the difference, stated as identity. <code>append</code> handed back <em>the same object</em> it was called on, having changed it in place. <code>concat</code> handed back a different object and left the original alone.</p><p>The two loops then produce identical text by very different means. The <code>StringBuilder</code> wrote into one growing buffer. The <code>+=</code> loop built a new <code>String</code> on every pass and threw the previous one away — five here, but a thousand iterations means a thousand allocations and copies, which is how an <code>O(n)</code> job becomes <code>O(n²)</code>.</p><p><code>StringBuffer</code> has the identical API and synchronises every method. That costs something and buys nothing unless the buffer is genuinely shared between threads, which is why <code>StringBuilder</code> is the default.</p>"
+                }
             }],
             subsection: "others-java"
         },
@@ -862,8 +1021,19 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Marker interface check via instanceof",
-                code: "class Report implements Serializable { /* no methods added */ }\n\nvoid persist(Object obj) {\n    if (obj instanceof Serializable) {\n        // safe to hand off to ObjectOutputStream\n    } else {\n        throw new IllegalArgumentException(\"Not serializable\");\n    }\n}"
+                title: "An interface with nothing in it",
+                code: "import java.io.Serializable;\n\nclass Report implements Serializable { }   // no methods added — the type IS the signal\n\nclass Draft { }                            // not marked\n\npublic class MarkerInterface {\n\n    static String persist(Object obj) {\n        if (obj instanceof Serializable) {\n            return \"ok, safe to hand to ObjectOutputStream\";\n        }\n        return \"refused: \" + obj.getClass().getSimpleName() + \" is not Serializable\";\n    }\n\n    public static void main(String[] args) {\n        System.out.println(\"Report : \" + persist(new Report()));\n        System.out.println(\"Draft  : \" + persist(new Draft()));\n\n        // The interface really is empty; it carries no behaviour at all.\n        System.out.println(\"methods on Serializable: \" + Serializable.class.getMethods().length);\n\n        // Several JDK types are marked this way.\n        System.out.println(\"String  serializable? \" + (\"x\" instanceof Serializable));\n        System.out.println(\"Integer serializable? \" + (Integer.valueOf(1) instanceof Serializable));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "Report : ok, safe to hand to ObjectOutputStream",
+                        "Draft  : refused: Draft is not Serializable",
+                        "methods on Serializable: 0",
+                        "String  serializable? true",
+                        "Integer serializable? true"
+                    ],
+                    explain: "<p><code>Serializable</code> declares <strong>zero methods</strong> — the third line is that fact, measured. Implementing it adds no behaviour whatsoever. The only thing it changes is the answer to <code>instanceof</code>, and that answer is the entire point: the type itself is the metadata.</p><p>This is the pre-annotation way of tagging a class, and it survives because the tag is checkable at compile time in a way an annotation is not. Modern code would usually reach for an annotation instead, but <code>Serializable</code>, <code>Cloneable</code> and <code>RandomAccess</code> are all still markers.</p>"
+                }
             }],
             subsection: "others-java"
         },
@@ -879,8 +1049,19 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Comparable natural order vs Comparator custom order",
-                code: "class Person implements Comparable<Person> {\n    String name;\n    int age;\n    Person(String name, int age) { this.name = name; this.age = age; }\n\n    @Override public int compareTo(Person other) { // natural order: by age\n        return Integer.compare(this.age, other.age);\n    }\n}\n\nList<Person> people = new ArrayList<>();\nCollections.sort(people); // uses Comparable (age)\n\npeople.sort(Comparator.comparing((Person p) -> p.name) // Comparator: by name\n                       .thenComparing(p -> p.age));"
+                title: "Natural order, custom orders, and sort stability",
+                code: "import java.util.ArrayList;\nimport java.util.Collections;\nimport java.util.Comparator;\nimport java.util.List;\n\nclass Person implements Comparable<Person> {\n    final String name;\n    final int age;\n    Person(String name, int age) { this.name = name; this.age = age; }\n\n    @Override public int compareTo(Person other) {     // the natural order: by age\n        return Integer.compare(this.age, other.age);\n    }\n\n    @Override public String toString() { return name + \"(\" + age + \")\"; }\n}\n\npublic class ComparableVsComparator {\n    public static void main(String[] args) {\n        List<Person> people = new ArrayList<>(List.of(\n            new Person(\"Sam\", 31),\n            new Person(\"Aditya\", 29),\n            new Person(\"Riya\", 31),\n            new Person(\"Bina\", 29)\n        ));\n        System.out.println(\"as built        \" + people);\n\n        Collections.sort(people);                       // uses Comparable\n        System.out.println(\"natural (age)   \" + people);\n\n        people.sort(Comparator.comparing((Person p) -> p.name));\n        System.out.println(\"by name         \" + people);\n\n        people.sort(Comparator.comparingInt((Person p) -> p.age)\n                              .thenComparing(p -> p.name));\n        System.out.println(\"age, then name  \" + people);\n\n        people.sort(Comparator.comparingInt((Person p) -> p.age).reversed());\n        System.out.println(\"age descending  \" + people);\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "as built        [Sam(31), Aditya(29), Riya(31), Bina(29)]",
+                        "natural (age)   [Aditya(29), Bina(29), Sam(31), Riya(31)]",
+                        "by name         [Aditya(29), Bina(29), Riya(31), Sam(31)]",
+                        "age, then name  [Aditya(29), Bina(29), Riya(31), Sam(31)]",
+                        "age descending  [Riya(31), Sam(31), Aditya(29), Bina(29)]"
+                    ],
+                    explain: "<p><code>Comparable</code> is the one order a class carries with it — here, by age, which is what <code>Collections.sort</code> used without being told anything. <code>Comparator</code> is an order supplied from outside, and there can be as many as you like, including for classes you do not own.</p><p>Compare lines two and four closely: both sort by age, and <strong>Sam and Riya swap places</strong>. Sorting by age alone left the two 31s in the order they were built, because Java's sort is <em>stable</em> — equal elements keep their relative positions. Adding <code>.thenComparing(name)</code> replaced that accident with a rule.</p>"
+                }
             }],
             subsection: "others-java"
         },
@@ -896,8 +1077,22 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Enum with fields, constructor and per-constant behavior",
-                code: "enum Operation {\n    ADD { public int apply(int a, int b) { return a + b; } },\n    SUBTRACT { public int apply(int a, int b) { return a - b; } };\n\n    public abstract int apply(int a, int b);\n}\n\nenum Planet {\n    MERCURY(3.3e23), EARTH(5.9e24);\n\n    private final double mass; // fields allowed\n    Planet(double mass) { this.mass = mass; } // implicitly private constructor\n    double getMass() { return mass; }\n}\n\nSystem.out.println(Operation.ADD.apply(2, 3)); // 5"
+                title: "Enums with behaviour, fields, and safe ==",
+                code: "import java.util.Arrays;\n\nenum Operation {\n    ADD      { public int apply(int a, int b) { return a + b; } },\n    SUBTRACT { public int apply(int a, int b) { return a - b; } };\n\n    public abstract int apply(int a, int b);      // per-constant behaviour\n}\n\nenum Planet {\n    MERCURY(3.3e23), EARTH(5.9e24);\n\n    private final double mass;                    // enums may hold fields\n    Planet(double mass) { this.mass = mass; }     // constructor is implicitly private\n    double getMass() { return mass; }\n}\n\npublic class EnumInJava {\n    public static void main(String[] args) {\n        System.out.println(\"ADD.apply(2, 3)      = \" + Operation.ADD.apply(2, 3));\n        System.out.println(\"SUBTRACT.apply(2, 3) = \" + Operation.SUBTRACT.apply(2, 3));\n\n        System.out.println(\"values()             = \" + Arrays.toString(Operation.values()));\n        System.out.println(\"valueOf(\\\"ADD\\\")       = \" + Operation.valueOf(\"ADD\"));\n        System.out.println(\"ADD.ordinal()        = \" + Operation.ADD.ordinal());\n\n        System.out.println(\"EARTH mass           = \" + Planet.EARTH.getMass());\n\n        // Constants are singletons, so == is safe here — unlike everywhere else.\n        Planet earth = Planet.valueOf(\"EARTH\");\n        System.out.println(\"EARTH == valueOf     \" + (earth == Planet.EARTH));\n\n        switch (earth) {\n            case EARTH: System.out.println(\"switch matched EARTH\"); break;\n            default:    System.out.println(\"switch matched something else\");\n        }\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "ADD.apply(2, 3)      = 5",
+                        "SUBTRACT.apply(2, 3) = -1",
+                        "values()             = [ADD, SUBTRACT]",
+                        "valueOf(\"ADD\")       = ADD",
+                        "ADD.ordinal()        = 0",
+                        "EARTH mass           = 5.9E24",
+                        "EARTH == valueOf     true",
+                        "switch matched EARTH"
+                    ],
+                    explain: "<p>A Java enum is a class, not a list of names. <code>ADD</code> and <code>SUBTRACT</code> each supply their own <code>apply</code> body, so the enum dispatches like any other polymorphic type and the caller never writes a <code>switch</code>. <code>Planet</code> shows the other half: enum constants may hold fields, set by a constructor that is implicitly private.</p><p><code>EARTH == valueOf(\"EARTH\")</code> is <strong>true</strong>, and this is the one place in Java where comparing objects with <code>==</code> is not just safe but preferred — the JVM guarantees exactly one instance per constant. It is also why an enum is the correct singleton.</p>"
+                }
             }],
             subsection: "others-java"
         },
@@ -943,8 +1138,21 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Varargs method definition and calls",
-                code: "static int sum(int... numbers) { // compiled as int[] numbers\n    int total = 0;\n    for (int n : numbers) total += n;\n    return total;\n}\n\nsum();          // 0 -- empty array\nsum(1, 2, 3);   // 6 -- individual args\nsum(new int[]{4, 5}); // 9 -- existing array passed directly"
+                title: "Varargs is an array with nicer call sites",
+                code: "public class VarargsInJava {\n\n    static int sum(int... numbers) {          // compiled as int[] numbers\n        int total = 0;\n        for (int n : numbers) total += n;\n        return total;\n    }\n\n    static String describe(String label, int... values) {   // varargs must come last\n        return label + \" got \" + values.length + \" value(s)\";\n    }\n\n    public static void main(String[] args) {\n        System.out.println(\"sum()               = \" + sum());\n        System.out.println(\"sum(1, 2, 3)        = \" + sum(1, 2, 3));\n        System.out.println(\"sum(new int[]{4,5}) = \" + sum(new int[]{4, 5}));\n\n        System.out.println(describe(\"none\"));\n        System.out.println(describe(\"three\", 1, 2, 3));\n\n        // Inside the method it is an ordinary array — including when empty.\n        System.out.println(\"empty call is an array, not null: \" + (sum() == 0));\n        System.out.println(String.format(\"%s scored %d\", \"Aditya\", 42));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "sum()               = 0",
+                        "sum(1, 2, 3)        = 6",
+                        "sum(new int[]{4,5}) = 9",
+                        "none got 0 value(s)",
+                        "three got 3 value(s)",
+                        "empty call is an array, not null: true",
+                        "Aditya scored 42"
+                    ],
+                    explain: "<p>All three calls reach the same method, because <code>int... numbers</code> <em>is</em> <code>int[] numbers</code> with the compiler wrapping loose arguments for you. That is why passing a ready-made array works with no extra syntax.</p><p>The sixth line is the detail worth knowing: calling with no arguments gives an <strong>empty array, never null</strong>, so iterating a varargs parameter needs no null check. <code>String.format</code> at the end is the same mechanism — it is why one method signature accepts any number of substitutions.</p>"
+                }
             }],
             subsection: "others-java"
         },
@@ -991,8 +1199,18 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Resolving a default method conflict explicitly",
-                code: "interface A {\n    default String greet() { return \"Hello from A\"; }\n}\n\ninterface B {\n    default String greet() { return \"Hello from B\"; }\n}\n\nclass C implements A, B {\n    @Override\n    public String greet() { // required -- compiler can't choose for you\n        return A.super.greet() + \" and \" + B.super.greet();\n    }\n}"
+                title: "Resolving two inherited defaults",
+                code: "interface A {\n    default String greet() { return \"Hello from A\"; }\n}\n\ninterface B {\n    default String greet() { return \"Hello from B\"; }\n}\n\n// Inheriting the same default from two places is a compile error until the\n// class says which one it means.\nclass C implements A, B {\n    @Override\n    public String greet() {\n        return A.super.greet() + \" and \" + B.super.greet();\n    }\n}\n\nclass OnlyA implements A { }      // no conflict, so no override needed\n\npublic class DiamondDefaults {\n    public static void main(String[] args) {\n        System.out.println(\"C.greet()     = \" + new C().greet());\n        System.out.println(\"OnlyA.greet() = \" + new OnlyA().greet());\n\n        A asA = new C();\n        B asB = new C();\n        System.out.println(\"through A     = \" + asA.greet());\n        System.out.println(\"through B     = \" + asB.greet());\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "C.greet()     = Hello from A and Hello from B",
+                        "OnlyA.greet() = Hello from A",
+                        "through A     = Hello from A and Hello from B",
+                        "through B     = Hello from A and Hello from B"
+                    ],
+                    explain: "<p>Default methods gave interfaces implementations, which gave Java a version of the diamond problem it had avoided for twenty years. Two interfaces, one method name, both with bodies — and the compiler refuses to pick. <code>C</code> does not compile until it overrides <code>greet()</code>, and <code>A.super.greet()</code> is the syntax for reaching a specific one.</p><p><code>OnlyA</code> shows the rule is narrow: with one source of the default there is no ambiguity and no override needed.</p><p>The last two lines are the reassurance. Whichever interface you view the object through, the object's own method runs. The conflict is resolved once, at the class, not per call site.</p>"
+                }
             }],
             subsection: "others-java"
         }
