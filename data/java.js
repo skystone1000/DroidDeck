@@ -31,7 +31,17 @@ const javaData = {
             codeSnippets: [{
                 language: "java",
                 title: "Splitting a god class by responsibility",
-                code: "// Before: one class, three unrelated reasons to change\nclass UserManagerBad {\n    void validate(User u) { /* validation rules */ }\n    void save(User u) { /* JDBC persistence */ }\n    void sendWelcomeEmail(User u) { /* SMTP client */ }\n}\n\n// After: each class has exactly one responsibility\nclass UserValidator {\n    boolean isValid(User u) { return u.getEmail() != null && u.getEmail().contains(\"@\"); }\n}\n\nclass UserRepository {\n    void save(User u) { /* JDBC / JPA persistence only */ }\n}\n\nclass WelcomeEmailSender {\n    void send(User u) { /* SMTP client only */ }\n}"
+                code: "class User {\n    final String email;\n    User(String email) { this.email = email; }\n}\n\n// Before: one class with three unrelated reasons to change.\nclass UserManagerBad {\n    void handle(User u) {\n        System.out.println(\"UserManagerBad: validating, saving and emailing \" + u.email);\n    }\n}\n\n// After: each class has exactly one reason to change.\nclass UserValidator {\n    boolean isValid(User u) {\n        return u.email != null && u.email.contains(\"@\");\n    }\n}\n\nclass UserRepository {\n    void save(User u) { System.out.println(\"UserRepository: saved \" + u.email); }\n}\n\nclass WelcomeEmailSender {\n    void send(User u) { System.out.println(\"WelcomeEmailSender: emailed \" + u.email); }\n}\n\npublic class SingleResponsibility {\n    public static void main(String[] args) {\n        UserValidator validator = new UserValidator();\n        UserRepository repository = new UserRepository();\n        WelcomeEmailSender mailer = new WelcomeEmailSender();\n\n        for (User u : new User[] { new User(\"aditya@example.com\"), new User(\"not-an-email\") }) {\n            if (!validator.isValid(u)) {\n                System.out.println(\"rejected: \" + u.email);\n                continue;\n            }\n            repository.save(u);\n            mailer.send(u);\n        }\n\n        new UserManagerBad().handle(new User(\"aditya@example.com\"));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "UserRepository: saved aditya@example.com",
+                        "WelcomeEmailSender: emailed aditya@example.com",
+                        "rejected: not-an-email",
+                        "UserManagerBad: validating, saving and emailing aditya@example.com"
+                    ],
+                    explain: "<p>The split version does the same work as the last line does on its own — the output is not the argument here, the shape is. Three classes ran, each doing one thing, and the calling code decided the order.</p><p>The value shows up when something changes. A new validation rule touches <code>UserValidator</code> only. Swapping SMTP for a queue touches <code>WelcomeEmailSender</code> only. In <code>UserManagerBad</code> all three changes land in the same class, and each one risks the other two — which is what \"one reason to change\" actually means.</p>"
+                }
             }],
             subsection: "solid-principles"
         },
@@ -122,8 +132,21 @@ const javaData = {
             },
             codeSnippets: [{
                 language: "java",
-                title: "Constructor injection against an abstraction",
-                code: "interface UserRepository {\n    User findById(String id);\n}\n\nclass MySqlUserRepository implements UserRepository {\n    public User findById(String id) { /* JDBC lookup */ return new User(id); }\n}\n\nclass UserService { // high-level policy — knows nothing about MySQL\n    private final UserRepository repository;\n\n    UserService(UserRepository repository) { // dependency injected\n        this.repository = repository;\n    }\n\n    User getUser(String id) { return repository.findById(id); }\n}"
+                title: "High-level policy depending on an abstraction",
+                code: "class User {\n    final String id;\n    User(String id) { this.id = id; }\n}\n\n// The abstraction the high-level policy depends on.\ninterface UserRepository {\n    User findById(String id);\n}\n\nclass MySqlUserRepository implements UserRepository {\n    public User findById(String id) {\n        System.out.println(\"  MySqlUserRepository: SELECT ... WHERE id=\" + id);\n        return new User(id);\n    }\n}\n\nclass InMemoryUserRepository implements UserRepository {\n    public User findById(String id) {\n        System.out.println(\"  InMemoryUserRepository: map lookup for \" + id);\n        return new User(id);\n    }\n}\n\nclass UserService {                       // high-level policy\n    private final UserRepository repository;\n\n    UserService(UserRepository repository) {   // depends on the interface only\n        this.repository = repository;\n    }\n\n    User getUser(String id) { return repository.findById(id); }\n}\n\npublic class DependencyInversion {\n    public static void main(String[] args) {\n        System.out.println(\"with MySQL:\");\n        UserService production = new UserService(new MySqlUserRepository());\n        System.out.println(\"  got user \" + production.getUser(\"42\").id);\n\n        System.out.println(\"with in-memory:\");\n        UserService test = new UserService(new InMemoryUserRepository());\n        System.out.println(\"  got user \" + test.getUser(\"42\").id);\n\n        System.out.println(\"UserService source changed between those runs? false\");\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "with MySQL:",
+                        "  MySqlUserRepository: SELECT ... WHERE id=42",
+                        "  got user 42",
+                        "with in-memory:",
+                        "  InMemoryUserRepository: map lookup for 42",
+                        "  got user 42",
+                        "UserService source changed between those runs? false"
+                    ],
+                    explain: "<p>Two completely different storage mechanisms ran through the same <code>UserService</code>, which was not modified, recompiled or told which one it had. It names only the <code>UserRepository</code> interface.</p><p>That is the inversion. Ordinarily the high-level class would reach down and construct <code>MySqlUserRepository</code>, making the policy depend on the detail. Here both depend on the interface, and the interface belongs with the policy — so the arrow that used to point down now points up from the database code.</p>"
+                }
             }],
             subsection: "solid-principles"
         },
@@ -579,8 +602,19 @@ const javaData = {
             },
             codeSnippets: [{
                 language: "java",
-                title: "Synchronized method vs synchronized block",
-                code: "class Counter {\n    private int count = 0;\n    private final Object lock = new Object();\n\n    synchronized void incrementWhole() { // locks on 'this'\n        count++;\n    }\n\n    void incrementBlock() {\n        // non-critical work here runs unsynchronized\n        synchronized (lock) { // finer-grained critical section\n            count++;\n        }\n    }\n\n    synchronized int get() { return count; }\n}"
+                title: "Synchronized method, synchronized block, and no lock at all",
+                code: "class Counter {\n    private int count = 0;\n    private final Object lock = new Object();\n\n    synchronized void incrementWhole() {   // locks on 'this' for the whole method\n        count++;\n    }\n\n    void incrementBlock() {\n        // any non-critical work here runs without holding the lock\n        synchronized (lock) {              // a narrower critical section\n            count++;\n        }\n    }\n\n    synchronized int get() { return count; }\n}\n\nclass UnsafeCounter {\n    int count = 0;\n    void increment() { count++; }          // read, add, write — three steps, no lock\n}\n\npublic class SynchronizedKeyword {\n\n    static void hammer(Runnable task) throws InterruptedException {\n        Thread a = new Thread(task);\n        Thread b = new Thread(task);\n        a.start(); b.start();\n        a.join();  b.join();\n    }\n\n    public static void main(String[] args) throws InterruptedException {\n        final int perThread = 50_000;\n        final int expected = perThread * 2;\n\n        Counter method = new Counter();\n        hammer(() -> { for (int i = 0; i < perThread; i++) method.incrementWhole(); });\n        System.out.println(\"synchronized method = \" + method.get() + \" (expected \" + expected + \")\");\n\n        Counter block = new Counter();\n        hammer(() -> { for (int i = 0; i < perThread; i++) block.incrementBlock(); });\n        System.out.println(\"synchronized block  = \" + block.get() + \" (expected \" + expected + \")\");\n\n        UnsafeCounter unsafe = new UnsafeCounter();\n        hammer(() -> { for (int i = 0; i < perThread; i++) unsafe.increment(); });\n        System.out.println(\"no lock: total at most \" + expected + \"? \" + (unsafe.count <= expected));\n        System.out.println(\"  a lost update can only lose, never invent — and the exact\");\n        System.out.println(\"  number differs from run to run, which is the whole problem\");\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "synchronized method = 100000 (expected 100000)",
+                        "synchronized block  = 100000 (expected 100000)",
+                        "no lock: total at most 100000? true",
+                        "  a lost update can only lose, never invent — and the exact",
+                        "  number differs from run to run, which is the whole problem"
+                    ],
+                    explain: "<p>Two threads, fifty thousand increments each, and both locked versions land on exactly 100000 every time. That reproducibility <em>is</em> the guarantee <code>synchronized</code> provides.</p><p>The unsynchronized counter is the reason the recorded output stops at \"at most\". <code>count++</code> is three operations — read, add, write — and two threads can read the same value, both add one, and both write the same result, losing an increment. The total is therefore some number at or below 100000, and it is a different number on every run and every machine. A test that asserted an exact figure here would be asserting a coincidence.</p><p>The two locked variants differ only in scope: <code>synchronized</code> on the method holds the lock on <code>this</code> for the whole body, while the block holds a private lock for the two lines that need it and lets everything else run free.</p>"
+                }
             }],
             subsection: "concurrency"
         },
@@ -619,7 +653,20 @@ const javaData = {
             codeSnippets: [{
                 language: "java",
                 title: "Custom ThreadPoolExecutor",
-                code: "ThreadPoolExecutor executor = new ThreadPoolExecutor(\n    4,                              // corePoolSize\n    8,                              // maximumPoolSize\n    30, TimeUnit.SECONDS,           // keepAliveTime for extra threads\n    new LinkedBlockingQueue<>(100), // work queue\n    new ThreadPoolExecutor.CallerRunsPolicy() // backpressure instead of throwing\n);\n\nexecutor.submit(() -> processTask());\nexecutor.shutdown(); // stop accepting new tasks, finish queued ones"
+                code: "ThreadPoolExecutor executor = new ThreadPoolExecutor(\n    4,                              // corePoolSize\n    8,                              // maximumPoolSize\n    30, TimeUnit.SECONDS,           // keepAliveTime for extra threads\n    new LinkedBlockingQueue<>(100), // work queue\n    new ThreadPoolExecutor.CallerRunsPolicy() // backpressure instead of throwing\n);\n\nexecutor.submit(() -> processTask());\nexecutor.shutdown(); // stop accepting new tasks, finish queued ones",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Tasks 1–4 arrive. The pool starts a new thread for each one, up to corePoolSize, even if an earlier thread has already gone idle.",
+                        "Tasks 5 onwards go into the LinkedBlockingQueue, which holds 100. The pool does NOT grow while the queue has room — this surprises people.",
+                        "Once 100 tasks are queued and all 4 core threads are busy, the pool finally creates more threads, up to maximumPoolSize of 8.",
+                        "Task 109 arrives with 8 threads busy and the queue full. The rejection policy runs.",
+                        "CallerRunsPolicy executes that task on the submitting thread instead of throwing. The producer is now doing the work, so it stops submitting — backpressure rather than failure.",
+                        "When the load falls away, the 4 threads above corePoolSize sit idle for keepAliveTime (30 seconds) and then exit. The core 4 stay.",
+                        "shutdown() refuses new submissions and lets the queue drain. shutdownNow() interrupts running tasks and returns the ones never started."
+                    ],
+                    explain: "<p>Step two is the behaviour worth memorising, because it is the opposite of what most people assume: a pool configured 4-to-8 will <strong>not</strong> use more than 4 threads until the queue is completely full. With an unbounded queue it never reaches step three at all, and <code>maximumPoolSize</code> becomes decoration — which is exactly what <code>Executors.newFixedThreadPool</code> does.</p><p>There is no console output here because thread scheduling decides the order and the thread names, and neither is the same twice.</p>"
+                }
             }],
             subsection: "concurrency"
         },
@@ -635,8 +682,22 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "volatile flag vs non-atomic counter",
-                code: "class Worker {\n    private volatile boolean running = true; // safe: single flag, no compound op\n    private volatile int counter = 0;         // UNSAFE for counter++\n\n    void stop() { running = false; } // write visible to reading thread immediately\n\n    void run() {\n        while (running) {\n            counter++; // read-modify-write RACE despite volatile\n        }\n    }\n}"
+                title: "What volatile guarantees, and what it does not",
+                code: "class Worker {\n    private volatile boolean running = true; // safe: single flag, no compound op\n    private volatile int counter = 0;         // UNSAFE for counter++\n\n    void stop() { running = false; } // write visible to reading thread immediately\n\n    void run() {\n        while (running) {\n            counter++; // read-modify-write RACE despite volatile\n        }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Thread A calls stop(), writing running = false.",
+                        "Because running is volatile, that write goes straight to main memory and cannot be reordered around.",
+                        "Thread B, spinning in while (running), sees the new value on its next read and exits the loop.",
+                        "Without volatile, the compiler may hoist the read out of the loop into a register, and thread B can spin forever on a stale copy.",
+                        "Meanwhile counter++ inside the loop is three operations: read counter, add one, write it back.",
+                        "volatile makes each of those three steps immediately visible to other threads.",
+                        "It does not make the three of them one step. Two threads can read the same value, both add one, and both write the same result.",
+                        "One increment is silently lost. Only AtomicInteger or a lock closes that gap."
+                    ],
+                    explain: "<p>The split between steps 6 and 7 is the entire question. <code>volatile</code> is a <strong>visibility</strong> guarantee, not an <strong>atomicity</strong> one, and the two get conflated constantly.</p><p>That makes it exactly right for the <code>running</code> flag, where one thread writes and others only read, and exactly wrong for <code>counter++</code>, where a read-modify-write has to be indivisible. Declaring a counter <code>volatile</code> looks like it fixes the race and does not.</p><p>No output, because the failure only appears under real thread interleaving and does not appear every time even then.</p>"
+                }
             }],
             subsection: "concurrency"
         },
@@ -652,8 +713,21 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Object-level vs class-level locks are independent",
-                code: "class Account {\n    private double balance;\n    private static int totalAccounts = 0;\n\n    synchronized void withdraw(double amt) { // locks 'this' (object-level)\n        balance -= amt;\n    }\n\n    static synchronized void registerAccount() { // locks Account.class (class-level)\n        totalAccounts++;\n    }\n}\n\n// Thread A calling acc1.withdraw() and Thread B calling acc2.withdraw()\n// run concurrently -- different object locks. Thread C calling\n// Account.registerAccount() blocks any other thread calling it too."
+                title: "Object locks and class locks are independent",
+                code: "class Account {\n    private double balance;\n    private static int totalAccounts = 0;\n\n    synchronized void withdraw(double amt) { // locks 'this' (object-level)\n        balance -= amt;\n    }\n\n    static synchronized void registerAccount() { // locks Account.class (class-level)\n        totalAccounts++;\n    }\n}\n\n// Thread A calling acc1.withdraw() and Thread B calling acc2.withdraw()\n// run concurrently -- different object locks. Thread C calling\n// Account.registerAccount() blocks any other thread calling it too.",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Thread A calls acc1.withdraw() and acquires the lock on the acc1 object.",
+                        "Thread B calls acc2.withdraw() at the same moment, acquires acc2's own lock, and runs concurrently. Instance locks are per object.",
+                        "Thread C calls acc1.withdraw() and blocks, because A holds that particular lock.",
+                        "Thread D calls Account.registerAccount(), a static synchronized method, which locks the Account.class object.",
+                        "That lock has nothing to do with any instance lock, so D runs immediately — it neither blocks nor is blocked by A, B or C.",
+                        "A second thread calling registerAccount() does have to wait for D, because there is only one Account.class object.",
+                        "So a static field guarded only by instance locks is not guarded at all: every instance has a different lock, and the field is shared by all of them."
+                    ],
+                    explain: "<p>Step 5 is the trap. It is natural to read <code>synchronized</code> as \"one thread at a time\", but the question is always <em>one thread at a time holding which lock</em>. An instance method locks <code>this</code>; a static method locks the <code>Class</code>. They are separate monitors and give each other no protection.</p><p>Step 7 is how that becomes a bug: shared mutable static state protected by instance-level synchronisation, which looks locked and is not.</p><p>Nothing is printed because the interleaving is the subject, and it differs on every run.</p>"
+                }
             }],
             subsection: "concurrency"
         },
@@ -682,8 +756,21 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "CAS retry loop equivalent to incrementAndGet()",
-                code: "AtomicInteger counter = new AtomicInteger(0);\n\n// What incrementAndGet() does internally, roughly:\nint prev, next;\ndo {\n    prev = counter.get();\n    next = prev + 1;\n} while (!counter.compareAndSet(prev, next)); // retries on contention\n\ncounter.lazySet(0); // reset without immediate cross-thread visibility guarantee"
+                title: "compareAndSet, and the CAS loop underneath incrementAndGet",
+                code: "import java.util.concurrent.atomic.AtomicInteger;\n\npublic class AtomicOperations {\n    public static void main(String[] args) throws InterruptedException {\n        AtomicInteger counter = new AtomicInteger(0);\n\n        // What incrementAndGet() does internally, roughly:\n        int prev, next;\n        do {\n            prev = counter.get();\n            next = prev + 1;\n        } while (!counter.compareAndSet(prev, next));   // retries if another thread won\n        System.out.println(\"after one manual CAS      = \" + counter.get());\n\n        // compareAndSet only succeeds when the value is what you expected.\n        System.out.println(\"CAS from 1 to 99 succeeds \" + counter.compareAndSet(1, 99));\n        System.out.println(\"CAS from 1 to 42 succeeds \" + counter.compareAndSet(1, 42));\n        System.out.println(\"value now                 = \" + counter.get());\n\n        // The real thing, hammered from two threads.\n        counter.set(0);\n        final int perThread = 50_000;\n        Runnable task = () -> { for (int i = 0; i < perThread; i++) counter.incrementAndGet(); };\n        Thread a = new Thread(task), b = new Thread(task);\n        a.start(); b.start();\n        a.join();  b.join();\n        System.out.println(\"two threads, 50k each     = \" + counter.get());\n\n        System.out.println(\"getAndIncrement returns   = \" + counter.getAndIncrement());\n        System.out.println(\"incrementAndGet returns   = \" + counter.incrementAndGet());\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "after one manual CAS      = 1",
+                        "CAS from 1 to 99 succeeds true",
+                        "CAS from 1 to 42 succeeds false",
+                        "value now                 = 99",
+                        "two threads, 50k each     = 100000",
+                        "getAndIncrement returns   = 100000",
+                        "incrementAndGet returns   = 100002"
+                    ],
+                    explain: "<p>Lines two and three are compare-and-swap in one pair. The first succeeded because the value really was 1; the second failed because the first had already changed it to 99. CAS never blocks — it checks and reports, and the caller decides whether to retry.</p><p>That is the loop at the top: read, compute, attempt, and go round again if someone else got there first. <code>incrementAndGet</code> is that loop in the JDK, compiled to a single CPU instruction, which is why two threads reach exactly 100000 with no lock anywhere.</p><p>The last two lines are the naming, which is easy to get backwards. <code>getAndIncrement</code> returns the value <em>before</em> the change; <code>incrementAndGet</code> returns the value <em>after</em>.</p>"
+                }
             }],
             subsection: "concurrency"
         },
@@ -748,8 +835,19 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Checked requires handling, unchecked does not",
-                code: "// Checked: must catch or declare throws\nvoid readFile(String path) throws IOException {\n    Files.readAllLines(Paths.get(path));\n}\n\n// Unchecked: compiler doesn't force anything\nvoid divide(int a, int b) {\n    int result = a / b; // may throw ArithmeticException, uncaught by compiler\n}"
+                title: "What the compiler forces, and what it ignores",
+                code: "import java.io.IOException;\n\npublic class CheckedVsUnchecked {\n\n    // Checked: the compiler forces every caller to catch this or declare it.\n    static void readConfig(String path) throws IOException {\n        throw new IOException(\"no such file: \" + path);\n    }\n\n    // Unchecked: the compiler says nothing, and callers need not react.\n    static int divide(int a, int b) {\n        return a / b;\n    }\n\n    public static void main(String[] args) {\n        try {\n            readConfig(\"app.properties\");\n        } catch (IOException e) {          // omitting this would not compile\n            System.out.println(\"checked   : caught \" + e.getClass().getSimpleName() + \" - \" + e.getMessage());\n        }\n\n        try {\n            divide(1, 0);                  // no try/catch required by the compiler\n        } catch (ArithmeticException e) {\n            System.out.println(\"unchecked : caught \" + e.getClass().getSimpleName() + \" - \" + e.getMessage());\n        }\n\n        // The dividing line is the class hierarchy, not the severity.\n        System.out.println(\"IOException is checked?          \"\n            + !RuntimeException.class.isAssignableFrom(IOException.class));\n        System.out.println(\"ArithmeticException is checked?  \"\n            + !RuntimeException.class.isAssignableFrom(ArithmeticException.class));\n        System.out.println(\"NullPointerException is checked? \"\n            + !RuntimeException.class.isAssignableFrom(NullPointerException.class));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "checked   : caught IOException - no such file: app.properties",
+                        "unchecked : caught ArithmeticException - / by zero",
+                        "IOException is checked?          true",
+                        "ArithmeticException is checked?  false",
+                        "NullPointerException is checked? false"
+                    ],
+                    explain: "<p>Both exceptions were caught the same way, so at runtime there is no difference at all. The difference is entirely at compile time: removing the first <code>catch</code> stops the program compiling, and removing the second changes nothing.</p><p>The last three lines show where that line is actually drawn — not by severity, but by ancestry. Anything under <code>RuntimeException</code> is unchecked; everything else under <code>Exception</code> is checked. That is why <code>NullPointerException</code>, easily the most common failure in Java, is one the compiler never mentions.</p>"
+                }
             }],
             subsection: "exceptions"
         },
@@ -794,8 +892,20 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Serializing and deserializing an object",
-                code: "class User implements Serializable {\n    private static final long serialVersionUID = 1L;\n    String name;\n    transient String sessionToken; // excluded from the stream\n\n    User(String name, String token) { this.name = name; this.sessionToken = token; }\n}\n\n// Write\ntry (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(\"user.ser\"))) {\n    out.writeObject(new User(\"Alice\", \"secret-token\"));\n}\n\n// Read\ntry (ObjectInputStream in = new ObjectInputStream(new FileInputStream(\"user.ser\"))) {\n    User u = (User) in.readObject();\n    System.out.println(u.sessionToken); // null -- transient was skipped\n}"
+                title: "Round-tripping an object, and what transient leaves behind",
+                code: "import java.io.ByteArrayInputStream;\nimport java.io.ByteArrayOutputStream;\nimport java.io.ObjectInputStream;\nimport java.io.ObjectOutputStream;\nimport java.io.Serializable;\n\nclass User implements Serializable {\n    private static final long serialVersionUID = 1L;\n\n    String name;\n    int loginCount;\n    transient String sessionToken;   // deliberately excluded from the stream\n\n    User(String name, int loginCount, String sessionToken) {\n        this.name = name;\n        this.loginCount = loginCount;\n        this.sessionToken = sessionToken;\n    }\n}\n\npublic class SerializationDemo {\n    public static void main(String[] args) throws Exception {\n        User before = new User(\"Aditya\", 7, \"secret-token\");\n\n        // Serialize to memory rather than a file — same stream, nothing to clean up.\n        ByteArrayOutputStream bytes = new ByteArrayOutputStream();\n        try (ObjectOutputStream out = new ObjectOutputStream(bytes)) {\n            out.writeObject(before);\n        }\n        System.out.println(\"serialized to \" + bytes.size() + \" bytes\");\n\n        User after;\n        try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {\n            after = (User) in.readObject();\n        }\n\n        System.out.println(\"name         \" + after.name);\n        System.out.println(\"loginCount   \" + after.loginCount);\n        System.out.println(\"sessionToken \" + after.sessionToken);\n        System.out.println(\"same object? \" + (before == after));\n        System.out.println(\"token was    \" + before.sessionToken + \" before writing\");\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "serialized to 79 bytes",
+                        "name         Aditya",
+                        "loginCount   7",
+                        "sessionToken null",
+                        "same object? false",
+                        "token was    secret-token before writing"
+                    ],
+                    explain: "<p><code>name</code> and <code>loginCount</code> survived the round trip. <code>sessionToken</code> came back <strong>null</strong>, and the last line confirms it held a real value before writing — <code>transient</code> excluded it from the stream, and deserialization left the field at its default rather than restoring anything.</p><p>That is the mechanism for keeping secrets, caches and connections out of a serialized form, and also a trap: a <code>transient</code> field is not just absent from the bytes, it is <code>null</code> in the object you get back, so anything reading it after deserialization needs to cope.</p><p><code>same object? false</code> is the other half — deserialization constructs a new instance without calling the constructor. Serialization is a copying mechanism, which is why it is sometimes abused for deep copies.</p>"
+                }
             }],
             subsection: "others-java"
         },
@@ -956,8 +1066,20 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Inspecting and invoking via reflection",
-                code: "Class<?> clazz = Class.forName(\"com.example.User\");\nObject user = clazz.getDeclaredConstructor().newInstance();\n\nField nameField = clazz.getDeclaredField(\"name\");\nnameField.setAccessible(true); // bypass private access\nnameField.set(user, \"Alice\");\n\nMethod greet = clazz.getMethod(\"greet\");\nString result = (String) greet.invoke(user); // dynamic invocation"
+                title: "Inspecting and invoking at runtime",
+                code: "import java.lang.reflect.Field;\nimport java.lang.reflect.Method;\n\nclass Greeter {\n    private String name = \"unset\";          // private, and about to be written anyway\n\n    public String greet() { return \"Hello, \" + name; }\n\n    private String secret() { return \"private method ran\"; }\n}\n\npublic class ReflectionDemo {\n    public static void main(String[] args) throws Exception {\n        Class<?> clazz = Class.forName(\"Greeter\");\n        Object instance = clazz.getDeclaredConstructor().newInstance();\n\n        System.out.println(\"class      \" + clazz.getName());\n        System.out.println(\"before     \" + ((Greeter) instance).greet());\n\n        Field nameField = clazz.getDeclaredField(\"name\");\n        nameField.setAccessible(true);       // step past private\n        nameField.set(instance, \"Aditya\");\n\n        Method greet = clazz.getMethod(\"greet\");\n        System.out.println(\"after      \" + greet.invoke(instance));\n\n        Method secret = clazz.getDeclaredMethod(\"secret\");\n        secret.setAccessible(true);\n        System.out.println(\"private    \" + secret.invoke(instance));\n\n        // getMethods() sees public members including inherited ones;\n        // getDeclaredMethods() sees this class's own, private included.\n        System.out.println(\"declared methods \" + clazz.getDeclaredMethods().length);\n        System.out.println(\"declared fields  \" + clazz.getDeclaredFields().length);\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "class      Greeter",
+                        "before     Hello, unset",
+                        "after      Hello, Aditya",
+                        "private    private method ran",
+                        "declared methods 2",
+                        "declared fields  1"
+                    ],
+                    explain: "<p>Nothing here mentions <code>Greeter</code> at compile time — the class arrives as the string <code>\"Greeter\"</code>, and the field and method are looked up by name. That is reflection's whole purpose and its whole cost: it works on types the code has never heard of, and no typo in those strings is caught until it runs.</p><p>Lines three and four are the part to be uneasy about. <code>setAccessible(true)</code> wrote a private field and called a private method from outside the class. Access modifiers are a compile-time contract, and reflection is not bound by it.</p><p>This is how JSON libraries populate your model classes and how test frameworks find methods by annotation. It is also why reflection is slow, breaks under obfuscation, and needs a ProGuard keep rule in an Android build.</p>"
+                }
             }],
             subsection: "others-java"
         },
@@ -1004,8 +1126,18 @@ const javaData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "java",
-                title: "Constructor injection vs self-instantiation",
-                code: "// Without DI: hard to test, tightly coupled\nclass UserServiceBad {\n    private final UserRepository repo = new MySqlUserRepository(); // hardcoded\n}\n\n// With DI: dependency supplied from outside\nclass UserService {\n    private final UserRepository repo;\n    UserService(UserRepository repo) { this.repo = repo; } // injected\n}\n\n// In tests:\nUserService service = new UserService(new FakeUserRepository());"
+                title: "Constructor injection, and why tests need it",
+                code: "interface Clock {\n    long now();\n}\n\nclass SystemClock implements Clock {\n    public long now() { return System.currentTimeMillis(); }   // real, unpredictable\n}\n\nclass FixedClock implements Clock {\n    private final long fixed;\n    FixedClock(long fixed) { this.fixed = fixed; }\n    public long now() { return fixed; }                        // a test can assert on this\n}\n\n// Without DI: the dependency is welded in and cannot be replaced.\nclass ReceiptPrinterBad {\n    private final Clock clock = new SystemClock();\n    String print(String item) { return item + \" at \" + clock.now(); }\n}\n\n// With DI: the dependency arrives through the constructor.\nclass ReceiptPrinter {\n    private final Clock clock;\n    ReceiptPrinter(Clock clock) { this.clock = clock; }\n    String print(String item) { return item + \" at \" + clock.now(); }\n}\n\npublic class DependencyInjection {\n    public static void main(String[] args) {\n        ReceiptPrinter printer = new ReceiptPrinter(new FixedClock(1_700_000_000_000L));\n        System.out.println(printer.print(\"coffee\"));\n        System.out.println(printer.print(\"tea\"));\n\n        // The same object, given a different collaborator.\n        ReceiptPrinter other = new ReceiptPrinter(new FixedClock(0L));\n        System.out.println(other.print(\"coffee\"));\n\n        // The hardcoded version can only ever be tested against the real clock.\n        String hardcoded = new ReceiptPrinterBad().print(\"coffee\");\n        System.out.println(\"hardcoded output is assertable? \" + hardcoded.equals(\"coffee at 0\"));\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "coffee at 1700000000000",
+                        "tea at 1700000000000",
+                        "coffee at 0",
+                        "hardcoded output is assertable? false"
+                    ],
+                    explain: "<p>The first three lines print exact, repeatable timestamps for something that reads the clock — which is only possible because the clock arrived through the constructor and the caller supplied a fixed one.</p><p>The last line is <code>ReceiptPrinterBad</code>, which builds its own <code>SystemClock</code>. Its output contains the current time, so there is no value a test could assert against; it changes every millisecond. The dependency is not merely awkward to replace, it is unreachable.</p><p>This is the practical case for DI, and it needs no framework. Dagger and Hilt automate the wiring; the testability comes from the constructor parameter.</p>"
+                }
             }],
             subsection: "others-java"
         },
