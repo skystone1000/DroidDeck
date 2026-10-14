@@ -14,7 +14,20 @@ const androidUnitTestingData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "ViewModel test with LiveData + coroutines", code: "@get:Rule\nval instantTaskExecutorRule = InstantTaskExecutorRule()\n\nprivate val testDispatcher = StandardTestDispatcher()\n\n@Before\nfun setUp() {\n    Dispatchers.setMain(testDispatcher)\n}\n\n@After\nfun tearDown() {\n    Dispatchers.resetMain()\n}\n\n@Test\nfun `loadUser updates LiveData with success state`() = runTest {\n    val fakeRepo = FakeUserRepository(User(\"1\", \"Ada\"))\n    val viewModel = UserViewModel(fakeRepo)\n\n    viewModel.loadUser(\"1\")\n    advanceUntilIdle()\n\n    assertEquals(UiState.Success(User(\"1\", \"Ada\")), viewModel.uiState.value)\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "ViewModel test with LiveData and coroutines", code: "@get:Rule\nval instantTaskExecutorRule = InstantTaskExecutorRule()\n\nprivate val testDispatcher = StandardTestDispatcher()\n\n@Before\nfun setUp() {\n    Dispatchers.setMain(testDispatcher)\n}\n\n@After\nfun tearDown() {\n    Dispatchers.resetMain()\n}\n\n@Test\nfun `loadUser updates LiveData with success state`() = runTest {\n    val fakeRepo = FakeUserRepository(User(\"1\", \"Ada\"))\n    val viewModel = UserViewModel(fakeRepo)\n\n    viewModel.loadUser(\"1\")\n    advanceUntilIdle()\n\n    assertEquals(UiState.Success(User(\"1\", \"Ada\")), viewModel.uiState.value)\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "InstantTaskExecutorRule replaces LiveData's background executor with one that runs everything on the calling thread — without it, setValue from a test throws.",
+                        "setUp installs a StandardTestDispatcher as Dispatchers.Main, so viewModelScope uses it instead of the real Android looper.",
+                        "runTest starts the test body on a scheduler that controls virtual time.",
+                        "viewModel.loadUser(\"1\") launches a coroutine, which is queued on the test dispatcher rather than run.",
+                        "advanceUntilIdle drains that queue, running everything including any delay, instantly.",
+                        "The assertion then reads a state that has finished changing, rather than racing it.",
+                        "tearDown calls resetMain, because setMain is global and would otherwise leak into later test classes."
+                    ],
+                    explain: "<p>Steps 4 and 5 are the reason a test dispatcher exists at all. <code>viewModelScope</code> defaults to <code>Dispatchers.Main</code>, which does not exist off-device, and even where it does the assertion would race the coroutine. Virtual time replaces \"sleep and hope\" with an exact ordering.</p><p>Step 7 is the one most often skipped, and it fails somewhere else — a later test class inherits a dispatcher pointing at a finished scheduler, and the failure looks unrelated to the test that caused it.</p><p><code>StandardTestDispatcher</code> queues work until advanced, which is what makes the ordering visible. <code>UnconfinedTestDispatcher</code> runs eagerly, needs no <code>advanceUntilIdle</code>, and hides exactly the ordering bugs worth catching.</p>"
+                } }],
             subsection: null
         },
         {
@@ -27,7 +40,20 @@ const androidUnitTestingData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Testing a Flow-emitting ViewModel with Turbine", code: "@Test\nfun `search emits loading then results`() = runTest {\n    val fakeRepo = FakeSearchRepository(listOf(\"Kotlin\", \"Compose\"))\n    val viewModel = SearchViewModel(fakeRepo, dispatcher = StandardTestDispatcher(testScheduler))\n\n    viewModel.results.test {\n        viewModel.search(\"K\")\n\n        assertEquals(SearchState.Loading, awaitItem())\n        assertEquals(SearchState.Success(listOf(\"Kotlin\")), awaitItem())\n\n        cancelAndIgnoreRemainingEvents()\n    }\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "Testing a Flow-emitting ViewModel with Turbine", code: "@Test\nfun `search emits loading then results`() = runTest {\n    val fakeRepo = FakeSearchRepository(listOf(\"Kotlin\", \"Compose\"))\n    val viewModel = SearchViewModel(fakeRepo, dispatcher = StandardTestDispatcher(testScheduler))\n\n    viewModel.results.test {\n        viewModel.search(\"K\")\n\n        assertEquals(SearchState.Loading, awaitItem())\n        assertEquals(SearchState.Success(listOf(\"Kotlin\")), awaitItem())\n\n        cancelAndIgnoreRemainingEvents()\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "The ViewModel takes its dispatcher as a constructor parameter, which is what lets the test hand it the scheduler runTest owns.",
+                        "results.test { } subscribes to the flow and begins recording emissions before anything triggers them.",
+                        "search(\"K\") is called inside that block, so no emission can be missed between subscribing and acting.",
+                        "awaitItem() suspends until the first value arrives and returns Loading.",
+                        "The second awaitItem() returns Success, in emission order rather than whatever the timing happened to be.",
+                        "cancelAndIgnoreRemainingEvents ends the subscription — necessary because a StateFlow never completes on its own.",
+                        "Had the flow emitted a third value nobody consumed, Turbine would fail the test rather than passing quietly."
+                    ],
+                    explain: "<p>Step 1 is a design decision the test forces on the production code: a ViewModel that hardcodes <code>Dispatchers.IO</code> cannot be driven by a test scheduler, so injecting the dispatcher is what makes the rest possible.</p><p>Step 3 is the subtlety that makes Turbine worth a dependency. Subscribing first and acting second closes the window where a fast emission arrives before the collector is listening — the usual source of a test that passes locally and fails on CI.</p><p>Step 7 is the other half: collecting into a list and asserting on it will happily pass when the flow emitted more than expected. Turbine treats unconsumed emissions as a failure, so the assertion covers the whole sequence.</p>"
+                } }],
             subsection: null
         },
         {
@@ -40,7 +66,20 @@ const androidUnitTestingData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Basic Espresso test", code: "@RunWith(AndroidJUnit4::class)\nclass LoginActivityTest {\n\n    @get:Rule\n    val activityRule = ActivityScenarioRule(LoginActivity::class.java)\n\n    @Test\n    fun loginButton_showsErrorOnEmptyFields() {\n        onView(withId(R.id.loginButton)).perform(click())\n\n        onView(withId(R.id.errorText))\n            .check(matches(isDisplayed()))\n            .check(matches(withText(\"Please fill all fields\")))\n    }\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "A basic Espresso test", code: "@RunWith(AndroidJUnit4::class)\nclass LoginActivityTest {\n\n    @get:Rule\n    val activityRule = ActivityScenarioRule(LoginActivity::class.java)\n\n    @Test\n    fun loginButton_showsErrorOnEmptyFields() {\n        onView(withId(R.id.loginButton)).perform(click())\n\n        onView(withId(R.id.errorText))\n            .check(matches(isDisplayed()))\n            .check(matches(withText(\"Please fill all fields\")))\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "The test runs on a device or emulator, not the JVM — Espresso drives a real Activity.",
+                        "ActivityScenarioRule launches LoginActivity before the test and closes it afterwards.",
+                        "onView(withId(R.id.loginButton)) searches the current view hierarchy for a matching view.",
+                        "Before acting, Espresso waits for the main thread's message queue to go idle — no sleep is written anywhere.",
+                        "perform(click()) dispatches a real click event.",
+                        "onView(withId(R.id.errorText)) again waits for idle, so the assertion runs after the UI has settled.",
+                        "The two check calls assert the view is displayed and holds the expected text; either failing fails the test."
+                    ],
+                    explain: "<p>Steps 4 and 6 are what distinguishes Espresso from driving the UI by hand. Its idling synchronisation is why a correct Espresso test contains no <code>Thread.sleep</code>, and why adding one is usually a sign something is running outside the framework's view.</p><p>That is also its main limitation: Espresso knows about the main looper, not about your background work. Long-running coroutines and OkHttp calls need an <code>IdlingResource</code> to be visible to it, and without one you get exactly the flakiness the framework was built to remove.</p>"
+                } }],
             subsection: null
         },
         {
@@ -130,7 +169,20 @@ const androidUnitTestingData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Mocking a repository dependency", code: "class UserViewModelTest {\n\n    private val repository: UserRepository = mockk()\n\n    @Test\n    fun `loadUser exposes success state`() = runTest {\n        coEvery { repository.getUser(\"1\") } returns User(\"1\", \"Ada\")\n\n        val viewModel = UserViewModel(repository)\n        viewModel.loadUser(\"1\")\n\n        assertEquals(UiState.Success(User(\"1\", \"Ada\")), viewModel.uiState.value)\n        coVerify(exactly = 1) { repository.getUser(\"1\") }\n    }\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "Mocking a repository dependency", code: "class UserViewModelTest {\n\n    private val repository: UserRepository = mockk()\n\n    @Test\n    fun `loadUser exposes success state`() = runTest {\n        coEvery { repository.getUser(\"1\") } returns User(\"1\", \"Ada\")\n\n        val viewModel = UserViewModel(repository)\n        viewModel.loadUser(\"1\")\n\n        assertEquals(UiState.Success(User(\"1\", \"Ada\")), viewModel.uiState.value)\n        coVerify(exactly = 1) { repository.getUser(\"1\") }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "mockk() creates a stand-in implementing UserRepository, with no behaviour of its own.",
+                        "coEvery { repository.getUser(\"1\") } returns ... programs one suspending call to answer with a fixed value.",
+                        "coEvery rather than every is required because getUser is a suspend function.",
+                        "The ViewModel is constructed with the mock in place of the real repository — possible only because the dependency is a constructor parameter.",
+                        "loadUser runs, calls the mock, and receives the canned user without touching the network or a database.",
+                        "The state assertion checks what the ViewModel produced from that input.",
+                        "coVerify(exactly = 1) then asserts the repository was called once — catching a duplicate request that the state assertion alone would not notice."
+                    ],
+                    explain: "<p>Step 4 is what the whole technique rests on, and it is not about the mocking library: a dependency constructed inside the class cannot be replaced from outside it. Mocking is only available to code that was already injectable.</p><p>Step 7 is the part worth using sparingly. Asserting on <em>state</em> tests behaviour; asserting on <em>calls</em> tests implementation, and tests full of <code>verify</code> break whenever the implementation is refactored without the behaviour changing. Call counts earn their place where the count is the requirement — not retrying twice, not writing to analytics on every recomposition.</p><p>A hand-written fake often beats a mock for a repository, since it can hold real state and be reused across tests.</p>"
+                } }],
             subsection: null
         },
         {

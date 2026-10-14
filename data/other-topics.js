@@ -63,7 +63,20 @@ const otherTopicsData = {
                 {
                     "language": "kotlin",
                     "title": "Minimal Room setup",
-                    "code": "@Entity\ndata class User(@PrimaryKey val id: String, val name: String)\n\n@Dao\ninterface UserDao {\n    @Query(\"SELECT * FROM User\")\n    fun observeAll(): Flow<List<User>>\n\n    @Insert(onConflict = OnConflictStrategy.REPLACE)\n    suspend fun insert(user: User)\n}\n\n@Database(entities = [User::class], version = 1)\nabstract class AppDatabase : RoomDatabase() {\n    abstract fun userDao(): UserDao\n}"
+                    "code": "@Entity\ndata class User(@PrimaryKey val id: String, val name: String)\n\n@Dao\ninterface UserDao {\n    @Query(\"SELECT * FROM User\")\n    fun observeAll(): Flow<List<User>>\n\n    @Insert(onConflict = OnConflictStrategy.REPLACE)\n    suspend fun insert(user: User)\n}\n\n@Database(entities = [User::class], version = 1)\nabstract class AppDatabase : RoomDatabase() {\n    abstract fun userDao(): UserDao\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "At compile time Room reads @Entity and generates a CREATE TABLE for User, keyed on id.",
+                                "It parses the SQL in every @Query and checks it against that schema — a typo in a column name fails the build, not the app.",
+                                "It generates an implementation of UserDao, so nothing here is written by hand or resolved by reflection.",
+                                "observeAll returns Flow, so Room registers an invalidation tracker on the User table.",
+                                "insert is suspend, so Room dispatches it off the main thread and never triggers its main-thread check.",
+                                "That insert marks the User table dirty; the tracker fires and re-runs the observed query.",
+                                "Every collector of observeAll receives a fresh list, without anything calling a refresh."
+                            ],
+                            "explain": "<p>Step 2 is the reason Room is preferred to raw SQLite: the queries are verified against the schema during compilation, so the classic failure — a column renamed in one place and not the other — stops being a runtime crash.</p><p>Steps 4 and 6 are the reason to return <code>Flow</code> rather than a <code>suspend fun</code>. A suspending read gives one answer and goes stale the moment anything writes; an observed query keeps every screen correct without the writer knowing a screen exists.</p><p>Not shown, and the usual source of production crashes: <code>version = 1</code> means the first schema change needs a <code>Migration</code>, or <code>fallbackToDestructiveMigration</code>, which deletes the user's data.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -190,8 +203,20 @@ const otherTopicsData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Reading a key from local.properties (gitignored)",
-                    "code": "val localProperties = java.util.Properties().apply {\n    load(rootProject.file(\"local.properties\").inputStream())\n}\n\nandroid {\n    defaultConfig {\n        buildConfigField(\n            \"String\", \"API_KEY\",\n            \"\\\"${localProperties.getProperty(\"API_KEY\")}\\\"\"\n        )\n    }\n}"
+                    "title": "Reading a key from local.properties",
+                    "code": "val localProperties = java.util.Properties().apply {\n    load(rootProject.file(\"local.properties\").inputStream())\n}\n\nandroid {\n    defaultConfig {\n        buildConfigField(\n            \"String\", \"API_KEY\",\n            \"\\\"${localProperties.getProperty(\"API_KEY\")}\\\"\"\n        )\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "local.properties sits in the project root and is listed in .gitignore, so it never reaches the repository.",
+                                "At configuration time Gradle loads it and reads API_KEY.",
+                                "buildConfigField writes that value into the generated BuildConfig class for this variant.",
+                                "Application code reads BuildConfig.API_KEY as an ordinary constant, with no file access at runtime.",
+                                "A fresh clone has no local.properties, so the build fails loudly rather than shipping an empty key.",
+                                "CI supplies the same value from a secret rather than a file."
+                            ],
+                            "explain": "<p>What this achieves is keeping the key out of <strong>version control</strong>. What it does not achieve — and the honest answer to the follow-up question — is keeping it out of the <strong>APK</strong>. <code>BuildConfig.API_KEY</code> is a string constant in the compiled code, and anyone can read it with <code>apktool</code> in about a minute.</p><p>So this is the right protection for the right threat: a key in git history is permanent, searchable, and leaks to everyone who ever clones the repo. A key in the APK is exposed only to someone holding the APK.</p><p>A secret that genuinely must not be extracted cannot live in the app at all; it has to sit behind a backend the app authenticates to.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -270,8 +295,21 @@ const otherTopicsData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Compose theme switching on system setting",
-                    "code": "@Composable\nfun AppTheme(\n    darkTheme: Boolean = isSystemInDarkTheme(),\n    content: @Composable () -> Unit\n) {\n    val colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()\n    MaterialTheme(colorScheme = colorScheme, content = content)\n}"
+                    "title": "Compose theme switching on the system setting",
+                    "code": "@Composable\nfun AppTheme(\n    darkTheme: Boolean = isSystemInDarkTheme(),\n    content: @Composable () -> Unit\n) {\n    val colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()\n    MaterialTheme(colorScheme = colorScheme, content = content)\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "isSystemInDarkTheme() reads the current uiMode configuration and returns a Boolean.",
+                                "It is a composable function, so it subscribes the caller to configuration changes.",
+                                "The colour scheme is chosen from that Boolean and handed to MaterialTheme.",
+                                "MaterialTheme publishes it through a CompositionLocal, so every descendant reads colours without being passed them.",
+                                "The user switches the system to dark mode.",
+                                "The configuration change re-runs isSystemInDarkTheme, which returns a new value.",
+                                "Everything reading MaterialTheme.colorScheme recomposes with the new colours — no Activity recreation and no theme reload."
+                            ],
+                            "explain": "<p>Step 7 is the difference from the View system, where a theme change means recreating the Activity and rebuilding the whole hierarchy. Here it is an ordinary recomposition of the parts that actually read a colour.</p><p><code>darkTheme</code> is a parameter with the system setting only as its <em>default</em>, which is what allows an in-app override and what makes previews and screenshot tests able to force either scheme.</p><p>The rule this implies for the rest of the code: read colours from <code>MaterialTheme.colorScheme</code>, never as literals. A hardcoded <code>Color.White</code> is invisible in light mode and stays invisible no matter how the theme is switched.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -323,8 +361,21 @@ const otherTopicsData = {
             "codeSnippets": [
                 {
                     "language": "xml",
-                    "title": "Allowing cleartext only for a dev domain",
-                    "code": "<network-security-config>\n    <domain-config cleartextTrafficPermitted=\"true\">\n        <domain includeSubdomains=\"true\">10.0.2.2</domain>\n    </domain-config>\n    <base-config cleartextTrafficPermitted=\"false\" />\n</network-security-config>"
+                    "title": "Allowing cleartext only for a development domain",
+                    "code": "<network-security-config>\n    <domain-config cleartextTrafficPermitted=\"true\">\n        <domain includeSubdomains=\"true\">10.0.2.2</domain>\n    </domain-config>\n    <base-config cleartextTrafficPermitted=\"false\" />\n</network-security-config>",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "Since Android 9 (API 28), cleartext HTTP is blocked by default across the whole app.",
+                                "The base-config here restates that explicitly: everything not otherwise mentioned is HTTPS only.",
+                                "The domain-config carves out one exception — 10.0.2.2, which is how the emulator reaches the host machine.",
+                                "includeSubdomains extends the exception to subdomains of that host and nothing else.",
+                                "At runtime the platform matches the request host against the most specific config that applies.",
+                                "A plain HTTP request to any production host fails with a NetworkSecurityException before a socket is opened.",
+                                "Referencing this file from android:networkSecurityConfig in the manifest is what activates it."
+                            ],
+                            "explain": "<p>The point of the shape is that the exception is <strong>scoped</strong>. The lazy fix for a blocked local server is <code>android:usesCleartextTraffic=\"true\"</code> in the manifest, which turns the protection off for every host in the app and usually ships that way.</p><p>Better still is to apply this file to the debug build type only, so the release build has no cleartext exception at all and cannot acquire one by accident.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -448,7 +499,20 @@ const otherTopicsData = {
                 {
                     "language": "kotlin",
                     "title": "Handling FCM messages",
-                    "code": "class MyFirebaseMessagingService : FirebaseMessagingService() {\n\n    override fun onMessageReceived(message: RemoteMessage) {\n        val title = message.notification?.title ?: message.data[\"title\"]\n        val body = message.notification?.body ?: message.data[\"body\"]\n        showNotification(title, body)\n    }\n\n    override fun onNewToken(token: String) {\n        // Send the refreshed token to your backend\n        backend.registerToken(token)\n    }\n}"
+                    "code": "class MyFirebaseMessagingService : FirebaseMessagingService() {\n\n    override fun onMessageReceived(message: RemoteMessage) {\n        val title = message.notification?.title ?: message.data[\"title\"]\n        val body = message.notification?.body ?: message.data[\"body\"]\n        showNotification(title, body)\n    }\n\n    override fun onNewToken(token: String) {\n        // Send the refreshed token to your backend\n        backend.registerToken(token)\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The backend sends a message to FCM addressed to a device token.",
+                                "FCM delivers it to Google Play services on the device, which routes it to the app.",
+                                "If the app is in the foreground, onMessageReceived is called for every message type.",
+                                "If the app is backgrounded and the payload contains a \"notification\" block, the system posts the notification itself and onMessageReceived is NOT called.",
+                                "If the payload is data-only, onMessageReceived is called in either state — which is why the code reads message.data as a fallback.",
+                                "onNewToken fires when a token is first generated and whenever it is rotated — after a reinstall, a restore, or clearing app data.",
+                                "The new token is sent to the backend, without which every later message goes to an address nobody is listening at."
+                            ],
+                            "explain": "<p>Step 4 is the behaviour that produces the classic bug report: \"notifications work when the app is open and look different when it is closed\". A payload with a <code>notification</code> block hands display to the system while the app is backgrounded, so any custom formatting in <code>onMessageReceived</code> is skipped. Sending <strong>data-only</strong> messages is what puts the app in charge in both states.</p><p>Step 6 is the other one. Tokens are not permanent, and an app that only registers its token at first launch quietly stops receiving anything after a restore.</p><p>Since Android 13, posting the notification also needs the runtime <code>POST_NOTIFICATIONS</code> permission — without it <code>showNotification</code> silently does nothing.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -476,8 +540,21 @@ const otherTopicsData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Scheduling an exact alarm for a local notification",
-                    "code": "val alarmManager = context.getSystemService(AlarmManager::class.java)\nval intent = Intent(context, ReminderReceiver::class.java)\nval pendingIntent = PendingIntent.getBroadcast(\n    context, requestCode, intent,\n    PendingIntent.FLAG_IMMUTABLE\n)\n\nif (alarmManager.canScheduleExactAlarms()) {\n    alarmManager.setExactAndAllowWhileIdle(\n        AlarmManager.RTC_WAKEUP,\n        triggerAtMillis,\n        pendingIntent\n    )\n}"
+                    "title": "Scheduling an exact alarm",
+                    "code": "val alarmManager = context.getSystemService(AlarmManager::class.java)\nval intent = Intent(context, ReminderReceiver::class.java)\nval pendingIntent = PendingIntent.getBroadcast(\n    context, requestCode, intent,\n    PendingIntent.FLAG_IMMUTABLE\n)\n\nif (alarmManager.canScheduleExactAlarms()) {\n    alarmManager.setExactAndAllowWhileIdle(\n        AlarmManager.RTC_WAKEUP,\n        triggerAtMillis,\n        pendingIntent\n    )\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "A PendingIntent is created wrapping an Intent aimed at ReminderReceiver.",
+                                "FLAG_IMMUTABLE is required from Android 12 — a PendingIntent must declare mutability or the call throws.",
+                                "canScheduleExactAlarms() is checked first. From Android 12 exact alarms need the SCHEDULE_EXACT_ALARM permission, which the user can revoke.",
+                                "setExactAndAllowWhileIdle schedules the alarm to fire at the given wall-clock time.",
+                                "AllowWhileIdle is what lets it fire during Doze, which an ordinary exact alarm would not.",
+                                "At the appointed time the system broadcasts the Intent and ReminderReceiver runs.",
+                                "The receiver posts the notification — the alarm itself shows nothing."
+                            ],
+                            "explain": "<p>Step 3 is the check that is most often missing, and skipping it throws <code>SecurityException</code> on Android 12 and above. Worse, the permission can be revoked while the app is installed, so a call that worked at first launch can start failing later.</p><p>Step 5 matters because Doze exists specifically to batch alarms, and even <code>AllowWhileIdle</code> is rate-limited — roughly once every nine minutes per app — so this is not a mechanism for anything frequent.</p><p>The wider point: exact alarms are for user-visible, time-critical events like an alarm clock or a calendar reminder. Google requires a justification for the permission on Play, and anything that merely needs to happen \"soon\" belongs in WorkManager.</p>"
+                        }
                 }
             ],
             "subsection": null,

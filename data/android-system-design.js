@@ -34,7 +34,20 @@ const androidSystemDesignData = {
                     { from: 5, to: 2 }
                 ]
             },
-            codeSnippets: [{ language: "kotlin", title: "Minimal request API surface", code: "class ImageLoader(\n    private val memoryCache: LruCache<String, Bitmap>,\n    private val diskCache: DiskCache,\n    private val client: OkHttpClient,\n    private val scope: CoroutineScope\n) {\n    fun load(url: String): RequestBuilder = RequestBuilder(url, this)\n\n    fun enqueue(target: ImageView, url: String) {\n        val key = url.hashKey()\n        memoryCache.get(key)?.let { target.setImageBitmap(it); return }\n\n        target.tag = url\n        scope.launch {\n            val bitmap = withContext(Dispatchers.IO) { fetchAndDecode(url, key) }\n            if (target.tag == url) {\n                memoryCache.put(key, bitmap)\n                target.setImageBitmap(bitmap)\n            }\n        }\n    }\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "The request path through an image loader", code: "class ImageLoader(\n    private val memoryCache: LruCache<String, Bitmap>,\n    private val diskCache: DiskCache,\n    private val client: OkHttpClient,\n    private val scope: CoroutineScope\n) {\n    fun load(url: String): RequestBuilder = RequestBuilder(url, this)\n\n    fun enqueue(target: ImageView, url: String) {\n        val key = url.hashKey()\n        memoryCache.get(key)?.let { target.setImageBitmap(it); return }\n\n        target.tag = url\n        scope.launch {\n            val bitmap = withContext(Dispatchers.IO) { fetchAndDecode(url, key) }\n            if (target.tag == url) {\n                memoryCache.put(key, bitmap)\n                target.setImageBitmap(bitmap)\n            }\n        }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "enqueue is called from onBindViewHolder with a target ImageView and a URL.",
+                        "The URL is hashed into a cache key, and the memory cache is checked first — on a hit the bitmap is set synchronously and nothing else happens.",
+                        "On a miss, the ImageView's tag is set to the URL. This is the recycling guard.",
+                        "A coroutine is launched, and the fetch and decode happen on Dispatchers.IO.",
+                        "While that is in flight the user scrolls, the row is recycled, and the same ImageView is bound to a different URL — which overwrites the tag.",
+                        "The original request finishes and compares target.tag against its own URL. They no longer match, so it does NOT set the bitmap.",
+                        "On a normal completion the tag still matches, the bitmap is put in the memory cache, and the ImageView is updated."
+                    ],
+                    explain: "<p>Steps 3, 5 and 6 are the whole reason this question is asked. <code>RecyclerView</code> reuses views, so a slow request for row 2 can finish after that view has been rebound to row 20 — and without the tag check it would paint the wrong image into it. Every image library solves this, and the tag comparison is the cheapest version of the solution.</p><p>The two-tier cache is the other half: memory for the instant hit, disk so a restart does not refetch. Real libraries add a third stage — an in-flight request map, so two views asking for the same URL share one download rather than starting two.</p>"
+                } }],
             subsection: null
         },
         {
@@ -47,7 +60,20 @@ const androidSystemDesignData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Chunked resumable download worker", code: "class ChunkDownloadWorker(\n    context: Context,\n    params: WorkerParameters\n) : CoroutineWorker(context, params) {\n\n    override suspend fun doWork(): Result {\n        val url = inputData.getString(\"url\") ?: return Result.failure()\n        val start = inputData.getLong(\"start\", 0)\n        val end = inputData.getLong(\"end\", 0)\n        val partFile = File(inputData.getString(\"partPath\")!!)\n\n        return try {\n            val alreadyWritten = partFile.length()\n            val request = Request.Builder()\n                .url(url)\n                .header(\"Range\", \"bytes=${start + alreadyWritten}-$end\")\n                .build()\n\n            client.newCall(request).execute().use { response ->\n                if (!response.isSuccessful) return Result.retry()\n                FileOutputStream(partFile, true).use { out ->\n                    response.body?.byteStream()?.copyTo(out)\n                }\n            }\n            Result.success()\n        } catch (e: IOException) {\n            Result.retry()\n        }\n    }\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "A chunked, resumable download worker", code: "class ChunkDownloadWorker(\n    context: Context,\n    params: WorkerParameters\n) : CoroutineWorker(context, params) {\n\n    override suspend fun doWork(): Result {\n        val url = inputData.getString(\"url\") ?: return Result.failure()\n        val start = inputData.getLong(\"start\", 0)\n        val end = inputData.getLong(\"end\", 0)\n        val partFile = File(inputData.getString(\"partPath\")!!)\n\n        return try {\n            val alreadyWritten = partFile.length()\n            val request = Request.Builder()\n                .url(url)\n                .header(\"Range\", \"bytes=${start + alreadyWritten}-$end\")\n                .build()\n\n            client.newCall(request).execute().use { response ->\n                if (!response.isSuccessful) return Result.retry()\n                FileOutputStream(partFile, true).use { out ->\n                    response.body?.byteStream()?.copyTo(out)\n                }\n            }\n            Result.success()\n        } catch (e: IOException) {\n            Result.retry()\n        }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "The file is split into ranges, and one WorkManager job is enqueued per chunk with its start and end offsets.",
+                        "doWork reads how many bytes the part file already holds — non-zero if this is a retry.",
+                        "The Range header is built from the original start PLUS what is already on disk, so a resumed chunk asks only for the remainder.",
+                        "The server replies 206 Partial Content and streams from that offset.",
+                        "Bytes are appended to the part file as they arrive, so progress survives the process being killed.",
+                        "If the connection drops, the worker returns Result.retry() and WorkManager reschedules it with backoff.",
+                        "When every chunk succeeds, the part files are concatenated in order into the final file."
+                    ],
+                    explain: "<p>Steps 2 and 3 are what makes this resumable rather than merely retryable. The state lives in the file system — the length of the part file <em>is</em> the progress — so nothing has to be persisted separately and a killed process loses nothing.</p><p>WorkManager is doing the unglamorous work here: surviving process death, waiting for connectivity, and applying backoff. Rolling that by hand is where most homegrown downloaders go wrong.</p><p>The chunking assumes the server honours <code>Range</code>. It usually does, and the fallback when it does not is a single-stream download that restarts from zero.</p>"
+                } }],
             subsection: null
         },
         {
@@ -114,7 +140,20 @@ const androidSystemDesignData = {
                     { from: 4, to: 5 }
                 ]
             },
-            codeSnippets: [{ language: "kotlin", title: "Auth interceptor with token refresh", code: "class AuthInterceptor(\n    private val tokenStore: TokenStore\n) : Interceptor {\n    override fun intercept(chain: Interceptor.Chain): Response {\n        val request = chain.request().newBuilder()\n            .header(\"Authorization\", \"Bearer ${tokenStore.accessToken}\")\n            .build()\n\n        val response = chain.proceed(request)\n        if (response.code == 401) {\n            response.close()\n            val refreshed = tokenStore.refreshBlocking()\n            if (refreshed) {\n                val retried = request.newBuilder()\n                    .header(\"Authorization\", \"Bearer ${tokenStore.accessToken}\")\n                    .build()\n                return chain.proceed(retried)\n            }\n        }\n        return response\n    }\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "An auth interceptor that refreshes a token", code: "class AuthInterceptor(\n    private val tokenStore: TokenStore\n) : Interceptor {\n    override fun intercept(chain: Interceptor.Chain): Response {\n        val request = chain.request().newBuilder()\n            .header(\"Authorization\", \"Bearer ${tokenStore.accessToken}\")\n            .build()\n\n        val response = chain.proceed(request)\n        if (response.code == 401) {\n            response.close()\n            val refreshed = tokenStore.refreshBlocking()\n            if (refreshed) {\n                val retried = request.newBuilder()\n                    .header(\"Authorization\", \"Bearer ${tokenStore.accessToken}\")\n                    .build()\n                return chain.proceed(retried)\n            }\n        }\n        return response\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Every request passes through the interceptor chain before reaching the network.",
+                        "The interceptor copies the request and adds the current access token as an Authorization header.",
+                        "chain.proceed sends it and blocks this call's thread until the response arrives.",
+                        "A 401 means the token expired. The response body is closed — leaking it would exhaust the connection pool.",
+                        "refreshBlocking exchanges the refresh token for a new access token, synchronously, because an interceptor cannot suspend.",
+                        "The original request is rebuilt with the new token and proceeded a second time.",
+                        "The caller receives the successful response and never learns that any of this happened."
+                    ],
+                    explain: "<p>Step 7 is the design goal: refreshing is invisible to every call site, so no screen has to know what a 401 means.</p><p>Step 4 is the bug most implementations ship with. An OkHttp <code>Response</code> holds a connection until its body is closed or consumed, and a discarded 401 body leaks one every time.</p><p>The real hazard is not shown: if twenty requests get a 401 at once, twenty threads call <code>refreshBlocking</code> and the refresh token is spent twenty times — which many backends treat as a replay attack. Production versions guard the refresh with a mutex, or use OkHttp's <code>Authenticator</code>, which exists for exactly this and is retried only once by design.</p>"
+                } }],
             subsection: null
         },
         {
@@ -140,7 +179,20 @@ const androidSystemDesignData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Per-key mutex to avoid thundering herd", code: "class SingleFlightCache<K, V>(\n    private val loader: suspend (K) -> V\n) {\n    private val cache = LruCache<K, V>(100)\n    private val locks = ConcurrentHashMap<K, Mutex>()\n\n    suspend fun get(key: K): V {\n        cache.get(key)?.let { return it }\n\n        val mutex = locks.getOrPut(key) { Mutex() }\n        return mutex.withLock {\n            cache.get(key)?.let { return@withLock it }\n            val value = loader(key)\n            cache.put(key, value)\n            value\n        }\n    }\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "A per-key mutex against the thundering herd", code: "class SingleFlightCache<K, V>(\n    private val loader: suspend (K) -> V\n) {\n    private val cache = LruCache<K, V>(100)\n    private val locks = ConcurrentHashMap<K, Mutex>()\n\n    suspend fun get(key: K): V {\n        cache.get(key)?.let { return it }\n\n        val mutex = locks.getOrPut(key) { Mutex() }\n        return mutex.withLock {\n            cache.get(key)?.let { return@withLock it }\n            val value = loader(key)\n            cache.put(key, value)\n            value\n        }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Ten coroutines ask for the same missing key at the same moment.",
+                        "All ten miss the cache, because none of them has loaded anything yet.",
+                        "They all reach for the same Mutex, since getOrPut is keyed on the cache key.",
+                        "One wins and enters the critical section; the other nine suspend — without blocking any thread.",
+                        "The winner re-checks the cache inside the lock. Still empty, so it calls the loader once.",
+                        "It stores the result and releases the mutex.",
+                        "The other nine enter one at a time, hit the second cache check, and return the stored value immediately. The loader ran once, not ten times."
+                    ],
+                    explain: "<p>Step 5 is the part that looks redundant and is not. The <strong>double-checked</strong> pattern — miss, take the lock, check again — is what stops the nine waiters each running the loader after the winner has already finished. Without the inner check, the mutex serialises the stampede instead of preventing it.</p><p>The mutex is per key, so unrelated keys never contend. That is also the leak in this version: <code>locks</code> grows forever, one entry per key ever requested, and a production implementation removes the mutex once the load completes.</p>"
+                } }],
             subsection: null
         },
         {
@@ -198,7 +250,20 @@ const androidSystemDesignData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "LRU cache via LinkedHashMap access order", code: "class SimpleLruCache<K, V>(private val capacity: Int) :\n    LinkedHashMap<K, V>(capacity, 0.75f, true) {\n\n    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>): Boolean {\n        return size > capacity\n    }\n}\n\n// Usage\nval cache = SimpleLruCache<String, Bitmap>(capacity = 50)\ncache[\"key1\"] = bitmap1\nval hit = cache[\"key1\"] // moves key1 to most-recently-used position" }],
+            codeSnippets: [{ language: "kotlin", title: "LRU eviction from LinkedHashMap access order", code: "// accessOrder = true is the whole trick: LinkedHashMap moves an entry to the\n// end of its iteration order every time it is READ, not just when written.\nclass SimpleLruCache<K, V>(private val capacity: Int) :\n    LinkedHashMap<K, V>(capacity, 0.75f, true) {\n\n    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>): Boolean {\n        return size > capacity\n    }\n}\n\nfun main() {\n    val cache = SimpleLruCache<String, Int>(capacity = 3)\n\n    cache[\"a\"] = 1\n    cache[\"b\"] = 2\n    cache[\"c\"] = 3\n    println(\"filled to capacity : \" + cache.keys)\n\n    // Reading \"a\" promotes it, so it is no longer the eldest entry.\n    cache[\"a\"]\n    println(\"after reading 'a'  : \" + cache.keys)\n\n    // Inserting a fourth entry evicts the least recently USED, which is now \"b\".\n    cache[\"d\"] = 4\n    println(\"after inserting 'd': \" + cache.keys)\n    println(\"is 'b' still there?  \" + cache.containsKey(\"b\"))\n\n    // Writing to an existing key promotes it too.\n    cache[\"c\"] = 30\n    println(\"after writing 'c'  : \" + cache.keys)\n\n    cache[\"e\"] = 5\n    println(\"after inserting 'e': \" + cache.keys)\n\n    // Without accessOrder the map would be insertion-ordered and this would\n    // be an FIFO cache instead — a very different eviction policy.\n    val fifo = object : LinkedHashMap<String, Int>(3, 0.75f, false) {\n        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Int>) = size > 3\n    }\n    fifo[\"a\"] = 1; fifo[\"b\"] = 2; fifo[\"c\"] = 3\n    fifo[\"a\"]\n    fifo[\"d\"] = 4\n    println(\"same steps, FIFO   : \" + fifo.keys)\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "filled to capacity : [a, b, c]",
+                        "after reading 'a'  : [b, c, a]",
+                        "after inserting 'd': [c, a, d]",
+                        "is 'b' still there?  false",
+                        "after writing 'c'  : [a, d, c]",
+                        "after inserting 'e': [d, c, e]",
+                        "same steps, FIFO   : [b, c, d]"
+                    ],
+                    explain: "<p>Follow the keys. Reading <code>\"a\"</code> moved it to the back, so the next insert evicted <code>\"b\"</code> rather than <code>\"a\"</code> — that promotion on <em>read</em> is the entire difference between LRU and a queue, and it is one constructor argument.</p><p>The last line is the control: identical operations with <code>accessOrder = false</code> evict <code>\"a\"</code>, because insertion order never changed. Same data structure, same capacity, different policy.</p><p><code>LinkedHashMap</code> gives O(1) get and put and O(1) eviction because it maintains a doubly linked list alongside the hash table — which is exactly the answer expected when this is asked as a whiteboard question, and it is worth being able to describe the two structures rather than only naming the class.</p><p>Android's own <code>LruCache</code> adds thread safety and a <code>sizeOf</code> hook so capacity can be measured in bytes rather than entries, which is what an image cache needs.</p>"
+                } }],
             subsection: null
         },
         {
@@ -224,7 +289,20 @@ const androidSystemDesignData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Pluggable tree/output-target pattern", code: "abstract class LogTree {\n    abstract fun log(level: Int, tag: String, message: String, t: Throwable?)\n}\n\nclass DebugTree : LogTree() {\n    override fun log(level: Int, tag: String, message: String, t: Throwable?) {\n        if (BuildConfig.DEBUG) android.util.Log.println(level, tag, message)\n    }\n}\n\nobject AppLog {\n    private val trees = mutableListOf<LogTree>()\n    fun plant(tree: LogTree) { trees.add(tree) }\n\n    fun d(tag: String, message: String) {\n        trees.forEach { it.log(android.util.Log.DEBUG, tag, message, null) }\n    }\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "The pluggable tree pattern, as Timber uses it", code: "abstract class LogTree {\n    abstract fun log(level: Int, tag: String, message: String, t: Throwable?)\n}\n\nclass DebugTree : LogTree() {\n    override fun log(level: Int, tag: String, message: String, t: Throwable?) {\n        if (BuildConfig.DEBUG) android.util.Log.println(level, tag, message)\n    }\n}\n\nobject AppLog {\n    private val trees = mutableListOf<LogTree>()\n    fun plant(tree: LogTree) { trees.add(tree) }\n\n    fun d(tag: String, message: String) {\n        trees.forEach { it.log(android.util.Log.DEBUG, tag, message, null) }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "At startup the app plants trees: a DebugTree in debug builds, a CrashReportingTree in release.",
+                        "Application code calls AppLog.d(tag, message) and knows nothing about which trees exist.",
+                        "AppLog forwards the call to every planted tree in turn.",
+                        "DebugTree checks BuildConfig.DEBUG and writes to Logcat.",
+                        "CrashReportingTree ignores debug messages entirely and forwards warnings and errors to Crashlytics.",
+                        "In a release build no DebugTree was ever planted, so no Logcat call happens at all.",
+                        "Adding a new destination — a file, a network sink, an in-app log viewer — means planting one more tree and changing no call site."
+                    ],
+                    explain: "<p>Step 6 is the practical benefit over calling <code>android.util.Log</code> directly. Stripping logs from a release build normally means a ProGuard rule or an <code>if (BuildConfig.DEBUG)</code> at every call site; here the destination simply is not present.</p><p>This is the Strategy pattern with a list instead of a single strategy, and Observer in the sense that one event fans out to many sinks. Being able to name that in an interview is usually the point of the question.</p>"
+                } }],
             subsection: null
         },
         {
@@ -378,7 +456,20 @@ const androidSystemDesignData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Fetch and activate Remote Config", code: "val remoteConfig = Firebase.remoteConfig\nval configSettings = remoteConfigSettings {\n    minimumFetchIntervalInSeconds = 3600\n}\nremoteConfig.setConfigSettingsAsync(configSettings)\nremoteConfig.setDefaultsAsync(R.xml.remote_config_defaults)\n\nremoteConfig.fetchAndActivate().addOnCompleteListener { task ->\n    if (task.isSuccessful) {\n        val newFeatureEnabled = remoteConfig.getBoolean(\"new_checkout_flow\")\n        if (newFeatureEnabled) {\n            enableNewCheckoutFlow()\n        }\n    }\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "Fetching and activating Remote Config", code: "val remoteConfig = Firebase.remoteConfig\nval configSettings = remoteConfigSettings {\n    minimumFetchIntervalInSeconds = 3600\n}\nremoteConfig.setConfigSettingsAsync(configSettings)\nremoteConfig.setDefaultsAsync(R.xml.remote_config_defaults)\n\nremoteConfig.fetchAndActivate().addOnCompleteListener { task ->\n    if (task.isSuccessful) {\n        val newFeatureEnabled = remoteConfig.getBoolean(\"new_checkout_flow\")\n        if (newFeatureEnabled) {\n            enableNewCheckoutFlow()\n        }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "setDefaultsAsync loads values from an XML file bundled in the APK, so every key has an answer on first launch, offline, before any network call.",
+                        "minimumFetchIntervalInSeconds = 3600 tells the SDK to serve cached values rather than refetch within the hour.",
+                        "fetchAndActivate downloads the current values from the server, if the interval allows it.",
+                        "Activate then swaps the fetched values in as the active set — fetch and activate are separate steps, and only activation changes what getBoolean returns.",
+                        "The callback reads new_checkout_flow and enables the feature.",
+                        "On the next launch the activated values are already present, so the flag is correct before the fetch even starts.",
+                        "If the fetch fails the previous activated values remain, and the app behaves exactly as it did before."
+                    ],
+                    explain: "<p>Steps 1 and 7 are why this is safe to depend on: there is always a value, and a failed fetch degrades to the last known good configuration rather than to nothing.</p><p>Step 4 is the distinction people get wrong. Fetching does not change behaviour; activating does. Calling <code>activate()</code> mid-session can flip a flag while a screen is open, which is why many apps fetch during the session and activate only at the next cold start.</p><p>The one-hour minimum is a production throttle. During development a lower interval is normal, and shipping that setting means the app hammers the service.</p>"
+                } }],
             subsection: null
         },
         {
@@ -404,7 +495,20 @@ const androidSystemDesignData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Room entity with an index", code: "@Entity(\n    tableName = \"orders\",\n    indices = [Index(value = [\"userId\", \"createdAt\"])]\n)\ndata class OrderEntity(\n    @PrimaryKey val id: String,\n    val userId: String,\n    val createdAt: Long,\n    val status: String\n)\n\n@Dao\ninterface OrderDao {\n    @Query(\"SELECT * FROM orders WHERE userId = :userId ORDER BY createdAt DESC LIMIT :limit\")\n    suspend fun recentOrders(userId: String, limit: Int): List<OrderEntity>\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "A composite index for a filtered, sorted query", code: "@Entity(\n    tableName = \"orders\",\n    indices = [Index(value = [\"userId\", \"createdAt\"])]\n)\ndata class OrderEntity(\n    @PrimaryKey val id: String,\n    val userId: String,\n    val createdAt: Long,\n    val status: String\n)\n\n@Dao\ninterface OrderDao {\n    @Query(\"SELECT * FROM orders WHERE userId = :userId ORDER BY createdAt DESC LIMIT :limit\")\n    suspend fun recentOrders(userId: String, limit: Int): List<OrderEntity>\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Without an index, \"WHERE userId = ? ORDER BY createdAt DESC\" makes SQLite scan every row in orders.",
+                        "It then sorts the matches — a second pass over the results, with a temporary B-tree if there are many.",
+                        "The composite index on (userId, createdAt) stores rows grouped by userId and already ordered by createdAt within each group.",
+                        "The query planner now seeks straight to that userId's section of the index.",
+                        "Because the rows are already in createdAt order there, the ORDER BY needs no sorting step at all.",
+                        "LIMIT then stops the read after the requested number of rows rather than after the whole group.",
+                        "EXPLAIN QUERY PLAN reports SEARCH USING INDEX rather than SCAN TABLE, which is how you confirm any of this."
+                    ],
+                    explain: "<p>Step 5 is the part a single-column index would not give you. An index on <code>userId</code> alone finds the right rows and still leaves the sort to be done; the composite index makes the ordering free, which is why the column order in the index has to match the query.</p><p>Step 7 is the practical advice: never assume. <code>EXPLAIN QUERY PLAN</code> is one line in the Database Inspector and it is the difference between believing an index is used and knowing it.</p><p>Indexes are not free — they cost disk space and slow every insert, since the index has to be updated too. They are worth it for queries that run often, on tables that are read far more than written.</p>"
+                } }],
             subsection: null
         },
         {
@@ -417,7 +521,20 @@ const androidSystemDesignData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Raw WebSocket with OkHttp", code: "val request = Request.Builder().url(\"wss://example.com/socket\").build()\n\nval listener = object : WebSocketListener() {\n    override fun onOpen(webSocket: WebSocket, response: Response) {\n        webSocket.send(\"{\\\"type\\\":\\\"join\\\"}\")\n    }\n\n    override fun onMessage(webSocket: WebSocket, text: String) {\n        handleIncoming(text)\n    }\n\n    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {\n        scheduleReconnectWithBackoff()\n    }\n}\n\nval webSocket = client.newWebSocket(request, listener)" }],
+            codeSnippets: [{ language: "kotlin", title: "A raw WebSocket with OkHttp", code: "val request = Request.Builder().url(\"wss://example.com/socket\").build()\n\nval listener = object : WebSocketListener() {\n    override fun onOpen(webSocket: WebSocket, response: Response) {\n        webSocket.send(\"{\\\"type\\\":\\\"join\\\"}\")\n    }\n\n    override fun onMessage(webSocket: WebSocket, text: String) {\n        handleIncoming(text)\n    }\n\n    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {\n        scheduleReconnectWithBackoff()\n    }\n}\n\nval webSocket = client.newWebSocket(request, listener)",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "newWebSocket starts an HTTP request carrying an Upgrade header and returns immediately.",
+                        "The server agrees, replies 101 Switching Protocols, and the same TCP connection becomes a full-duplex WebSocket.",
+                        "onOpen fires, and the client sends its join message.",
+                        "From here either side may send at any time — the server does not have to wait to be asked, which is the whole point.",
+                        "Each inbound frame arrives as onMessage, on OkHttp's reader thread rather than the main thread.",
+                        "The connection drops — a tunnel, a lost signal, a server restart. onFailure fires.",
+                        "Nothing reconnects on its own: scheduleReconnectWithBackoff is application code, and so is resending the join message afterwards."
+                    ],
+                    explain: "<p>Step 7 is the answer to the question this snippet sits under. A raw WebSocket gives you a duplex pipe and nothing else — reconnection, backoff, heartbeats, message acknowledgement, rooms and fallback transports are all yours to write. Socket.IO is a protocol layered on top that supplies those, at the cost of needing a Socket.IO server on the other end.</p><p>Step 5 matters in practice: <code>onMessage</code> is not on the main thread, so touching the UI directly from it crashes.</p><p>The other omission is a heartbeat. A connection can be dead for minutes without <code>onFailure</code> firing, because nobody tried to send anything — which is why production clients ping.</p>"
+                } }],
             subsection: null
         },
         {
@@ -443,7 +560,20 @@ const androidSystemDesignData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Registering the SMS Retriever", code: "val client = SmsRetriever.getClient(context)\nval task = client.startSmsRetriever()\n\ntask.addOnSuccessListener {\n    // Listening for a matching SMS for the next 5 minutes\n}\n\nclass MySmsBroadcastReceiver : BroadcastReceiver() {\n    override fun onReceive(context: Context, intent: Intent) {\n        if (intent.action == SmsRetriever.SMS_RETRIEVED_ACTION) {\n            val extras = intent.extras\n            val status = extras?.get(SmsRetriever.EXTRA_STATUS) as? Status\n            if (status?.statusCode == CommonStatusCodes.SUCCESS) {\n                val message = extras.getString(SmsRetriever.EXTRA_SMS_MESSAGE)\n                val otp = Regex(\"\\\\d{6}\").find(message ?: \"\")?.value\n            }\n        }\n    }\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "Reading an OTP without the SMS permission", code: "val client = SmsRetriever.getClient(context)\nval task = client.startSmsRetriever()\n\ntask.addOnSuccessListener {\n    // Listening for a matching SMS for the next 5 minutes\n}\n\nclass MySmsBroadcastReceiver : BroadcastReceiver() {\n    override fun onReceive(context: Context, intent: Intent) {\n        if (intent.action == SmsRetriever.SMS_RETRIEVED_ACTION) {\n            val extras = intent.extras\n            val status = extras?.get(SmsRetriever.EXTRA_STATUS) as? Status\n            if (status?.statusCode == CommonStatusCodes.SUCCESS) {\n                val message = extras.getString(SmsRetriever.EXTRA_SMS_MESSAGE)\n                val otp = Regex(\"\\\\d{6}\").find(message ?: \"\")?.value\n            }\n        }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "The app computes an 11-character app hash and sends it to the backend with the OTP request.",
+                        "startSmsRetriever begins a five-minute listening window. No permission is requested, and the user sees no dialog.",
+                        "The backend sends an SMS whose body ends with that exact app hash.",
+                        "Google Play services matches the hash and broadcasts SMS_RETRIEVED_ACTION to this app alone.",
+                        "The receiver checks the status code and reads the message body from the intent extras.",
+                        "A regex pulls the six digits out and the field is filled in.",
+                        "A message without the right hash, or arriving after five minutes, is never delivered to the app at all."
+                    ],
+                    explain: "<p>Step 2 is why this API exists. The alternative is <code>READ_SMS</code>, which grants access to every message the user has ever received — a permission Google restricts on Play and which users reasonably refuse. The SMS Retriever trades that for a much narrower capability: this app can see one message, addressed to it, for five minutes.</p><p>Step 1 is where implementations go wrong. The hash is derived from the package name and signing certificate, so it differs between a debug build and a release build — and again if Play App Signing re-signs the app. An OTP flow that works in development and silently fails in production is nearly always this.</p>"
+                } }],
             subsection: null
         }
     ]

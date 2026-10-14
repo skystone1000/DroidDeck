@@ -44,7 +44,20 @@ const androidArchitectureData = {
             codeSnippets: [{
                 language: "kotlin",
                 title: "Minimal MVVM ViewModel",
-                code: "class UserViewModel(private val repo: UserRepository) : ViewModel() {\n    private val _uiState = MutableStateFlow<UiState>(UiState.Loading)\n    val uiState: StateFlow<UiState> = _uiState.asStateFlow()\n\n    fun loadUser(id: String) {\n        viewModelScope.launch {\n            _uiState.value = UiState.Loading\n            _uiState.value = try {\n                UiState.Success(repo.getUser(id))\n            } catch (e: Exception) {\n                UiState.Error(e.message)\n            }\n        }\n    }\n}"
+                code: "class UserViewModel(private val repo: UserRepository) : ViewModel() {\n    private val _uiState = MutableStateFlow<UiState>(UiState.Loading)\n    val uiState: StateFlow<UiState> = _uiState.asStateFlow()\n\n    fun loadUser(id: String) {\n        viewModelScope.launch {\n            _uiState.value = UiState.Loading\n            _uiState.value = try {\n                UiState.Success(repo.getUser(id))\n            } catch (e: Exception) {\n                UiState.Error(e.message)\n            }\n        }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "The screen calls loadUser(\"42\"). The function returns immediately; launch does not wait.",
+                        "_uiState is set to Loading, and every collector redraws with a spinner.",
+                        "repo.getUser suspends. The main thread is free.",
+                        "On success _uiState becomes Success(user); on failure, Error(message).",
+                        "The screen collects uiState and renders whichever state arrived — it never calls the repository itself.",
+                        "On rotation the ViewModel survives, so the current state is delivered again immediately and no request is repeated.",
+                        "When the ViewModel is finally cleared, viewModelScope cancels any request still in flight."
+                    ],
+                    explain: "<p>The direction of the arrows is the whole pattern. The View talks to the ViewModel; the ViewModel talks to the repository; <strong>nothing points back down</strong>. The ViewModel holds no reference to the Activity, which is what stops it leaking one and what makes step 6 possible.</p><p>The exposure is deliberately asymmetric — <code>MutableStateFlow</code> private, <code>asStateFlow()</code> public — so the screen can read state and only the ViewModel can write it.</p><p>The weakness of this particular version is the bare <code>catch (e: Exception)</code>, which will also swallow <code>CancellationException</code> and turn a normal cancellation into an error state on screen.</p>"
+                }
             }],
             subsection: null
         },
@@ -85,8 +98,21 @@ const androidArchitectureData = {
             },
             codeSnippets: [{
                 language: "kotlin",
-                title: "Use case with domain-owned repository interface",
-                code: "// domain layer — no Android imports\ninterface UserRepository {\n    suspend fun getUser(id: String): User\n}\n\nclass GetUserUseCase(private val repo: UserRepository) {\n    suspend operator fun invoke(id: String): User = repo.getUser(id)\n}\n\n// data layer — implements the domain interface\nclass UserRepositoryImpl(\n    private val api: ApiService,\n    private val dao: UserDao\n) : UserRepository {\n    override suspend fun getUser(id: String): User =\n        dao.getUser(id) ?: api.fetchUser(id).also { dao.insert(it) }\n}"
+                title: "A use case over a domain-owned repository interface",
+                code: "// domain layer — no Android imports\ninterface UserRepository {\n    suspend fun getUser(id: String): User\n}\n\nclass GetUserUseCase(private val repo: UserRepository) {\n    suspend operator fun invoke(id: String): User = repo.getUser(id)\n}\n\n// data layer — implements the domain interface\nclass UserRepositoryImpl(\n    private val api: ApiService,\n    private val dao: UserDao\n) : UserRepository {\n    override suspend fun getUser(id: String): User =\n        dao.getUser(id) ?: api.fetchUser(id).also { dao.insert(it) }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "The domain layer declares the UserRepository interface. It imports nothing from Android and nothing from the data layer.",
+                        "GetUserUseCase depends on that interface, so it can be unit tested with a plain fake and no framework at all.",
+                        "The data layer implements the interface, which means the dependency arrow points INTO the domain, not out of it.",
+                        "At runtime the ViewModel calls the use case, which calls the interface, which reaches UserRepositoryImpl.",
+                        "The implementation checks Room first and falls back to the network, caching what it fetches.",
+                        "Neither the use case nor the domain knows whether the answer came from disk or the network.",
+                        "Swapping Retrofit for something else touches only the data layer; the domain does not recompile."
+                    ],
+                    explain: "<p>Step 3 is the inversion Clean Architecture is named for. The natural arrangement has business logic depending on the database; here the database depends on an interface the business logic owns, so the innermost layer has no outward dependencies at all.</p><p><code>operator fun invoke</code> is why the call site reads <code>getUser(id)</code> rather than <code>getUser.execute(id)</code> — a convention rather than a requirement.</p><p>The honest caveat: on a small app this is a lot of files for a method call, and a use case that only forwards to a repository is pure overhead. It pays off where domain logic is real and shared between screens.</p>"
+                }
             }],
             subsection: null
         },
@@ -102,8 +128,21 @@ const androidArchitectureData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Minimal MVI state and reducer",
-                code: "sealed interface UserIntent {\n    data class Load(val id: String) : UserIntent\n    object Refresh : UserIntent\n}\n\ndata class UserState(\n    val isLoading: Boolean = false,\n    val user: User? = null,\n    val error: String? = null\n)\n\nclass UserViewModel(private val repo: UserRepository) : ViewModel() {\n    private val _state = MutableStateFlow(UserState())\n    val state: StateFlow<UserState> = _state.asStateFlow()\n\n    fun dispatch(intent: UserIntent) {\n        when (intent) {\n            is UserIntent.Load -> loadUser(intent.id)\n            UserIntent.Refresh -> _state.value.user?.let { loadUser(it.id) }\n        }\n    }\n\n    private fun loadUser(id: String) = viewModelScope.launch {\n        _state.value = _state.value.copy(isLoading = true)\n        _state.value = try {\n            _state.value.copy(isLoading = false, user = repo.getUser(id), error = null)\n        } catch (e: Exception) {\n            _state.value.copy(isLoading = false, error = e.message)\n        }\n    }\n}"
+                title: "MVI state and reducer",
+                code: "sealed interface UserIntent {\n    data class Load(val id: String) : UserIntent\n    object Refresh : UserIntent\n}\n\ndata class UserState(\n    val isLoading: Boolean = false,\n    val user: User? = null,\n    val error: String? = null\n)\n\nclass UserViewModel(private val repo: UserRepository) : ViewModel() {\n    private val _state = MutableStateFlow(UserState())\n    val state: StateFlow<UserState> = _state.asStateFlow()\n\n    fun dispatch(intent: UserIntent) {\n        when (intent) {\n            is UserIntent.Load -> loadUser(intent.id)\n            UserIntent.Refresh -> _state.value.user?.let { loadUser(it.id) }\n        }\n    }\n\n    private fun loadUser(id: String) = viewModelScope.launch {\n        _state.value = _state.value.copy(isLoading = true)\n        _state.value = try {\n            _state.value.copy(isLoading = false, user = repo.getUser(id), error = null)\n        } catch (e: Exception) {\n            _state.value.copy(isLoading = false, error = e.message)\n        }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "The screen dispatches an intent — Load(\"42\") — rather than calling a method that describes how to do it.",
+                        "dispatch runs a when over the sealed intent type, so every intent must be handled and the compiler checks it.",
+                        "loadUser copies the current state with isLoading = true and publishes it. State is never mutated in place.",
+                        "The repository call suspends.",
+                        "On success another copy is published with the user set, isLoading false and error cleared.",
+                        "On failure a copy with the error set and isLoading false.",
+                        "The screen renders one UserState object, so the whole screen is described by one value at any moment."
+                    ],
+                    explain: "<p>Step 7 is what MVI buys over MVVM: a single state object rather than several independent flows, so the screen can never be caught in a combination the ViewModel did not intend. Step 3's use of <code>copy</code> is what makes each state a value you could log, replay, or restore.</p><p>Step 5 shows the discipline it demands. Every field must be set on every transition — clearing <code>error</code> on success is easy to forget, and forgetting it leaves an old message on screen alongside fresh data.</p><p>Note this state is still a <code>data class</code> with independent fields, so impossible combinations remain representable. A sealed hierarchy prevents them and gives up partial updates; which is right depends on whether the screen has genuinely exclusive states.</p>"
+                }
             }],
             subsection: null
         },
