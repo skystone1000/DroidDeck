@@ -14,7 +14,20 @@ const androidToolsTechnologiesData = {
             hasDiagram: true,
             diagramType: "animation",
             diagramConfig: { title: "CI/CD pipeline stages", steps: ["Lint & static analysis", "Build variant", "Unit + instrumented tests", "Sign artifact", "Distribute (Firebase/Play Console)"] },
-            codeSnippets: [{ language: "xml", title: "Simple GitHub Actions workflow snippet", code: "&lt;!-- .github/workflows/android.yml (YAML shown as illustrative snippet) --&gt;\nname: Android CI\non: [push, pull_request]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-java@v4\n        with:\n          java-version: '17'\n          distribution: 'temurin'\n      - run: ./gradlew lint testDebugUnitTest assembleRelease" }],
+            codeSnippets: [{ language: "xml", title: "What a CI run does on every push", code: "&lt;!-- .github/workflows/android.yml (YAML shown as illustrative snippet) --&gt;\nname: Android CI\non: [push, pull_request]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-java@v4\n        with:\n          java-version: '17'\n          distribution: 'temurin'\n      - run: ./gradlew lint testDebugUnitTest assembleRelease",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "A push or pull request triggers the workflow; GitHub allocates a fresh ubuntu-latest runner with nothing cached.",
+                        "actions/checkout clones the repository at the triggering commit.",
+                        "actions/setup-java installs a JDK — Android Gradle Plugin 8 needs 17, and a mismatch here is the most common first failure.",
+                        "The Gradle cache is restored, if configured. Without it every run downloads the full dependency set again.",
+                        "The build task compiles, runs lint, and produces an APK or bundle.",
+                        "Unit tests run on the JVM. Instrumented tests would need an emulator, which is a separate and much slower job.",
+                        "Artefacts and test reports are uploaded, and the job's exit status becomes the check on the pull request."
+                    ],
+                    explain: "<p>Step 1 is the fact everything else follows from: the runner is <strong>clean every time</strong>. That is what makes CI trustworthy — it cannot pass because of something only present on one machine — and it is why caching matters so much for build time.</p><p>Step 6 is the split worth knowing for interviews. Unit tests are cheap and run on every push; instrumented tests need an emulator image and boot time, so they usually run on a schedule or before release rather than per commit.</p>"
+                } }],
             subsection: null
         },
         {
@@ -53,7 +66,20 @@ const androidToolsTechnologiesData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Enabling StrictMode in debug builds", code: "class MyApp : Application() {\n    override fun onCreate() {\n        super.onCreate()\n        if (BuildConfig.DEBUG) {\n            StrictMode.setThreadPolicy(\n                StrictMode.ThreadPolicy.Builder()\n                    .detectDiskReads()\n                    .detectDiskWrites()\n                    .detectNetwork()\n                    .penaltyLog()\n                    .build()\n            )\n            StrictMode.setVmPolicy(\n                StrictMode.VmPolicy.Builder()\n                    .detectLeakedSqlLiteObjects()\n                    .detectLeakedClosableObjects()\n                    .penaltyLog()\n                    .build()\n            )\n        }\n    }\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "StrictMode reporting a main-thread violation", code: "class MyApp : Application() {\n    override fun onCreate() {\n        super.onCreate()\n        if (BuildConfig.DEBUG) {\n            StrictMode.setThreadPolicy(\n                StrictMode.ThreadPolicy.Builder()\n                    .detectDiskReads()\n                    .detectDiskWrites()\n                    .detectNetwork()\n                    .penaltyLog()\n                    .build()\n            )\n            StrictMode.setVmPolicy(\n                StrictMode.VmPolicy.Builder()\n                    .detectLeakedSqlLiteObjects()\n                    .detectLeakedClosableObjects()\n                    .penaltyLog()\n                    .build()\n            )\n        }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Application.onCreate installs the thread policy before any screen exists, so it covers the whole app.",
+                        "It is guarded by BuildConfig.DEBUG — a release build installs nothing and pays nothing.",
+                        "The policy is a set of detectors: disk reads, disk writes and network on the main thread.",
+                        "Some screen calls SharedPreferences.getString on the main thread. That is a disk read.",
+                        "StrictMode notices the violation on the thread it happened on and applies the penalty.",
+                        "penaltyLog writes a stack trace to Logcat pointing at the exact line.",
+                        "The app carries on. Nothing crashes and no user sees anything — the violation is a report, not an error."
+                    ],
+                    explain: "<p>Step 7 is why <code>penaltyLog</code> is the safe default and also why it gets ignored: a warning nobody reads changes nothing. <code>penaltyDeath</code> crashes on violation, which is harsh and effective for a debug build, since a violation that stops the app in development is a violation that gets fixed.</p><p>The value is in step 4. Disk and network on the main thread are invisible on a fast device with a warm cache, and they are dropped frames on a cheap phone with a cold one. StrictMode surfaces them before a user does.</p><p><code>VmPolicy</code> is the other half — leaked Activities, unclosed cursors, unclosed <code>Closeable</code>s — and is at least as useful.</p>"
+                } }],
             subsection: null
         },
         {
@@ -107,8 +133,21 @@ const androidToolsTechnologiesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Receiving an FCM push and reporting a handled error",
-                code: "class AppMessagingService : FirebaseMessagingService() {\n\n    override fun onNewToken(token: String) {\n        // Tokens rotate; the backend needs the current one to target this device\n        Firebase.crashlytics.setCustomKey(\"fcm_token_refreshed\", true)\n        registerTokenWithBackend(token)\n    }\n\n    override fun onMessageReceived(message: RemoteMessage) {\n        val deepLink = message.data[\"deep_link\"] ?: return\n\n        try {\n            showNotification(\n                title = message.notification?.title.orEmpty(),\n                body = message.notification?.body.orEmpty(),\n                deepLink = deepLink\n            )\n        } catch (e: IllegalArgumentException) {\n            // Non-fatal: the push arrived but we could not render it\n            Firebase.crashlytics.recordException(e)\n        }\n    }\n}"
+                title: "FCM delivery and a handled Crashlytics report",
+                code: "class AppMessagingService : FirebaseMessagingService() {\n\n    override fun onNewToken(token: String) {\n        // Tokens rotate; the backend needs the current one to target this device\n        Firebase.crashlytics.setCustomKey(\"fcm_token_refreshed\", true)\n        registerTokenWithBackend(token)\n    }\n\n    override fun onMessageReceived(message: RemoteMessage) {\n        val deepLink = message.data[\"deep_link\"] ?: return\n\n        try {\n            showNotification(\n                title = message.notification?.title.orEmpty(),\n                body = message.notification?.body.orEmpty(),\n                deepLink = deepLink\n            )\n        } catch (e: IllegalArgumentException) {\n            // Non-fatal: the push arrived but we could not render it\n            Firebase.crashlytics.recordException(e)\n        }\n    }\n}",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "The token rotates — after a reinstall, a restore, or cleared app data — and onNewToken fires.",
+                            "The new token is sent to the backend. Without this the device silently stops receiving messages.",
+                            "A message arrives. If the app is backgrounded and the payload has a notification block, the system displays it and onMessageReceived is never called.",
+                            "For a data-only payload, onMessageReceived runs in both foreground and background.",
+                            "The deep link is read from message.data, and a missing one returns early rather than crashing.",
+                            "The navigation attempt fails — a malformed link, or a screen that no longer exists.",
+                            "recordException reports it to Crashlytics as a NON-fatal, so it appears in the dashboard while the app carries on."
+                        ],
+                        explain: "<p>Step 3 is the behaviour behind \"notifications look different when the app is closed\". A <code>notification</code> payload hands display to the system, skipping any custom handling. Sending <strong>data-only</strong> messages keeps the app in charge in both states.</p><p>Step 7 is the Crashlytics distinction worth stating: <code>recordException</code> logs a handled error and the app continues, unlike an uncaught crash. It is how you get visibility into failures users never report — the ones where a screen simply did not open.</p><p>Since Android 13 the runtime <code>POST_NOTIFICATIONS</code> permission is also required, and without it posting silently does nothing.</p>"
+                    }
             }],
             subsection: null
         },
@@ -122,7 +161,20 @@ const androidToolsTechnologiesData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Manual timing with Trace API", code: "fun processLargeList(items: List<Item>) {\n    Trace.beginSection(\"processLargeList\")\n    try {\n        val start = System.nanoTime()\n        items.forEach { transform(it) }\n        val durationMs = (System.nanoTime() - start) / 1_000_000\n        Log.d(\"Perf\", \"processLargeList took ${durationMs}ms\")\n    } finally {\n        Trace.endSection()\n    }\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "Measuring a method two ways at once", code: "fun processLargeList(items: List<Item>) {\n    Trace.beginSection(\"processLargeList\")\n    try {\n        val start = System.nanoTime()\n        items.forEach { transform(it) }\n        val durationMs = (System.nanoTime() - start) / 1_000_000\n        Log.d(\"Perf\", \"processLargeList took ${durationMs}ms\")\n    } finally {\n        Trace.endSection()\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Trace.beginSection opens a named section in the systrace / Perfetto buffer.",
+                        "The work runs, and System.nanoTime brackets it for a number in the log.",
+                        "nanoTime is used rather than currentTimeMillis because it is monotonic — immune to clock adjustments — and has far finer resolution.",
+                        "The duration is logged in milliseconds.",
+                        "Trace.endSection closes the section, in a finally so an exception cannot leave it unbalanced.",
+                        "Recording a trace and opening it in Perfetto shows this section as a named block on the timeline.",
+                        "Its width can then be compared against frame boundaries and against everything else on the main thread."
+                    ],
+                    explain: "<p>Step 5 is the detail that causes real confusion when missed: <code>beginSection</code> and <code>endSection</code> are a stack, and an unbalanced pair corrupts the trace from that point on. The <code>finally</code> is not defensive style, it is required.</p><p>Steps 6 and 7 are why both techniques appear together. The log line tells you <em>how long</em>; the trace tells you <em>when, relative to everything else</em> — which is what identifies a jank source. A method taking 8ms is fine on its own and fatal if it lands inside a frame that had 16ms for everything.</p><p>For real measurement, Macrobenchmark and Baseline Profiles have largely replaced hand timing, because a single run on a warm JIT tells you very little.</p>"
+                } }],
             subsection: null
         },
         {
@@ -148,7 +200,20 @@ const androidToolsTechnologiesData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "xml", title: "Example ProGuard keep rules", code: "&lt;!-- proguard-rules.pro (shown as illustrative snippet) --&gt;\n-keep class com.example.app.model.** { *; }\n-keepattributes Signature\n-keepattributes *Annotation*\n\n# Retrofit / OkHttp\n-dontwarn okhttp3.**\n-keep class retrofit2.** { *; }\n\n# Keep classes referenced from JNI\n-keepclasseswithmembers class * {\n    native <methods>;\n}" }],
+            codeSnippets: [{ language: "xml", title: "What R8 does, and what these rules stop it doing", code: "&lt;!-- proguard-rules.pro (shown as illustrative snippet) --&gt;\n-keep class com.example.app.model.** { *; }\n-keepattributes Signature\n-keepattributes *Annotation*\n\n# Retrofit / OkHttp\n-dontwarn okhttp3.**\n-keep class retrofit2.** { *; }\n\n# Keep classes referenced from JNI\n-keepclasseswithmembers class * {\n    native <methods>;\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "R8 builds a graph of everything reachable from the entry points — the manifest components, and anything a -keep rule names.",
+                        "Unreachable classes and methods are removed. This is shrinking, and it is where most of the size saving comes from.",
+                        "What remains is renamed to short names: a.a.a. This is obfuscation.",
+                        "Anything found by reflection is invisible to that graph, because nothing calls it in the bytecode.",
+                        "-keep on the model package therefore prevents Gson's reflective field lookup from failing on renamed fields.",
+                        "-keepattributes Signature preserves generic type information, without which Gson cannot tell List<User> from List.",
+                        "Native methods are kept because JNI resolves them by name at runtime, and a renamed method cannot be found."
+                    ],
+                    explain: "<p>Step 4 is the single idea behind every rule in the file: <strong>R8 can only see what the bytecode references</strong>. Reflection, JNI, and anything named in a string are outside its view, so they have to be declared by hand.</p><p>The consequence is the classic release-only crash. Debug builds have R8 disabled, so the app works perfectly until a shrunk build reaches a field that no longer has that name — and it usually surfaces first on the Play console, in production.</p><p>Which is why the practical advice is to build a release variant and actually run it before shipping, and to keep <code>mapping.txt</code> for every release so a stack trace can be de-obfuscated.</p>"
+                } }],
             subsection: null
         },
         {
@@ -174,7 +239,20 @@ const androidToolsTechnologiesData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Module build.gradle.kts", code: "plugins {\n    id(\"com.android.application\")\n    id(\"org.jetbrains.kotlin.android\")\n}\n\nandroid {\n    namespace = \"com.example.app\"\n    compileSdk = 34\n\n    defaultConfig {\n        applicationId = \"com.example.app\"\n        minSdk = 24\n        targetSdk = 34\n        versionCode = 1\n        versionName = \"1.0\"\n    }\n\n    buildTypes {\n        release {\n            isMinifyEnabled = true\n            proguardFiles(getDefaultProguardFile(\"proguard-android-optimize.txt\"), \"proguard-rules.pro\")\n        }\n    }\n}\n\ndependencies {\n    implementation(\"androidx.core:core-ktx:1.13.1\")\n    implementation(\"androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.0\")\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "How Gradle reads build.gradle.kts", code: "plugins {\n    id(\"com.android.application\")\n    id(\"org.jetbrains.kotlin.android\")\n}\n\nandroid {\n    namespace = \"com.example.app\"\n    compileSdk = 34\n\n    defaultConfig {\n        applicationId = \"com.example.app\"\n        minSdk = 24\n        targetSdk = 34\n        versionCode = 1\n        versionName = \"1.0\"\n    }\n\n    buildTypes {\n        release {\n            isMinifyEnabled = true\n            proguardFiles(getDefaultProguardFile(\"proguard-android-optimize.txt\"), \"proguard-rules.pro\")\n        }\n    }\n}\n\ndependencies {\n    implementation(\"androidx.core:core-ktx:1.13.1\")\n    implementation(\"androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.0\")\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "The plugins block is evaluated first and separately, because Gradle needs the plugins before anything else can be typed.",
+                        "Applying com.android.application adds the android { } extension to the project. Without it, that block does not exist and does not compile.",
+                        "Because this is Kotlin, the whole file is compiled — a typo in a property name is a compile error, and the IDE can autocomplete it.",
+                        "The android block configures the extension: namespace, compileSdk, defaultConfig.",
+                        "None of this runs any build work. It is the CONFIGURATION phase, which builds the task graph.",
+                        "Only afterwards does the execution phase run the tasks that were actually requested.",
+                        "The first build after an edit is slower than Groovy would be, because the script itself has to be compiled — and later builds are faster, because it is cached."
+                    ],
+                    explain: "<p>Step 3 is the whole argument for the Kotlin DSL over Groovy. Groovy build files are dynamically typed, so a misspelled property fails at configuration time with an unhelpful message, if it fails at all. Kotlin turns those into compile errors with autocompletion.</p><p>Step 5 is the distinction that explains a lot of confusing Gradle behaviour: configuration runs for <em>every</em> build, whatever task you asked for. Expensive work in a configuration block slows down every command, including <code>./gradlew tasks</code>.</p>"
+                } }],
             subsection: null
         },
         {
@@ -226,7 +304,20 @@ const androidToolsTechnologiesData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Registering a custom Gradle task", code: "tasks.register(\"printVersionInfo\") {\n    group = \"reporting\"\n    description = \"Prints the app's version name and code\"\n\n    doLast {\n        val versionName = android.defaultConfig.versionName\n        val versionCode = android.defaultConfig.versionCode\n        println(\"Version: $versionName ($versionCode)\")\n    }\n}\n\n// Run with: ./gradlew printVersionInfo" }],
+            codeSnippets: [{ language: "kotlin", title: "Registering a task, and when its body runs", code: "tasks.register(\"printVersionInfo\") {\n    group = \"reporting\"\n    description = \"Prints the app's version name and code\"\n\n    doLast {\n        val versionName = android.defaultConfig.versionName\n        val versionCode = android.defaultConfig.versionCode\n        println(\"Version: $versionName ($versionCode)\")\n    }\n}\n\n// Run with: ./gradlew printVersionInfo",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "tasks.register creates the task lazily — the configuration block is not evaluated unless the task is actually needed.",
+                        "group and description are set at configuration time, which is what makes it appear under ./gradlew tasks.",
+                        "The doLast block is NOT run here. It is added as an action for the execution phase.",
+                        "During configuration, Gradle builds the task graph for the requested tasks.",
+                        "./gradlew printVersionInfo is invoked, so this task is in the graph.",
+                        "The execution phase runs its actions, and doLast reads the version and prints it.",
+                        "Any other Gradle command never runs doLast, and with register never even evaluates the configuration block."
+                    ],
+                    explain: "<p>Steps 1 and 7 are the reason <code>tasks.register</code> is preferred to <code>tasks.create</code>. <code>create</code> is eager: it configures the task on every build, whether or not it will run. In a large multi-module project the sum of that eager configuration is a measurable share of build time, which is what task configuration avoidance is about.</p><p>Step 3 is the classic mistake in one line: code placed directly in the configuration block runs during <em>every</em> build. Work belongs in <code>doLast</code> or <code>doFirst</code>, never beside them.</p>"
+                } }],
             subsection: null
         },
         {
@@ -239,7 +330,20 @@ const androidToolsTechnologiesData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Switching Room from kapt to KSP", code: "plugins {\n    id(\"com.google.devtools.ksp\") version \"2.0.0-1.0.22\"\n}\n\ndependencies {\n    implementation(\"androidx.room:room-runtime:2.6.1\")\n    ksp(\"androidx.room:room-compiler:2.6.1\") // was: kapt(\"androidx.room:room-compiler:2.6.1\")\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "Why swapping kapt for ksp is faster", code: "plugins {\n    id(\"com.google.devtools.ksp\") version \"2.0.0-1.0.22\"\n}\n\ndependencies {\n    implementation(\"androidx.room:room-runtime:2.6.1\")\n    ksp(\"androidx.room:room-compiler:2.6.1\") // was: kapt(\"androidx.room:room-compiler:2.6.1\")\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "kapt exists because Java annotation processors cannot read Kotlin source.",
+                        "So kapt runs the Kotlin compiler in a special mode to generate Java stubs for every Kotlin class in the module.",
+                        "The Java annotation processor then runs against those stubs and generates code.",
+                        "The Kotlin compiler runs again, properly this time, over the original sources plus the generated ones.",
+                        "The stub generation is pure overhead, and it scales with the size of the module rather than with how much is annotated.",
+                        "KSP replaces all of it: processors read the Kotlin syntax tree directly, with no stubs and no extra compilation.",
+                        "Swapping kapt(\"room-compiler\") for ksp(\"room-compiler\") is usually the whole migration, and the generated code is identical."
+                    ],
+                    explain: "<p>Steps 2 and 5 are the answer to \"why is kapt slow\": the cost is generating Java stubs for the entire module, whether or not anything in it is annotated. That is why the speed-up from KSP is large in big modules and negligible in tiny ones.</p><p>Step 7 is the practical note: Room, Moshi and Hilt all ship KSP processors, so the migration is a one-line change per dependency. A module with one remaining kapt-only processor keeps the stub generation and most of the cost, which is why partial migrations disappoint.</p><p>kapt is now in maintenance mode, and KSP2 is where the work is going.</p>"
+                } }],
             subsection: null
         },
         {
@@ -252,7 +356,20 @@ const androidToolsTechnologiesData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Product flavors with dimensions", code: "android {\n    flavorDimensions += \"environment\"\n\n    productFlavors {\n        create(\"staging\") {\n            dimension = \"environment\"\n            applicationIdSuffix = \".staging\"\n            buildConfigField(\"String\", \"BASE_URL\", \"\\\"https://staging.api.example.com/\\\"\")\n        }\n        create(\"production\") {\n            dimension = \"environment\"\n            buildConfigField(\"String\", \"BASE_URL\", \"\\\"https://api.example.com/\\\"\")\n        }\n    }\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "How a flavour becomes a build variant", code: "android {\n    flavorDimensions += \"environment\"\n\n    productFlavors {\n        create(\"staging\") {\n            dimension = \"environment\"\n            applicationIdSuffix = \".staging\"\n            buildConfigField(\"String\", \"BASE_URL\", \"\\\"https://staging.api.example.com/\\\"\")\n        }\n        create(\"production\") {\n            dimension = \"environment\"\n            buildConfigField(\"String\", \"BASE_URL\", \"\\\"https://api.example.com/\\\"\")\n        }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "flavorDimensions declares one axis of variation, named environment.",
+                        "Two flavours are declared on that dimension: staging and production.",
+                        "Android Gradle Plugin combines every flavour with every build type, giving stagingDebug, stagingRelease, productionDebug and productionRelease.",
+                        "applicationIdSuffix on staging changes its package to com.example.app.staging, so both builds can be installed side by side.",
+                        "buildConfigField writes a different BASE_URL constant into each variant's generated BuildConfig.",
+                        "Source sets are merged per variant: src/main, then src/staging, then src/stagingDebug, with the more specific winning.",
+                        "Application code reads BuildConfig.BASE_URL and never knows which variant it is."
+                    ],
+                    explain: "<p>Step 3 is the multiplication that surprises people: flavours and build types are separate axes, and a second dimension multiplies again. Three environments times two build types times two ABIs is twelve variants, each needing its own build.</p><p>Step 4 is the one that saves real time day to day — a different <code>applicationId</code> means the tester can have staging and production on one device at once.</p><p>Step 6 is the mechanism behind flavour-specific resources and code: a file in <code>src/staging</code> replaces the one in <code>src/main</code> for that variant, which is how a different icon or a stub implementation gets swapped in without any conditional code.</p>"
+                } }],
             subsection: null
         },
         {
@@ -265,7 +382,20 @@ const androidToolsTechnologiesData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "kotlin", title: "Enabling core library desugaring", code: "android {\n    compileOptions {\n        isCoreLibraryDesugaringEnabled = true\n        sourceCompatibility = JavaVersion.VERSION_11\n        targetCompatibility = JavaVersion.VERSION_11\n    }\n}\n\ndependencies {\n    coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.0.4\")\n}" }],
+            codeSnippets: [{ language: "kotlin", title: "What core library desugaring actually does", code: "android {\n    compileOptions {\n        isCoreLibraryDesugaringEnabled = true\n        sourceCompatibility = JavaVersion.VERSION_11\n        targetCompatibility = JavaVersion.VERSION_11\n    }\n}\n\ndependencies {\n    coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.0.4\")\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "The code uses java.time.LocalDate, which the Android platform only provides from API 26.",
+                        "minSdk is lower than that, so on an older device the class does not exist and the app would crash with NoClassDefFoundError.",
+                        "isCoreLibraryDesugaringEnabled = true turns on the D8 rewriting step.",
+                        "The coreLibraryDesugaring dependency supplies backported implementations of those APIs.",
+                        "At build time D8 rewrites every reference to java.time.LocalDate into a reference to the bundled backport.",
+                        "The APK ships that backport, so the code runs identically on API 21 and API 34.",
+                        "This is separate from language desugaring, which is always on and handles lambdas and default interface methods."
+                    ],
+                    explain: "<p>Step 5 is the part worth being precise about, because it is what distinguishes this from a support library: nothing in the source changes, and no alternative API is used. The rewriting happens in the build, so the code reads as ordinary <code>java.time</code>.</p><p>Step 7 is the distinction that gets asked. <strong>Language</strong> desugaring rewrites newer Java <em>syntax</em> into bytecode older devices understand and needs no configuration. <strong>Core library</strong> desugaring backports the <em>APIs</em> — <code>java.time</code>, <code>java.util.stream</code>, <code>Optional</code> — and is opt-in because it adds to the APK.</p>"
+                } }],
             subsection: null
         },
         {
@@ -291,7 +421,20 @@ const androidToolsTechnologiesData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "xml", title: "Gradle performance flags", code: "&lt;!-- gradle.properties (shown as illustrative snippet) --&gt;\norg.gradle.jvmargs=-Xmx4096m\norg.gradle.parallel=true\norg.gradle.caching=true\norg.gradle.configuration-cache=true\nkotlin.incremental=true" }],
+            codeSnippets: [{ language: "xml", title: "What each of these flags changes", code: "&lt;!-- gradle.properties (shown as illustrative snippet) --&gt;\norg.gradle.jvmargs=-Xmx4096m\norg.gradle.parallel=true\norg.gradle.caching=true\norg.gradle.configuration-cache=true\nkotlin.incremental=true",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "org.gradle.jvmargs raises the daemon's heap. Too low and the build spends its time in GC; too high and it competes with the IDE for memory.",
+                        "org.gradle.parallel lets independent modules build at the same time, which does nothing for a single-module app and a great deal for twenty.",
+                        "org.gradle.caching turns on the build cache: a task whose inputs have not changed reuses its previous output instead of re-running.",
+                        "That cache works across branches and, when configured remotely, across machines and CI.",
+                        "org.gradle.configuration-cache saves the configured task graph itself, so the configuration phase is skipped entirely on the next build.",
+                        "kotlin.incremental recompiles only the Kotlin files affected by a change, rather than the whole module.",
+                        "The combined effect is largest on the second and later builds; a clean build still has to do everything once."
+                    ],
+                    explain: "<p>Step 5 is the biggest single win in a modern build and the fussiest to enable, because it requires build scripts that do not read mutable state at execution time. Gradle reports exactly which script broke the rule, and fixing those is usually the real work of enabling it.</p><p>Step 3 is worth distinguishing from incremental builds: <strong>incremental</strong> means doing less work; <strong>cached</strong> means doing none, because an identical result already exists. Checking out an old branch and rebuilding is where the difference is obvious.</p><p>Measure with <code>--scan</code> before and after. Most of these flags are free, and the heap setting is the one that can make things worse.</p>"
+                } }],
             subsection: null
         },
         {
@@ -355,7 +498,20 @@ const androidToolsTechnologiesData = {
             hasDiagram: false,
             diagramType: null,
             diagramConfig: null,
-            codeSnippets: [{ language: "xml", title: "Common proguard-rules.pro entries", code: "&lt;!-- proguard-rules.pro (shown as illustrative snippet) --&gt;\n# Keep data classes used with Gson\n-keep class com.example.app.network.model.** { *; }\n-keepattributes Signature\n\n# Suppress warnings from a library referencing classes not on our classpath\n-dontwarn org.some.library.**\n\n# Keep members annotated for a DI framework\n-keepclassmembers class * {\n    @javax.inject.Inject <init>(...);\n}" }],
+            codeSnippets: [{ language: "xml", title: "Reading a rules file line by line", code: "&lt;!-- proguard-rules.pro (shown as illustrative snippet) --&gt;\n# Keep data classes used with Gson\n-keep class com.example.app.network.model.** { *; }\n-keepattributes Signature\n\n# Suppress warnings from a library referencing classes not on our classpath\n-dontwarn org.some.library.**\n\n# Keep members annotated for a DI framework\n-keepclassmembers class * {\n    @javax.inject.Inject <init>(...);\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "-keep class ...model.** { *; } preserves the names of those classes and all their members.",
+                        "That is needed because Gson maps JSON keys onto field names by reflection, and a renamed field no longer matches its key.",
+                        "-keepattributes Signature preserves generic type metadata, without which Gson sees List rather than List<User> and cannot construct the right type.",
+                        "-dontwarn silences warnings about classes a library references but the app never uses; it suppresses the warning without keeping anything.",
+                        "-keepclassmembers with an @Inject constructor keeps only those constructors, in classes that may otherwise be renamed and shrunk.",
+                        "Everything not matched by a rule stays eligible for removal and renaming.",
+                        "The final configuration is the union of these rules and the consumer rules shipped inside each library AAR."
+                    ],
+                    explain: "<p>Step 6 is why <code>-keep</code> is worth being stingy with. Every rule is surface area R8 may not touch, so a broad <code>-keep class com.example.** { *; }</code> disables shrinking and obfuscation across the whole app and gives back most of the size saving.</p><p>Step 5 shows the more precise tool: <code>-keepclassmembers</code> keeps members of classes that survive, rather than forcing the classes to survive.</p><p>Step 7 is the practical relief — Retrofit, Room and Glide all ship their own consumer rules inside the AAR, so most libraries need nothing written by hand. The rules you write should be for <em>your</em> reflected code.</p>"
+                } }],
             subsection: null
         },
         {

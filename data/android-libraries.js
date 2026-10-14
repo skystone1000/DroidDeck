@@ -30,8 +30,21 @@ const androidLibrariesData = {
             },
             codeSnippets: [{
                 language: "kotlin",
-                title: "Auth header interceptor",
-                code: "class AuthInterceptor(private val tokenProvider: () -> String) : Interceptor {\n    override fun intercept(chain: Interceptor.Chain): Response {\n        val original = chain.request()\n        val authorized = original.newBuilder()\n            .header(\"Authorization\", \"Bearer ${tokenProvider()}\")\n            .build()\n        return chain.proceed(authorized)\n    }\n}\n\nval client = OkHttpClient.Builder()\n    .addInterceptor(AuthInterceptor { tokenStore.accessToken })\n    .build()"
+                title: "An application interceptor adding an auth header",
+                code: "class AuthInterceptor(private val tokenProvider: () -> String) : Interceptor {\n    override fun intercept(chain: Interceptor.Chain): Response {\n        val original = chain.request()\n        val authorized = original.newBuilder()\n            .header(\"Authorization\", \"Bearer ${tokenProvider()}\")\n            .build()\n        return chain.proceed(authorized)\n    }\n}\n\nval client = OkHttpClient.Builder()\n    .addInterceptor(AuthInterceptor { tokenStore.accessToken })\n    .build()",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "A call is made. OkHttp passes the request into the interceptor chain before any connection is opened.",
+                            "The interceptor cannot modify the request in place — Request is immutable — so it builds a copy with newBuilder().",
+                            "header() replaces any existing Authorization value; addHeader() would have appended a second one.",
+                            "chain.proceed(authorized) hands the modified request onward and blocks until a response comes back.",
+                            "The response returns up through the chain to the caller.",
+                            "Because the token is read inside intercept rather than captured at construction, every request picks up the current token.",
+                            "Registered with addInterceptor, this runs once per call — even if OkHttp follows a redirect or retries."
+                        ],
+                        explain: "<p>Step 6 is a small decision with real consequences. The interceptor takes a <code>() -&gt; String</code> rather than a <code>String</code>, so a token refreshed after the client was built is still used. Passing the token itself would freeze the value at startup, and every request after the first refresh would carry a stale one.</p><p>Step 7 is the <code>addInterceptor</code> versus <code>addNetworkInterceptor</code> distinction, which gets asked. An <strong>application</strong> interceptor runs once per call and sees the request you made. A <strong>network</strong> interceptor runs once per actual network round trip, sees redirects and retries separately, and sees the headers OkHttp adds itself.</p>"
+                    }
             }],
             subsection: null
         },
@@ -60,8 +73,20 @@ const androidLibrariesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Debug-only logging interceptor",
-                code: "val logging = HttpLoggingInterceptor().apply {\n    level = if (BuildConfig.DEBUG) {\n        HttpLoggingInterceptor.Level.BODY\n    } else {\n        HttpLoggingInterceptor.Level.NONE\n    }\n}\n\nval client = OkHttpClient.Builder()\n    .addInterceptor(logging)\n    .build()"
+                title: "A logging interceptor that is off in release",
+                code: "val logging = HttpLoggingInterceptor().apply {\n    level = if (BuildConfig.DEBUG) {\n        HttpLoggingInterceptor.Level.BODY\n    } else {\n        HttpLoggingInterceptor.Level.NONE\n    }\n}\n\nval client = OkHttpClient.Builder()\n    .addInterceptor(logging)\n    .build()",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "HttpLoggingInterceptor is created and its level is chosen from BuildConfig.DEBUG.",
+                            "In a debug build the level is BODY: request line, headers, and the full request and response bodies go to Logcat.",
+                            "In a release build the level is NONE, and intercept becomes a pass-through that formats nothing.",
+                            "The interceptor is added last, so it sees the request after every other interceptor has finished modifying it.",
+                            "That means it logs the Authorization header the auth interceptor added — which is the point when debugging, and a leak in a release build.",
+                            "Because the level is NONE in release, nothing is written and there is nothing to leak."
+                        ],
+                        explain: "<p>Step 5 is the reason this question is worth asking. <code>Level.BODY</code> prints headers and bodies, which means auth tokens, session cookies and personal data land in Logcat — readable by anything on a rooted device and captured by bug reports.</p><p>Making the level conditional is the standard fix. Adding the interceptor conditionally is safer still, and <code>redactHeader(\"Authorization\")</code> covers the case where body logging is genuinely needed in a shipped build.</p><p>Order matters both ways: added last, it logs the final request; added first, it logs what your code asked for before any interceptor touched it.</p>"
+                    }
             }],
             subsection: null
         },
@@ -90,8 +115,21 @@ const androidLibrariesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Basic Dagger module and component",
-                code: "class UserRepository @Inject constructor(\n    private val api: ApiService\n)\n\n@Module\nclass NetworkModule {\n    @Provides\n    fun provideRetrofit(): Retrofit =\n        Retrofit.Builder()\n            .baseUrl(\"https://api.example.com\")\n            .build()\n\n    @Provides\n    fun provideApiService(retrofit: Retrofit): ApiService =\n        retrofit.create(ApiService::class.java)\n}\n\n@Component(modules = [NetworkModule::class])\ninterface AppComponent {\n    fun inject(activity: MainActivity)\n}"
+                title: "How Dagger resolves a dependency graph",
+                code: "class UserRepository @Inject constructor(\n    private val api: ApiService\n)\n\n@Module\nclass NetworkModule {\n    @Provides\n    fun provideRetrofit(): Retrofit =\n        Retrofit.Builder()\n            .baseUrl(\"https://api.example.com\")\n            .build()\n\n    @Provides\n    fun provideApiService(retrofit: Retrofit): ApiService =\n        retrofit.create(ApiService::class.java)\n}\n\n@Component(modules = [NetworkModule::class])\ninterface AppComponent {\n    fun inject(activity: MainActivity)\n}",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "@Inject on the UserRepository constructor tells Dagger it may build one, and that doing so needs an ApiService.",
+                            "@Provides methods in the module tell it how to build the things it cannot construct itself — Retrofit and ApiService come from a builder, not a constructor.",
+                            "At compile time Dagger walks the graph: to build UserRepository it needs ApiService, which needs Retrofit, which needs nothing.",
+                            "It generates factory classes for each, plus an implementation of the @Component interface.",
+                            "A missing binding anywhere in that walk is a compile error naming the exact type — nothing fails at runtime.",
+                            "At runtime the component instantiates from the bottom up: Retrofit, then ApiService, then UserRepository.",
+                            "Without a scope annotation each request builds a fresh instance, so two injection sites get two Retrofits."
+                        ],
+                        explain: "<p>Step 5 is what separates Dagger from a reflective injector like Guice or Koin: the graph is verified when the project builds, so a missing dependency is a red squiggle rather than a crash on the screen that needed it.</p><p>Step 7 is the one that catches people. <code>@Provides</code> without a scope is not a singleton — <code>provideRetrofit</code> runs once per injection point, and building several OkHttp clients means several connection pools and thread pools. Scoping is not an optimisation here, it is usually the correct behaviour.</p>"
+                    }
             }],
             subsection: null
         },
@@ -159,8 +197,21 @@ const androidLibrariesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Defining and using a custom scope",
-                code: "@Scope\n@Retention(AnnotationRetention.RUNTIME)\nannotation class ActivityScope\n\n@ActivityScope\n@Subcomponent(modules = [ActivityModule::class])\ninterface ActivityComponent {\n    fun inject(activity: MainActivity)\n}\n\n@Module\nclass ActivityModule {\n    @ActivityScope\n    @Provides\n    fun provideImageLoader(context: Context): ImageLoader =\n        ImageLoader(context)\n}"
+                title: "What a custom scope actually does",
+                code: "@Scope\n@Retention(AnnotationRetention.RUNTIME)\nannotation class ActivityScope\n\n@ActivityScope\n@Subcomponent(modules = [ActivityModule::class])\ninterface ActivityComponent {\n    fun inject(activity: MainActivity)\n}\n\n@Module\nclass ActivityModule {\n    @ActivityScope\n    @Provides\n    fun provideImageLoader(context: Context): ImageLoader =\n        ImageLoader(context)\n}",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "@Scope marks ActivityScope as a scope annotation; on its own it means nothing.",
+                            "The subcomponent is annotated @ActivityScope, which gives it a lifetime.",
+                            "A @Provides method annotated @ActivityScope tells Dagger to cache that instance IN this subcomponent.",
+                            "MainActivity creates the subcomponent in onCreate and injects itself from it.",
+                            "Every @ActivityScope dependency requested through that subcomponent is the same object.",
+                            "A second Activity creates a second subcomponent, with its own instances — the scope is per component, not per annotation.",
+                            "When the Activity is destroyed it drops the subcomponent, and everything cached in it becomes garbage."
+                        ],
+                        explain: "<p>Step 6 is the sentence to have ready: <strong>a scope does not create a lifetime, it binds an instance to one that already exists</strong>. <code>@ActivityScope</code> means \"one per ActivityComponent\", and how long that lasts is decided by whoever holds the component.</p><p>Step 7 is where the leaks come from. Holding a subcomponent past the Activity keeps everything scoped to it alive, including anything that captured a <code>Context</code>. Injecting an Activity-scoped object into a <code>@Singleton</code> is the same mistake from the other direction, and Dagger rejects it at compile time.</p>"
+                    }
             }],
             subsection: null
         },
@@ -176,8 +227,21 @@ const androidLibrariesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "CompositeDisposable in a ViewModel",
-                code: "class UserViewModel(private val repo: UserRepository) : ViewModel() {\n    private val disposables = CompositeDisposable()\n\n    fun loadUser(id: String) {\n        val d = repo.getUser(id)\n            .subscribeOn(Schedulers.io())\n            .observeOn(AndroidSchedulers.mainThread())\n            .subscribe({ user -> _state.value = user }, { e -> _error.value = e })\n        disposables.add(d)\n    }\n\n    override fun onCleared() {\n        disposables.dispose()\n    }\n}"
+                title: "CompositeDisposable as manual lifecycle management",
+                code: "class UserViewModel(private val repo: UserRepository) : ViewModel() {\n    private val disposables = CompositeDisposable()\n\n    fun loadUser(id: String) {\n        val d = repo.getUser(id)\n            .subscribeOn(Schedulers.io())\n            .observeOn(AndroidSchedulers.mainThread())\n            .subscribe({ user -> _state.value = user }, { e -> _error.value = e })\n        disposables.add(d)\n    }\n\n    override fun onCleared() {\n        disposables.dispose()\n    }\n}",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "subscribe() starts the work and returns a Disposable — the handle for stopping it.",
+                            "subscribeOn(Schedulers.io()) puts the work on an IO thread; observeOn(mainThread()) moves the callbacks back.",
+                            "The Disposable is added to a CompositeDisposable held by the ViewModel.",
+                            "The user leaves the screen and onCleared runs.",
+                            "dispose() cancels every Disposable in the collection at once.",
+                            "Any in-flight request is cancelled, and its callbacks — which capture the ViewModel — never fire.",
+                            "A Disposable that was never added to the collection is not cancelled, and keeps its references alive."
+                        ],
+                        explain: "<p>Step 7 is the whole reason this pattern is a question. RxJava has no structured concurrency: every subscription must be collected and disposed by hand, and the one you forget is a leak with no compiler help and no warning.</p><p>This is precisely what coroutines removed. <code>viewModelScope.launch</code> registers the child automatically and cancels it in <code>onCleared</code>, so the <code>CompositeDisposable</code>, the <code>add</code> call and the <code>onCleared</code> override all disappear.</p><p>Worth knowing because a lot of production Android still runs on RxJava — and worth saying plainly that it is not what a new screen should use.</p>"
+                    }
             }],
             subsection: null
         },
@@ -206,8 +270,21 @@ const androidLibrariesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Cold Flow with map and flowOn",
-                code: "fun searchResults(query: String): Flow<List<Result>> = flow {\n    val results = api.search(query)\n    emit(results)\n}\n    .map { it.filter { r -> r.isValid } }\n    .flowOn(Dispatchers.IO)\n\nviewModelScope.launch {\n    searchResults(\"kotlin\").collect { results ->\n        _uiState.value = results\n    }\n}"
+                title: "A cold Flow with map and flowOn",
+                code: "fun searchResults(query: String): Flow<List<Result>> = flow {\n    val results = api.search(query)\n    emit(results)\n}\n    .map { it.filter { r -> r.isValid } }\n    .flowOn(Dispatchers.IO)\n\nviewModelScope.launch {\n    searchResults(\"kotlin\").collect { results ->\n        _uiState.value = results\n    }\n}",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "searchResults(\"kotlin\") builds a Flow. Nothing runs — no request, no filtering.",
+                            "collect subscribes, and only then does the builder execute.",
+                            "The api.search call and the map both run on Dispatchers.IO, because flowOn applies to everything declared above it.",
+                            "Each result list passes through map to be filtered.",
+                            "The value crosses to the collector's dispatcher — the main thread, since this is viewModelScope.",
+                            "The collect block sets _uiState, on the main thread, where UI state must be written.",
+                            "Collecting a second time re-runs the whole thing including the network call, because the flow is cold."
+                        ],
+                        explain: "<p>Step 3 is the rule that gets remembered backwards: <code>flowOn</code> affects <strong>upstream</strong> only. Anything declared after it, and the <code>collect</code> block itself, stay on the collector's context — which is exactly the split you want, and it happens without a single manual thread switch.</p><p>Step 7 is the property that makes cold flows right for a request and wrong for shared state. Two screens collecting this make two network calls; <code>stateIn</code> or <code>shareIn</code> is what turns it into one shared stream.</p>"
+                    }
             }],
             subsection: null
         },
@@ -223,8 +300,21 @@ const androidLibrariesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Custom Initializer",
-                code: "class LoggerInitializer : Initializer<Logger> {\n    override fun create(context: Context): Logger {\n        return Logger.init(context)\n    }\n\n    override fun dependencies(): List<Class<out Initializer<*>>> {\n        return emptyList()\n    }\n}"
+                title: "A custom Initializer",
+                code: "class LoggerInitializer : Initializer<Logger> {\n    override fun create(context: Context): Logger {\n        return Logger.init(context)\n    }\n\n    override fun dependencies(): List<Class<out Initializer<*>>> {\n        return emptyList()\n    }\n}",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "Without App Startup, every library that needs early initialisation declares its own ContentProvider, and each one costs measurable startup time.",
+                            "App Startup declares a single ContentProvider — InitializationProvider — for all of them.",
+                            "At process start it reads the merged manifest for Initializer entries.",
+                            "dependencies() declares what must be initialised first, forming a graph rather than a list.",
+                            "App Startup topologically sorts that graph and runs each create() once, in order.",
+                            "LoggerInitializer.create returns the Logger, which is cached and handed to anything that depends on it.",
+                            "An initializer can also be removed from the manifest and run lazily later via AppInitializer."
+                        ],
+                        explain: "<p>Steps 1 and 2 are the whole justification. A <code>ContentProvider</code> is created before <code>Application.onCreate</code>, which made it the standard trick for library auto-initialisation — and an app with a dozen such libraries pays a dozen provider creations before it can draw anything.</p><p>Step 4 is the added benefit over doing it by hand: ordering is declared rather than implied by the sequence of calls in <code>onCreate</code>, so a dependency between two libraries cannot be got wrong silently.</p><p>Step 7 is the more valuable option in practice: the fastest initialisation is the one that does not happen at startup at all.</p>"
+                    }
             }],
             subsection: null
         },
@@ -253,8 +343,21 @@ const androidLibrariesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Retry with backoff and fallback",
-                code: "api.getUser(id)\n    .retryWhen { errors ->\n        errors.zipWith(Observable.range(1, 3)) { _, i -> i }\n            .flatMap { i -> Observable.timer(i * 1000L, TimeUnit.MILLISECONDS) }\n    }\n    .onErrorReturn { User.guest() }\n    .subscribeOn(Schedulers.io())\n    .observeOn(AndroidSchedulers.mainThread())\n    .subscribe { user -> render(user) }"
+                title: "retryWhen with backoff, then a fallback",
+                code: "api.getUser(id)\n    .retryWhen { errors ->\n        errors.zipWith(Observable.range(1, 3)) { _, i -> i }\n            .flatMap { i -> Observable.timer(i * 1000L, TimeUnit.MILLISECONDS) }\n    }\n    .onErrorReturn { User.guest() }\n    .subscribeOn(Schedulers.io())\n    .observeOn(AndroidSchedulers.mainThread())\n    .subscribe { user -> render(user) }",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "The request fails. The error travels down the chain to retryWhen.",
+                            "retryWhen receives an Observable of the errors, not a single error — you return an Observable that signals when to retry.",
+                            "zipWith(range(1, 3)) pairs each error with an attempt number, and stops after three because range completes.",
+                            "flatMap turns the attempt number into a timer, so retry 1 waits a second, retry 2 waits two, retry 3 waits three.",
+                            "Each timer emission signals a resubscribe, and the whole upstream runs again.",
+                            "After three attempts the zip completes, retryWhen stops retrying, and the error passes through.",
+                            "onErrorReturn catches it and substitutes User.guest(), so the subscriber gets a value rather than an error."
+                        ],
+                        explain: "<p>Step 2 is what makes <code>retryWhen</code> confusing and powerful: you are not returning a boolean, you are returning a stream whose emissions mean \"try again\". Emit and it retries; complete and it stops; error and that error is propagated.</p><p>Step 3 is the idiom worth memorising, because the completion of <code>range</code> is what bounds the retries — there is no attempt count parameter.</p><p>Step 7 is a design decision worth questioning: <code>onErrorReturn</code> makes a total failure look like a success with guest data, and the screen has no way to tell the difference. A sealed result type would keep the distinction.</p>"
+                    }
             }],
             subsection: null
         },
@@ -283,8 +386,21 @@ const androidLibrariesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "fromCallable for a blocking call",
-                code: "Observable.fromCallable {\n    database.userDao().getUserBlocking(id) // throws are auto-caught\n}\n    .subscribeOn(Schedulers.io())\n    .observeOn(AndroidSchedulers.mainThread())\n    .subscribe({ user -> render(user) }, { e -> showError(e) })"
+                title: "fromCallable around a blocking call",
+                code: "Observable.fromCallable {\n    database.userDao().getUserBlocking(id) // throws are auto-caught\n}\n    .subscribeOn(Schedulers.io())\n    .observeOn(AndroidSchedulers.mainThread())\n    .subscribe({ user -> render(user) }, { e -> showError(e) })",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "fromCallable takes a lambda and does not run it — the work happens per subscription.",
+                            "subscribeOn(Schedulers.io()) means that when a subscriber arrives, the lambda runs on an IO thread.",
+                            "The blocking DAO call executes there. Nothing is blocked on the main thread.",
+                            "The returned value is emitted, followed immediately by onComplete.",
+                            "observeOn(mainThread()) moves the emission to the main thread for render.",
+                            "If the DAO throws, fromCallable catches it and routes it to onError — no try/catch is written.",
+                            "With Observable.create, that same throw would have escaped the emitter and crashed, unless the code called onError itself."
+                        ],
+                        explain: "<p>Step 6 against step 7 is the entire question. <code>fromCallable</code> handles the contract for you: exactly one value or one error, exception routing, and disposal. <code>create</code> hands you an emitter and trusts you to honour all of it — call <code>onNext</code> twice, forget <code>onComplete</code>, let an exception escape, and there is nothing to catch it.</p><p><code>create</code> earns its place when wrapping a genuine callback or listener API, where registration and unregistration have to be managed. For \"run this blocking thing\", <code>fromCallable</code> is both shorter and safer.</p>"
+                    }
             }],
             subsection: null
         },
@@ -300,8 +416,20 @@ const androidLibrariesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "defer for per-subscription freshness",
-                code: "fun currentTimeObservable(): Observable<Long> =\n    Observable.defer {\n        Observable.just(System.currentTimeMillis())\n    }\n\nval obs = currentTimeObservable()\nThread.sleep(2000)\nobs.subscribe { t -> println(t) } // reflects time at subscribe, not declare"
+                title: "defer, and when the value is decided",
+                code: "fun currentTimeObservable(): Observable<Long> =\n    Observable.defer {\n        Observable.just(System.currentTimeMillis())\n    }\n\nval obs = currentTimeObservable()\nThread.sleep(2000)\nobs.subscribe { t -> println(t) } // reflects time at subscribe, not declare",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "currentTimeObservable() is called. Without defer, Observable.just would evaluate System.currentTimeMillis() right here, at declaration.",
+                            "defer wraps it, so nothing is evaluated and the factory lambda is stored instead.",
+                            "Two seconds pass. Nothing has been observed yet.",
+                            "subscribe() runs, and only now does defer invoke the factory.",
+                            "System.currentTimeMillis() is read at that moment, and the printed value reflects the subscribe time, not the declare time.",
+                            "A second subscriber invokes the factory again and gets a different, newer value."
+                        ],
+                        explain: "<p>Step 1 is the trap in one line: <strong>arguments to <code>just</code> are evaluated eagerly</strong>, when the Observable is built, however long before subscription that is. An Observable that is supposed to read \"the current token\" or \"the current time\" and is built at startup will serve the startup value forever.</p><p>Step 6 is the other half: <code>defer</code> gives each subscriber its own fresh evaluation, which is what makes a deferred Observable safely reusable.</p><p>The Flow equivalent is the <code>flow { }</code> builder, which is cold for the same reason and by default.</p>"
+                    }
             }],
             subsection: null
         },
@@ -339,8 +467,21 @@ const androidLibrariesData = {
             },
             codeSnippets: [{
                 language: "kotlin",
-                title: "Parallel network calls with zip",
-                code: "Single.zip(\n    api.getUser(id).subscribeOn(Schedulers.io()),\n    api.getPosts(id).subscribeOn(Schedulers.io())\n) { user, posts -> UserProfile(user, posts) }\n    .observeOn(AndroidSchedulers.mainThread())\n    .subscribe({ profile -> render(profile) }, { e -> showError(e) })"
+                title: "zip for two concurrent calls",
+                code: "Single.zip(\n    api.getUser(id).subscribeOn(Schedulers.io()),\n    api.getPosts(id).subscribeOn(Schedulers.io())\n) { user, posts -> UserProfile(user, posts) }\n    .observeOn(AndroidSchedulers.mainThread())\n    .subscribe({ profile -> render(profile) }, { e -> showError(e) })",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "Both Singles are given subscribeOn(Schedulers.io()) individually — this is what makes them run in parallel.",
+                            "zip subscribes to both at once, so both requests are in flight together.",
+                            "Each completes on its own IO thread, in whatever order the network decides.",
+                            "zip holds the first result until the second arrives.",
+                            "With both in hand, the combining function builds one UserProfile.",
+                            "observeOn moves that single result to the main thread.",
+                            "If either call fails, zip propagates the error immediately and the other subscription is disposed."
+                        ],
+                        explain: "<p>Step 1 is the line that does the work, and the one most often missed. Putting a single <code>subscribeOn</code> after <code>zip</code> instead of on each source makes both calls share one thread and run <strong>sequentially</strong> — same code shape, none of the concurrency, and no visible symptom beyond being slow.</p><p>Step 4 is the semantics: <code>zip</code> waits for both, so the combined result arrives at the pace of the slower call rather than the sum of the two.</p><p>Step 7 is worth knowing for the failure case: one failure discards the other result even if it had already arrived.</p>"
+                    }
             }],
             subsection: null
         },
@@ -369,8 +510,21 @@ const androidLibrariesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "BehaviorSubject as state holder",
-                code: "class SearchViewModel {\n    private val querySubject = BehaviorSubject.createDefault(\"\")\n\n    fun onQueryChanged(query: String) = querySubject.onNext(query)\n\n    val results: Observable<List<Result>> = querySubject\n        .debounce(300, TimeUnit.MILLISECONDS)\n        .distinctUntilChanged()\n        .switchMap { q -> api.search(q).subscribeOn(Schedulers.io()) }\n}"
+                title: "BehaviorSubject as a state holder",
+                code: "class SearchViewModel {\n    private val querySubject = BehaviorSubject.createDefault(\"\")\n\n    fun onQueryChanged(query: String) = querySubject.onNext(query)\n\n    val results: Observable<List<Result>> = querySubject\n        .debounce(300, TimeUnit.MILLISECONDS)\n        .distinctUntilChanged()\n        .switchMap { q -> api.search(q).subscribeOn(Schedulers.io()) }\n}",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "createDefault(\"\") gives the subject a current value immediately, before anything has been pushed into it.",
+                            "A subscriber arriving at any time receives that current value first, then subsequent ones.",
+                            "onQueryChanged pushes each keystroke in — the subject is both an observer and an observable.",
+                            "debounce holds each value for 300ms and emits it only if nothing newer arrived.",
+                            "distinctUntilChanged drops a query identical to the previous one.",
+                            "switchMap starts the search, and CANCELS any search still in flight from an earlier query.",
+                            "The subscriber therefore only ever receives results for the latest query."
+                        ],
+                        explain: "<p>Step 1 and 2 are what make <code>BehaviorSubject</code> the state-shaped one. <code>PublishSubject</code> has no current value, so a late subscriber sees nothing until the next emission — fine for events, wrong for state. This is the same distinction as <code>StateFlow</code> against <code>SharedFlow</code>, and <code>BehaviorSubject</code> is the direct ancestor of <code>StateFlow</code>.</p><p>Step 6 is the correctness guarantee: without <code>switchMap</code>, a slow response for an earlier query can land last and overwrite the right results.</p>"
+                    }
             }],
             subsection: null
         },
@@ -399,8 +553,21 @@ const androidLibrariesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Reactive search with debounce + switchMap",
-                code: "val searchSubject = PublishSubject.create<String>()\n\nsearchSubject\n    .debounce(300, TimeUnit.MILLISECONDS)\n    .distinctUntilChanged()\n    .filter { it.length >= 2 }\n    .switchMap { query ->\n        api.search(query)\n            .subscribeOn(Schedulers.io())\n            .onErrorReturn { emptyList() }\n    }\n    .observeOn(AndroidSchedulers.mainThread())\n    .subscribe { results -> adapter.submitList(results) }\n\nfun onSearchTextChanged(text: String) = searchSubject.onNext(text)"
+                title: "Reactive search with debounce and switchMap",
+                code: "val searchSubject = PublishSubject.create<String>()\n\nsearchSubject\n    .debounce(300, TimeUnit.MILLISECONDS)\n    .distinctUntilChanged()\n    .filter { it.length >= 2 }\n    .switchMap { query ->\n        api.search(query)\n            .subscribeOn(Schedulers.io())\n            .onErrorReturn { emptyList() }\n    }\n    .observeOn(AndroidSchedulers.mainThread())\n    .subscribe { results -> adapter.submitList(results) }\n\nfun onSearchTextChanged(text: String) = searchSubject.onNext(text)",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "Each keystroke calls onNext on a PublishSubject.",
+                            "debounce(300ms) waits for a pause, so a burst of typing produces one value rather than one per character.",
+                            "distinctUntilChanged drops a repeat of the previous query — what typing a character and deleting it produces.",
+                            "filter discards queries under two characters.",
+                            "switchMap starts the search for whatever survived, and disposes the previous search if it is still running.",
+                            "onErrorReturn inside the switchMap returns an empty list for a failed search.",
+                            "observeOn moves the results to the main thread and the adapter is updated."
+                        ],
+                        explain: "<p>Step 6 is placed where it is on purpose, and this is the detail worth taking away. <code>onErrorReturn</code> is <strong>inside</strong> the <code>switchMap</code>, so a failure ends that inner search only. Placed on the outer chain instead, the error would terminate the whole subscription — the search box would stop responding to typing entirely after one failed request, which is a bug that only shows up on a bad connection.</p><p>Steps 2 to 4 exist to avoid making requests; step 5 exists to make sure stale ones cannot win.</p>"
+                    }
             }],
             subsection: null
         },
@@ -416,8 +583,21 @@ const androidLibrariesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Infinite scroll pagination with RxJava",
-                code: "val pageRequests = PublishSubject.create<Int>()\nvar isLoading = false\n\npageRequests\n    .filter { !isLoading }\n    .doOnNext { isLoading = true }\n    .concatMap { page ->\n        api.getItems(page)\n            .subscribeOn(Schedulers.io())\n            .doFinally { isLoading = false }\n    }\n    .scan(emptyList<Item>()) { acc, page -> acc + page }\n    .observeOn(AndroidSchedulers.mainThread())\n    .subscribe { items -> adapter.submitList(items) }\n\nrecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {\n    override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {\n        val lm = rv.layoutManager as LinearLayoutManager\n        if (lm.findLastVisibleItemPosition() >= adapter.itemCount - 5) {\n            pageRequests.onNext(currentPage++)\n        }\n    }\n})"
+                title: "Infinite scroll with concatMap and scan",
+                code: "val pageRequests = PublishSubject.create<Int>()\nvar isLoading = false\n\npageRequests\n    .filter { !isLoading }\n    .doOnNext { isLoading = true }\n    .concatMap { page ->\n        api.getItems(page)\n            .subscribeOn(Schedulers.io())\n            .doFinally { isLoading = false }\n    }\n    .scan(emptyList<Item>()) { acc, page -> acc + page }\n    .observeOn(AndroidSchedulers.mainThread())\n    .subscribe { items -> adapter.submitList(items) }\n\nrecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {\n    override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {\n        val lm = rv.layoutManager as LinearLayoutManager\n        if (lm.findLastVisibleItemPosition() >= adapter.itemCount - 5) {\n            pageRequests.onNext(currentPage++)\n        }\n    }\n})",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "The scroll listener pushes the next page number into a PublishSubject.",
+                            "filter { !isLoading } drops requests that arrive while one is already running.",
+                            "doOnNext sets the flag, and doFinally clears it whether the request succeeded or failed.",
+                            "concatMap — not flatMap — runs the requests one at a time, in order.",
+                            "That ordering is what keeps pages appended correctly; flatMap could deliver page 3 before page 2.",
+                            "scan accumulates: it holds the list so far and emits the previous list plus the new page.",
+                            "The adapter receives the full list each time, so the UI never has to track offsets."
+                        ],
+                        explain: "<p>Steps 4 and 5 are the answer to \"why not <code>flatMap</code>\". <code>flatMap</code> runs the requests concurrently and emits in completion order, so a slow page 2 lands after page 3 and the list is silently out of order. <code>concatMap</code> trades a little latency for correct sequence, which is the right trade for pagination.</p><p>Step 6 is the neat part: <code>scan</code> is a running fold, so the accumulated list lives in the stream rather than in a mutable field beside it.</p><p>The <code>isLoading</code> flag is the weak point — a mutable variable read and written from the stream, which is exactly the shared state Rx is supposed to remove. Paging 3 exists because all of this is harder to get right than it looks.</p>"
+                    }
             }],
             subsection: null
         },
@@ -433,8 +613,21 @@ const androidLibrariesData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Glide load with transformation",
-                code: "Glide.with(imageView.context)\n    .load(user.avatarUrl)\n    .placeholder(R.drawable.avatar_placeholder)\n    .error(R.drawable.avatar_error)\n    .transform(CenterCrop(), RoundedCorners(16))\n    .diskCacheStrategy(DiskCacheStrategy.ALL)\n    .into(imageView)"
+                title: "A Glide request, end to end",
+                code: "Glide.with(imageView.context)\n    .load(user.avatarUrl)\n    .placeholder(R.drawable.avatar_placeholder)\n    .error(R.drawable.avatar_error)\n    .transform(CenterCrop(), RoundedCorners(16))\n    .diskCacheStrategy(DiskCacheStrategy.ALL)\n    .into(imageView)",
+                    output: {
+                        kind: "trace",
+                        lines: [
+                            "Glide.with(context) binds the request to that context's lifecycle — an Activity or Fragment.",
+                            "The placeholder is shown immediately, so the row never renders empty.",
+                            "Glide checks the active resources, then the memory cache, then the disk cache, then the network.",
+                            "The cache key includes the transformations, so a CenterCrop + RoundedCorners version is cached separately from the original.",
+                            "On a hit at any level the bitmap is set and no further work happens.",
+                            "The transformations are applied on a background thread, and the result is set on the ImageView.",
+                            "If the Activity is destroyed while the request is in flight, Glide cancels it — because of step 1 — and the ImageView is cleared."
+                        ],
+                        explain: "<p>Steps 1 and 7 are why <code>Glide.with</code> takes a context rather than being a static call. That context is how Glide knows to pause requests when the screen goes away and cancel them when it is destroyed, which is what makes it safe to call from <code>onBindViewHolder</code> without any cancellation code.</p><p>Step 4 explains a common surprise: two <code>ImageView</code>s loading the same URL with different transformations produce two cache entries and two decodes.</p><p><code>DiskCacheStrategy.ALL</code> stores both the original and the transformed result — good for a URL displayed at several sizes, wasteful when there is only ever one.</p>"
+                    }
             }],
             subsection: null
         },
