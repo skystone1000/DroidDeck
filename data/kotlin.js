@@ -28,8 +28,19 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "const val vs val",
-                code: "// Top-level or inside an object/companion object only\nconst val BASE_URL = \"https://api.example.com\"\nconst val MAX_RETRIES = 3\n\nclass NetworkConfig {\n    companion object {\n        const val TIMEOUT_MS = 30_000L   // inlined at every call site\n    }\n\n    // Regular val — resolved via getter call at runtime, not inlined\n    val requestId: String = java.util.UUID.randomUUID().toString()\n}\n\n@Deprecated(\"Use BASE_URL\")   // annotation args must be compile-time constants\nfun legacyCall() {}"
+                title: "const val against a plain val",
+                code: "// Top level, or inside an object or companion object — nowhere else.\nconst val BASE_URL = \"https://api.example.com\"\nconst val MAX_RETRIES = 3\n\nclass NetworkConfig {\n    companion object {\n        const val TIMEOUT_MS = 30_000L      // inlined into every call site\n        private var counter = 0\n    }\n\n    // A plain val is a property with a getter, evaluated per instance.\n    val requestId: String = \"req-\" + (++counter)\n}\n\n@Deprecated(\"Use BASE_URL\")   // annotation arguments must be compile-time constants\nfun legacyCall() = \"legacy\"\n\nfun main() {\n    println(\"BASE_URL   = $BASE_URL\")\n    println(\"TIMEOUT_MS = ${NetworkConfig.TIMEOUT_MS}\")\n\n    // const is a compile-time value, so it is legal where only constants are:\n    // annotation arguments, when branches, array sizes.\n    val branch = when (MAX_RETRIES) {\n        3 -> \"three retries\"\n        else -> \"something else\"\n    }\n    println(\"when on a const -> $branch\")\n\n    // A val belongs to the instance and is computed when that instance is built.\n    println(\"first  requestId = \" + NetworkConfig().requestId)\n    println(\"second requestId = \" + NetworkConfig().requestId)\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "BASE_URL   = https://api.example.com",
+                        "TIMEOUT_MS = 30000",
+                        "when on a const -> three retries",
+                        "first  requestId = req-1",
+                        "second requestId = req-2"
+                    ],
+                    explain: "<p>A <code>const val</code> is settled at compile time, so the compiler copies the value into every place it is used and there is no property to read at runtime. That is what makes it legal in an annotation argument and in a <code>when</code> branch, neither of which can call a getter.</p><p>A plain <code>val</code> is a property with a getter, belonging to an instance and evaluated when that instance is built — which is why the two request ids differ. <code>const</code> could not express that even if you wanted it to: its value has to be known before the program runs, so it is limited to primitives and <code>String</code>, at the top level or inside an <code>object</code> or companion.</p>"
+                }
             }],
             subsection: null
         },
@@ -46,7 +57,19 @@ const kotlinData = {
             codeSnippets: [{
                 language: "kotlin",
                 title: "lateinit in an Activity",
-                code: "class MainActivity : AppCompatActivity() {\n    private lateinit var binding: ActivityMainBinding\n\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        binding = ActivityMainBinding.inflate(layoutInflater)\n        setContentView(binding.root)\n    }\n\n    private fun logIfReady() {\n        if (::binding.isInitialized) {\n            println(\"Binding ready\")\n        }\n    }\n}"
+                code: "class MainActivity : AppCompatActivity() {\n    private lateinit var binding: ActivityMainBinding\n\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        binding = ActivityMainBinding.inflate(layoutInflater)\n        setContentView(binding.root)\n    }\n\n    private fun logIfReady() {\n        if (::binding.isInitialized) {\n            println(\"Binding ready\")\n        }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "MainActivity is constructed by the framework. binding has no value, and is not null either — it is simply unset.",
+                        "onCreate runs, inflates the binding, and assigns it.",
+                        "Any code after that reads binding as a non-null ActivityMainBinding, with no ?. and no !!.",
+                        "If something read binding before onCreate, it would throw UninitializedPropertyAccessException — not a NullPointerException.",
+                        "::binding.isInitialized answers whether the assignment has happened, which is the only safe check.",
+                        "That check matters in teardown code, which can run on a screen that was destroyed before it finished being set up."
+                    ],
+                    explain: "<p><code>lateinit</code> exists for exactly this shape: a property that cannot be set in the constructor because the framework constructs the object, but which is never legitimately null once the lifecycle is under way.</p><p>The alternative is a nullable property and a <code>?.</code> on every use — noise that says \"this might be missing\" when it never is after <code>onCreate</code>.</p><p>The restrictions follow from the implementation: <code>lateinit</code> works only on a <code>var</code>, only on a non-null reference type, and never on a primitive, because there is no spare value to mean \"unset\".</p>"
+                }
             }],
             subsection: null
         },
@@ -62,8 +85,23 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Inline function with non-local return",
-                code: "inline fun <T> measureAndRun(label: String, block: () -> T): T {\n    val start = System.nanoTime()\n    val result = block()\n    println(\"$label took ${(System.nanoTime() - start) / 1_000_000}ms\")\n    return result\n}\n\nfun findFirstEven(nums: List<Int>): Int? {\n    measureAndRun(\"search\") {\n        for (n in nums) {\n            if (n % 2 == 0) return n   // non-local return — exits findFirstEven directly\n        }\n    }\n    return null\n}"
+                title: "inline, and the non-local return it permits",
+                code: "inline fun <T> measureAndRun(label: String, block: () -> T): T {\n    println(\"$label: starting\")\n    val result = block()\n    println(\"$label: finished\")\n    return result\n}\n\nfun findFirstEven(nums: List<Int>): Int? {\n    measureAndRun(\"search\") {\n        for (n in nums) {\n            if (n % 2 == 0) return n     // non-local: returns from findFirstEven itself\n        }\n    }\n    println(\"no even number found\")\n    return null\n}\n\n// A non-inline function cannot do that: the lambda is an object, and `return`\n// inside it can only return from the lambda.\nfun <T> notInlined(block: () -> T): T = block()\n\nfun searchWithoutInline(nums: List<Int>): Int? {\n    notInlined {\n        for (n in nums) {\n            if (n % 2 == 0) return@notInlined n   // only a labelled return is legal\n        }\n        null\n    }\n    return null\n}\n\nfun main() {\n    println(\"findFirstEven([1, 3, 4, 5]) = \" + findFirstEven(listOf(1, 3, 4, 5)))\n    println(\"---\")\n    println(\"findFirstEven([1, 3, 5])    = \" + findFirstEven(listOf(1, 3, 5)))\n    println(\"---\")\n    println(\"searchWithoutInline([1,3,4]) = \" + searchWithoutInline(listOf(1, 3, 4)))\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "search: starting",
+                        "findFirstEven([1, 3, 4, 5]) = 4",
+                        "---",
+                        "search: starting",
+                        "search: finished",
+                        "no even number found",
+                        "findFirstEven([1, 3, 5])    = null",
+                        "---",
+                        "searchWithoutInline([1,3,4]) = null"
+                    ],
+                    explain: "<p>Compare the first block with the second. In the first, <code>\"search: finished\"</code> <strong>never printed</strong> — the <code>return n</code> inside the lambda returned from <code>findFirstEven</code> itself, jumping straight out of <code>measureAndRun</code> and skipping the rest of its body. In the second, no even number was found, the lambda ended normally, and the finishing line appeared.</p><p>That is what <code>inline</code> buys. The lambda's body is copied into the call site, so a <code>return</code> in it is an ordinary return from the enclosing function. Without <code>inline</code> the lambda is a separate object with its own frame and cannot do that — the third case has to use a labelled <code>return@notInlined</code>, which only leaves the lambda.</p><p>The performance argument for <code>inline</code> is real but secondary: no lambda object is allocated. Non-local return is the part that changes what you can write.</p>"
+                }
             }],
             subsection: null
         },
@@ -79,8 +117,18 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Companion object as a factory",
-                code: "class UserFragment private constructor() : Fragment() {\n\n    companion object {\n        private const val ARG_USER_ID = \"user_id\"\n\n        @JvmStatic\n        fun newInstance(userId: String): UserFragment = UserFragment().apply {\n            arguments = Bundle().apply { putString(ARG_USER_ID, userId) }\n        }\n    }\n}\n\nval fragment = UserFragment.newInstance(\"42\")"
+                title: "A companion object as a factory",
+                code: "// The Android idiom: a private constructor plus a factory in the companion,\n// so callers cannot build one the wrong way.\nclass UserScreen private constructor() {\n    val arguments = mutableMapOf<String, String>()\n\n    companion object {\n        private const val ARG_USER_ID = \"user_id\"\n\n        @JvmStatic\n        fun newInstance(userId: String): UserScreen = UserScreen().apply {\n            arguments[ARG_USER_ID] = userId\n        }\n    }\n\n    override fun toString() = \"UserScreen(arguments=$arguments)\"\n}\n\nclass Counter {\n    companion object {\n        var created = 0                  // shared by every instance\n    }\n    init { created++ }\n}\n\nfun main() {\n    val screen = UserScreen.newInstance(\"42\")\n    println(screen)\n\n    // The companion is a real object, and there is exactly one of it.\n    println(\"companion is a singleton: \" + (UserScreen.Companion === UserScreen.Companion))\n\n    Counter(); Counter(); Counter()\n    println(\"instances created: \" + Counter.created)\n\n    // Each newInstance call still produces a distinct object.\n    println(\"two screens are the same? \" + (UserScreen.newInstance(\"1\") === UserScreen.newInstance(\"1\")))\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "UserScreen(arguments={user_id=42})",
+                        "companion is a singleton: true",
+                        "instances created: 3",
+                        "two screens are the same? false"
+                    ],
+                    explain: "<p>The constructor is private, so the only way to get a <code>UserScreen</code> is through <code>newInstance</code> — which is how the Fragment idiom guarantees arguments are always set. Callers cannot build a half-configured one.</p><p>The second line is the part that distinguishes a companion from Java's <code>static</code>: <code>UserScreen.Companion</code> is a real object with a real type, so it can implement an interface, be passed as a value, and carry state — which the <code>Counter</code> shows, sharing one <code>created</code> across every instance.</p><p><code>@JvmStatic</code> exists only for Java callers, letting them write <code>UserScreen.newInstance(...)</code> rather than <code>UserScreen.Companion.newInstance(...)</code>.</p>"
+                }
             }],
             subsection: null
         },
@@ -96,8 +144,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Extension functions on View and String",
-                code: "fun View.visible() {\n    visibility = View.VISIBLE\n}\n\nfun View.gone() {\n    visibility = View.GONE\n}\n\nfun String.isValidEmail(): Boolean =\n    android.util.Patterns.EMAIL_ADDRESS.matcher(this).matches()\n\n// usage\nprogressBar.visible()\nif (emailField.text.toString().isValidEmail()) submitButton.visible() else submitButton.gone()"
+                title: "Extension functions, and where they stop being like methods",
+                code: "// Stands in for android.view.View, which cannot run here.\nclass View(var visibility: String = \"VISIBLE\") {\n    companion object { const val VISIBLE = \"VISIBLE\"; const val GONE = \"GONE\" }\n    override fun toString() = \"View(visibility=$visibility)\"\n}\n\nfun View.visible() { visibility = View.VISIBLE }\nfun View.gone() { visibility = View.GONE }\n\nfun String.isValidEmail(): Boolean =\n    Regex(\"^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$\").matches(this)\n\n// Extensions are resolved statically, on the DECLARED type, not the runtime one.\nopen class Base\nclass Derived : Base()\nfun Base.name() = \"Base extension\"\nfun Derived.name() = \"Derived extension\"\n\nfun main() {\n    val progressBar = View()\n    progressBar.gone()\n    println(\"after gone(): $progressBar\")\n    progressBar.visible()\n    println(\"after visible(): $progressBar\")\n\n    println(\"'ada@example.com'.isValidEmail() = \" + \"ada@example.com\".isValidEmail())\n    println(\"'ada@'.isValidEmail()            = \" + \"ada@\".isValidEmail())\n\n    // An extension is not a member, so there is no dynamic dispatch.\n    val asBase: Base = Derived()\n    println(\"declared Base, holding Derived -> \" + asBase.name())\n    println(\"declared Derived              -> \" + Derived().name())\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "after gone(): View(visibility=GONE)",
+                        "after visible(): View(visibility=VISIBLE)",
+                        "'ada@example.com'.isValidEmail() = true",
+                        "'ada@'.isValidEmail()            = false",
+                        "declared Base, holding Derived -> Base extension",
+                        "declared Derived              -> Derived extension"
+                    ],
+                    explain: "<p>The first four lines are why extensions are everywhere in Android code: <code>view.gone()</code> reads like a method on a class you do not own and cannot subclass.</p><p>The last two lines are the limit. An extension is <strong>resolved statically</strong>, from the <em>declared</em> type of the variable — so a <code>Base</code> variable holding a <code>Derived</code> ran the <code>Base</code> extension. A real method would have dispatched on the object. Extensions are compiled to static functions taking the receiver as a parameter; they are not added to the class, and they cannot be overridden.</p><p>The other consequence of that: an extension cannot see private members, and a member function always wins over an extension with the same signature.</p>"
+                }
             }],
             subsection: null
         },
@@ -113,8 +173,22 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Data class with copy() and destructuring",
-                code: "data class User(val id: Int, val name: String, val isActive: Boolean = true)\n\nval user = User(1, \"Ada\")\nval renamed = user.copy(name = \"Ada Lovelace\")   // id and isActive unchanged\n\nval (id, name) = renamed   // destructuring via componentN()\nprintln(\"$id -> $name\")\nprintln(user == renamed)   // false: structural equality, name differs"
+                title: "What data adds: toString, equals, hashCode, copy, componentN",
+                code: "data class User(val id: Int, val name: String, val isActive: Boolean = true)\n\nclass PlainUser(val id: Int, val name: String)\n\nfun main() {\n    val user = User(1, \"Ada\")\n    val renamed = user.copy(name = \"Ada Lovelace\")   // id and isActive carried over\n\n    println(\"toString()   \" + renamed)\n    println(\"original     \" + user)\n\n    val (id, name) = renamed                         // destructuring via componentN()\n    println(\"destructured $id -> $name\")\n\n    println(\"user == renamed        \" + (user == renamed))\n    println(\"user == User(1, \\\"Ada\\\") \" + (user == User(1, \"Ada\")))\n    println(\"same hashCode          \" + (user.hashCode() == User(1, \"Ada\").hashCode()))\n\n    // Without `data`, none of that is generated: equals falls back to identity.\n    println(\"plain class equals     \" + (PlainUser(1, \"Ada\") == PlainUser(1, \"Ada\")))\n    println(\"plain class toString   \" + PlainUser(1, \"Ada\").toString().substringBefore('@'))\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "toString()   User(id=1, name=Ada Lovelace, isActive=true)",
+                        "original     User(id=1, name=Ada, isActive=true)",
+                        "destructured 1 -> Ada Lovelace",
+                        "user == renamed        false",
+                        "user == User(1, \"Ada\") true",
+                        "same hashCode          true",
+                        "plain class equals     false",
+                        "plain class toString   PlainUser"
+                    ],
+                    explain: "<p>The last two lines are the control. The identical class without <code>data</code> compares unequal to a copy of itself and prints as a bare class name, because it inherits <code>Object</code>'s versions of both.</p><p>Everything above is generated from the <strong>constructor properties only</strong>. <code>copy</code> takes named arguments and carries the rest over, which is how you get an edited version of an immutable object. Destructuring works because <code>component1()</code> and <code>component2()</code> exist, and they are positional — reordering the constructor silently changes what a destructuring declaration means.</p><p>A property declared in the class body rather than the constructor is excluded from all of it, which is a common surprise: two objects differing only in such a property compare equal.</p>"
+                }
             }],
             subsection: null
         },
@@ -130,8 +204,19 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Removing duplicates",
-                code: "val nums = intArrayOf(1, 2, 2, 3, 3, 3, 4)\nval unique = nums.distinct()                 // [1, 2, 3, 4]\n\ndata class User(val id: Int, val name: String)\nval users = listOf(User(1, \"Ada\"), User(1, \"Ada Dup\"), User(2, \"Grace\"))\nval byId = users.distinctBy { it.id }        // [User(1, Ada), User(2, Grace)]\n\nval asSet = nums.toSet()                     // {1, 2, 3, 4}"
+                title: "distinct, distinctBy and toSet",
+                code: "data class User(val id: Int, val name: String)\n\nfun main() {\n    val nums = listOf(1, 2, 2, 3, 3, 3, 4)\n\n    println(\"distinct()  \" + nums.distinct())      // keeps order, keeps first occurrence\n    println(\"toSet()     \" + nums.toSet())         // a Set, also order-preserving (LinkedHashSet)\n\n    val users = listOf(User(1, \"Ada\"), User(1, \"Ada Dup\"), User(2, \"Grace\"))\n    println(\"distinctBy  \" + users.distinctBy { it.id })\n\n    // distinct() on data classes compares contents, so these are duplicates.\n    val dupes = listOf(User(1, \"Ada\"), User(1, \"Ada\"))\n    println(\"distinct on data class \" + dupes.distinct())\n\n    // Order matters: distinctBy keeps the FIRST of each key, not the last.\n    println(\"first kept, not last   \" + users.distinctBy { it.id }.map { it.name })\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "distinct()  [1, 2, 3, 4]",
+                        "toSet()     [1, 2, 3, 4]",
+                        "distinctBy  [User(id=1, name=Ada), User(id=2, name=Grace)]",
+                        "distinct on data class [User(id=1, name=Ada)]",
+                        "first kept, not last   [Ada, Grace]"
+                    ],
+                    explain: "<p><code>distinct()</code> compares with <code>equals</code>, so it removes duplicate <em>values</em>; on a <code>data class</code> that means structurally identical objects, which the fourth line shows. <code>toSet()</code> does the same thing and gives you a <code>Set</code> — and because it is a <code>LinkedHashSet</code>, the order still survives.</p><p><code>distinctBy</code> is the one worth remembering: it deduplicates on a key rather than the whole object, which is how you collapse records sharing an id. The last line is its rule — <strong>the first occurrence of each key is kept</strong>, so \"Ada\" survives and \"Ada Dup\" is dropped. If the newest record should win, the list has to be reversed first.</p>"
+                }
             }],
             subsection: null
         },
@@ -147,8 +232,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "@JvmStatic for Java interop",
-                code: "class Analytics {\n    companion object {\n        @JvmStatic\n        fun logEvent(name: String) {\n            println(\"event: $name\")\n        }\n    }\n}\n\n// From Java: Analytics.logEvent(\"click\");\n// Without @JvmStatic, Java would need: Analytics.Companion.logEvent(\"click\");"
+                title: "@JvmStatic for Java callers",
+                code: "class Analytics {\n    companion object {\n        @JvmStatic\n        fun logEvent(name: String) {\n            println(\"event: $name\")\n        }\n    }\n}\n\n// From Java: Analytics.logEvent(\"click\");\n// Without @JvmStatic, Java would need: Analytics.Companion.logEvent(\"click\");",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Kotlin compiles a companion object into a real inner class named Companion, holding a single instance.",
+                        "logEvent therefore becomes an instance method on that Companion object.",
+                        "Kotlin callers write Analytics.logEvent(\"click\") and the compiler fills in the Companion hop.",
+                        "Java has no such shorthand, so without @JvmStatic a Java caller must write Analytics.Companion.logEvent(\"click\").",
+                        "@JvmStatic tells the compiler to ALSO emit a genuine static method on the Analytics class itself.",
+                        "Java can now write Analytics.logEvent(\"click\"), and Kotlin call sites are unchanged."
+                    ],
+                    explain: "<p>Step 5 is the key word: <strong>also</strong>. <code>@JvmStatic</code> adds a static bridge; it does not move the function. The companion instance method still exists, so nothing about the Kotlin side changes.</p><p>This matters wherever a framework reflects on your code expecting a static member — JUnit 4's <code>@BeforeClass</code>, and Parcelable's <code>CREATOR</code> field, are the two that bite most often.</p><p>If the project has no Java in it and no such framework, <code>@JvmStatic</code> is pure noise.</p>"
+                }
             }],
             subsection: null
         },
@@ -177,8 +274,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "@JvmOverloads generating Java-friendly overloads",
-                code: "class Toast @JvmOverloads constructor(\n    val message: String,\n    val durationMs: Long = 2000L,\n    val isError: Boolean = false\n)\n\n// Java can now call:\n// new Toast(\"Saved\")\n// new Toast(\"Saved\", 3000L)\n// new Toast(\"Saved\", 3000L, true)"
+                title: "@JvmOverloads for default arguments",
+                code: "class Toast @JvmOverloads constructor(\n    val message: String,\n    val durationMs: Long = 2000L,\n    val isError: Boolean = false\n)\n\n// Java can now call:\n// new Toast(\"Saved\")\n// new Toast(\"Saved\", 3000L)\n// new Toast(\"Saved\", 3000L, true)",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Kotlin compiles a function with default arguments into ONE method taking every parameter, plus a synthetic bitmask marking which were omitted.",
+                        "A Kotlin call site fills in the defaults at compile time, so all three call shapes work.",
+                        "Java has no defaults, so a Java caller sees only the full three-argument constructor and must pass every value.",
+                        "@JvmOverloads makes the compiler emit the intermediate overloads as well: one argument, two arguments, three arguments.",
+                        "Java can now call any of the three forms.",
+                        "On a custom View this is what lets the constructor serve code, XML inflation, and styled attributes with one declaration."
+                    ],
+                    explain: "<p>Step 1 explains why Java sees something so awkward: the default is not encoded in a signature Java can use, it is a bitmask the Kotlin compiler passes.</p><p>Step 6 is where nearly every Android developer meets this. A custom <code>View</code> needs three constructors for the framework to inflate it from XML, and <code>@JvmOverloads</code> generates all three from one declaration with defaults.</p><p>The caution: adding a parameter in the middle of the list silently changes every generated overload, so a library using <code>@JvmOverloads</code> can break Java callers without any visible signature change.</p>"
+                }
             }],
             subsection: null
         },
@@ -194,8 +303,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "noinline lambda stored for later",
-                code: "inline fun runTask(\n    onStart: () -> Unit,\n    noinline onComplete: () -> Unit   // stored, so cannot be inlined\n): () -> Unit {\n    onStart()\n    // ... work happens ...\n    return onComplete   // only possible because onComplete is a real object\n}"
+                title: "noinline, for a lambda that has to outlive the call",
+                code: "inline fun runTask(\n    onStart: () -> Unit,\n    noinline onComplete: () -> Unit    // stored and returned, so it must stay an object\n): () -> Unit {\n    onStart()\n    println(\"task: doing the work\")\n    return onComplete                  // only legal because onComplete is not inlined\n}\n\nfun main() {\n    val completion = runTask(\n        onStart = { println(\"task: starting\") },\n        onComplete = { println(\"task: completed (called later)\") }\n    )\n\n    println(\"runTask returned; the completion lambda has not run yet\")\n    completion()\n\n    // A noinline lambda is a real object, so it can be stored in a list too.\n    val callbacks = mutableListOf(completion)\n    println(\"stored ${callbacks.size} callback for later\")\n    callbacks.first()()\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "task: starting",
+                        "task: doing the work",
+                        "runTask returned; the completion lambda has not run yet",
+                        "task: completed (called later)",
+                        "stored 1 callback for later",
+                        "task: completed (called later)"
+                    ],
+                    explain: "<p><code>runTask</code> returns <code>onComplete</code>, and the third and fourth lines show it being called after <code>runTask</code> has already finished. That is only possible because <code>onComplete</code> is a real object.</p><p>An inlined lambda has no object — its body is pasted into the call site — so it cannot be stored, returned, or put in a list. <code>noinline</code> opts one parameter out of inlining so it becomes an ordinary function object again, while <code>onStart</code> stays inlined and free.</p><p>The rule of thumb: mark a parameter <code>noinline</code> when the lambda is used as a <em>value</em> rather than merely called.</p>"
+                }
             }],
             subsection: null
         },
@@ -211,8 +332,18 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "crossinline preventing illegal non-local return",
-                code: "inline fun runInBackground(crossinline action: () -> Unit) {\n    val runnable = Runnable {\n        action()   // action executes in a different call context —\n                   // a bare `return` here would be illegal without crossinline\n    }\n    Thread(runnable).start()\n}\n\nfun example() {\n    runInBackground {\n        println(\"working\")\n        // return   // COMPILE ERROR without crossinline\n        return@runInBackground   // allowed: labeled return only\n    }\n}"
+                title: "crossinline, and the return it forbids",
+                code: "inline fun runInBackground(crossinline action: () -> Unit) {\n    val runnable = Runnable {\n        action()          // runs in another object's context, so a bare `return`\n                          // out of the caller would be impossible — hence crossinline\n    }\n    val thread = Thread(runnable)\n    thread.start()\n    thread.join()         // joined so the output is in a fixed order\n}\n\nfun example() {\n    println(\"example: before\")\n    runInBackground {\n        println(\"background: working\")\n        // return        // COMPILE ERROR: non-local return is not allowed here\n        return@runInBackground\n    }\n    println(\"example: after\")\n}\n\n// Compare with a plain inline lambda, where a bare return IS allowed.\ninline fun runHere(action: () -> Unit) { action() }\n\nfun withNonLocalReturn(): String {\n    runHere {\n        return \"returned from withNonLocalReturn, out of the lambda\"\n    }\n    @Suppress(\"UNREACHABLE_CODE\")\n    return \"never reached\"\n}\n\nfun main() {\n    example()\n    println(withNonLocalReturn())\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "example: before",
+                        "background: working",
+                        "example: after",
+                        "returned from withNonLocalReturn, out of the lambda"
+                    ],
+                    explain: "<p>The bottom line is the behaviour <code>crossinline</code> exists to prevent. <code>withNonLocalReturn</code> has a plain <code>inline</code> lambda, and a bare <code>return</code> inside it returned from <code>withNonLocalReturn</code> — skipping everything after the call.</p><p>Now imagine that in <code>runInBackground</code>, where the lambda is wrapped in a <code>Runnable</code> and executed later, on another thread. There is no enclosing frame left to return from. <code>crossinline</code> is how the function says \"this lambda is inlined, but it will run somewhere else, so non-local return is not allowed\" — and the compiler enforces it at the call site rather than letting it fail at runtime.</p><p>A labelled <code>return@runInBackground</code> remains legal, because that only ends the lambda.</p>"
+                }
             }],
             subsection: null
         },
@@ -241,8 +372,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "reified type parameter",
-                code: "inline fun <reified T> Gson.fromJson(json: String): T =\n    fromJson(json, T::class.java)\n\ninline fun <reified T : Activity> Context.startActivity() {\n    startActivity(Intent(this, T::class.java))\n}\n\n// usage — no Class<T> argument needed\nval user: User = gson.fromJson(jsonString)\ncontext.startActivity<ProfileActivity>()"
+                title: "reified, and what erasure takes away",
+                code: "// Without reified, a generic function cannot see T at runtime — erasure removed\n// it — so the caller has to pass a Class object by hand.\nfun <T> decodeErased(json: String, type: Class<T>): String =\n    \"decoded into ${type.simpleName}\"\n\n// With reified, the compiler inlines the function and substitutes the real type.\ninline fun <reified T> decode(json: String): String =\n    \"decoded into ${T::class.simpleName}\"\n\ninline fun <reified T> isInstance(value: Any): Boolean = value is T\n\ndata class User(val name: String)\ndata class Post(val title: String)\n\nfun main() {\n    println(decodeErased(\"{}\", User::class.java))\n    println(decode<User>(\"{}\"))\n    println(decode<Post>(\"{}\"))\n\n    // `value is T` is only legal because T survives to runtime.\n    println(\"User is User? \" + isInstance<User>(User(\"Ada\")))\n    println(\"Post is User? \" + isInstance<User>(Post(\"hello\")))\n\n    // The same trick behind context.startActivity<ProfileActivity>().\n    println(\"class token = \" + User::class.java.simpleName)\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "decoded into User",
+                        "decoded into User",
+                        "decoded into Post",
+                        "User is User? true",
+                        "Post is User? false",
+                        "class token = User"
+                    ],
+                    explain: "<p>The first two lines do the same job with and without <code>reified</code>. Without it, the type argument is erased before the program runs, so the function cannot name <code>T</code> at runtime and the caller has to hand over a <code>Class</code> object to compensate — every Gson call before Kotlin looked like that.</p><p><code>reified</code> works only on an <code>inline</code> function, and that is the whole trick: because the body is copied into the call site, the compiler can substitute the real type there. <code>T::class</code> and <code>value is T</code> become legal, and the caller writes <code>decode&lt;User&gt;(json)</code> with nothing redundant in the parentheses.</p><p>Same mechanism behind <code>context.startActivity&lt;ProfileActivity&gt;()</code> and <code>viewModels&lt;UserViewModel&gt;()</code>.</p>"
+                }
             }],
             subsection: null
         },
@@ -271,8 +414,23 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "init block execution order",
-                code: "class Person(name: String) {\n    val firstProperty = \"First: $name\".also(::println)\n\n    init {\n        println(\"First init block: $name\")\n    }\n\n    val secondProperty = \"Second: ${name.length}\".also(::println)\n\n    init {\n        require(name.isNotBlank()) { \"name must not be blank\" }\n        println(\"Second init block\")\n    }\n}\n// Output order: First property -> First init -> Second property -> Second init"
+                title: "Initialisation order",
+                code: "class Person(name: String) {\n    val firstProperty = \"First: $name\".also(::println)\n\n    init {\n        println(\"First init block: $name\")\n    }\n\n    val secondProperty = \"Second: ${name.length}\".also(::println)\n\n    init {\n        require(name.isNotBlank()) { \"name must not be blank\" }\n        println(\"Second init block\")\n    }\n}\n\nfun main() {\n    Person(\"Ada\")\n\n    println(\"---\")\n    // require() inside init is how a constructor rejects bad arguments.\n    try {\n        Person(\"  \")\n    } catch (e: IllegalArgumentException) {\n        println(\"construction rejected: ${e.message}\")\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "First: Ada",
+                        "First init block: Ada",
+                        "Second: 3",
+                        "Second init block",
+                        "---",
+                        "First:   ",
+                        "First init block:   ",
+                        "Second: 2",
+                        "construction rejected: name must not be blank"
+                    ],
+                    explain: "<p>The order is <strong>source order</strong>, with property initialisers and <code>init</code> blocks interleaved exactly as written — not all properties and then all blocks. That is why the first property, first block, second property and second block print in that sequence.</p><p>It also means an <code>init</code> block cannot read a property declared below it: the property has not been assigned yet, and the compiler rejects it.</p><p>The second half shows what <code>init</code> is usually for. <code>require</code> throws <code>IllegalArgumentException</code> before the object exists, so an invalid instance can never be handed to anyone.</p>"
+                }
             }],
             subsection: null
         },
@@ -288,8 +446,21 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "== vs === on data classes",
-                code: "data class Point(val x: Int, val y: Int)\n\nval a = Point(1, 2)\nval b = Point(1, 2)\nval c = a\n\nprintln(a == b)    // true  — same contents (structural)\nprintln(a === b)   // false — different instances\nprintln(a === c)   // true  — same reference"
+                title: "== is structural, === is referential",
+                code: "data class Point(val x: Int, val y: Int)\n\nclass PlainPoint(val x: Int, val y: Int)\n\nfun main() {\n    val a = Point(1, 2)\n    val b = Point(1, 2)\n    val c = a\n\n    println(\"a == b   \" + (a == b))     // structural: contents match\n    println(\"a === b  \" + (a === b))    // referential: different objects\n    println(\"a === c  \" + (a === c))    // same object\n\n    // == calls equals(), so a class without one falls back to identity.\n    println(\"plain == \" + (PlainPoint(1, 2) == PlainPoint(1, 2)))\n\n    // == is null-safe in Kotlin; it never throws on a null receiver.\n    val maybe: Point? = null\n    println(\"null == a \" + (maybe == a))\n\n    // For primitives there is no identity to compare, so === is not allowed\n    // on Int at all — but boxed types show the same trap Java has.\n    val x: Int? = 1000\n    val y: Int? = 1000\n    println(\"boxed 1000 == \" + (x == y))\n    println(\"boxed 1000 === \" + (x === y))\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "a == b   true",
+                        "a === b  false",
+                        "a === c  true",
+                        "plain == false",
+                        "null == a false",
+                        "boxed 1000 == true",
+                        "boxed 1000 === false"
+                    ],
+                    explain: "<p>In Kotlin <code>==</code> calls <code>equals()</code> and <code>===</code> compares identity, which is the reverse of the Java habit where <code>==</code> is the identity check. A <code>data class</code> generates <code>equals</code>, so two separately built points are <code>==</code> and not <code>===</code>; a plain class inherits identity comparison and is neither.</p><p><code>==</code> is also null-safe — <code>null == a</code> returns <code>false</code> rather than throwing, so no null check is needed before comparing.</p><p>The last pair is the trap that survives from Java: boxed <code>Int?</code> values above 127 are distinct objects, so <code>===</code> is <code>false</code> while <code>==</code> is <code>true</code>. On a non-null <code>Int</code> the compiler will not even let you write <code>===</code>.</p>"
+                }
             }],
             subsection: null
         },
@@ -305,8 +476,23 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "A higher-order function",
-                code: "fun <T, R> withRetry(times: Int, block: () -> R): R {\n    var lastError: Throwable? = null\n    repeat(times) {\n        try {\n            return block()\n        } catch (e: Throwable) {\n            lastError = e\n        }\n    }\n    throw lastError ?: IllegalStateException(\"retry failed\")\n}\n\nval result = withRetry(3) { fetchFromNetwork() }"
+                title: "A function that takes a function",
+                code: "fun <R> withRetry(times: Int, block: () -> R): R {\n    var lastError: Throwable? = null\n    repeat(times) { attempt ->\n        try {\n            return block()\n        } catch (e: Throwable) {\n            println(\"  attempt $attempt failed: ${e.message}\")\n            lastError = e\n        }\n    }\n    throw lastError ?: IllegalStateException(\"retry failed\")\n}\n\nvar calls = 0\nfun fetchFromNetwork(): String {\n    calls++\n    if (calls < 3) throw IllegalStateException(\"timeout\")\n    return \"payload\"\n}\n\nfun main() {\n    println(\"result = \" + withRetry(3) { fetchFromNetwork() })\n\n    // A function taking a function can also take a reference to a named one.\n    calls = 0\n    println(\"with a function reference = \" + withRetry(5, ::fetchFromNetwork))\n\n    // And when every attempt fails, the last error is rethrown.\n    try {\n        withRetry(2) { throw IllegalStateException(\"always broken\") }\n    } catch (e: IllegalStateException) {\n        println(\"gave up with: \" + e.message)\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "  attempt 0 failed: timeout",
+                        "  attempt 1 failed: timeout",
+                        "result = payload",
+                        "  attempt 0 failed: timeout",
+                        "  attempt 1 failed: timeout",
+                        "with a function reference = payload",
+                        "  attempt 0 failed: always broken",
+                        "  attempt 1 failed: always broken",
+                        "gave up with: always broken"
+                    ],
+                    explain: "<p><code>withRetry</code> knows nothing about networks. It takes a <code>() -&gt; R</code> and calls it, which is what makes it reusable for anything worth retrying — the policy is separated from the operation.</p><p>The second call passes <code>::fetchFromNetwork</code>, a reference to a named function rather than a lambda. Anything matching the type works: a lambda, a function reference, or a variable holding one.</p><p>The final case shows the part that is easy to get wrong. When every attempt fails, something has to happen — here the last exception is rethrown. A retry helper that silently returns a default would hide a total outage.</p>"
+                }
             }],
             subsection: null
         },
@@ -322,8 +508,19 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Function returning a function (closure)",
-                code: "fun makeMultiplier(factor: Int): (Int) -> Int {\n    return { value -> value * factor }   // closes over `factor`\n}\n\nval triple = makeMultiplier(3)\nval double = makeMultiplier(2)\n\nprintln(triple(10))   // 30\nprintln(double(10))   // 20"
+                title: "Returning a function, and what a closure captures",
+                code: "fun makeMultiplier(factor: Int): (Int) -> Int {\n    return { value -> value * factor }      // closes over `factor`\n}\n\n// A closure captures the variable, not a snapshot of its value.\nfun makeCounter(): () -> Int {\n    var count = 0\n    return { ++count }\n}\n\nfun main() {\n    val triple = makeMultiplier(3)\n    val double = makeMultiplier(2)\n\n    println(\"triple(10) = \" + triple(10))\n    println(\"double(10) = \" + double(10))\n\n    // Each call to makeMultiplier produced its own closure over its own factor.\n    println(\"same function object? \" + (triple === double))\n\n    val next = makeCounter()\n    println(\"counter: ${next()}, ${next()}, ${next()}\")\n\n    // A second counter has its own captured variable.\n    val other = makeCounter()\n    println(\"a fresh counter starts again at ${other()}\")\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "triple(10) = 30",
+                        "double(10) = 20",
+                        "same function object? false",
+                        "counter: 1, 2, 3",
+                        "a fresh counter starts again at 1"
+                    ],
+                    explain: "<p><code>triple</code> and <code>double</code> came from the same function and behave differently, because each closed over its own <code>factor</code>. They are also different objects, which the third line confirms — every call to <code>makeMultiplier</code> builds a new closure.</p><p><code>makeCounter</code> shows the sharper point: a closure captures the <strong>variable</strong>, not a snapshot of its value. <code>count</code> keeps increasing across calls because the lambda holds the variable itself, and it stays alive after <code>makeCounter</code> has returned. A second counter gets its own.</p><p>Kotlin allows this for <code>var</code>s, unlike Java, where a captured local must be effectively final.</p>"
+                }
             }],
             subsection: null
         },
@@ -339,8 +536,19 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Lambda syntax variations",
-                code: "val squares = listOf(1, 2, 3).map { it * it }             // implicit `it`\nval sums = listOf(1, 2, 3).map { n -> n + 1 }             // named param\n\nbutton.setOnClickListener { view -> handleClick(view) }   // trailing lambda\n\nvar counter = 0\nval increment = { counter++ }                             // captures `counter`\nrepeat(3) { increment() }\nprintln(counter)   // 3"
+                title: "Lambda forms, and what they capture",
+                code: "fun interface OnClickListener {\n    fun onClick(view: String)\n}\n\nclass Button(val id: String) {\n    private var listener: OnClickListener? = null\n    fun setOnClickListener(l: OnClickListener) { listener = l }\n    fun performClick() { listener?.onClick(id) }\n}\n\nfun main() {\n    println(\"implicit it  \" + listOf(1, 2, 3).map { it * it })\n    println(\"named param  \" + listOf(1, 2, 3).map { n -> n + 1 })\n\n    // Trailing lambda: the last argument moves outside the parentheses.\n    val button = Button(\"submit\")\n    button.setOnClickListener { view -> println(\"clicked $view\") }\n    button.performClick()\n\n    // A lambda captures variables, and in Kotlin it may modify them.\n    var counter = 0\n    val increment = { counter++ }\n    repeat(3) { increment() }\n    println(\"captured counter = $counter\")\n\n    // The last expression is the return value; there is no `return` keyword.\n    val describe: (Int) -> String = { n ->\n        val half = n / 2\n        \"$n halves to $half\"\n    }\n    println(describe(10))\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "implicit it  [1, 4, 9]",
+                        "named param  [2, 3, 4]",
+                        "clicked submit",
+                        "captured counter = 3",
+                        "10 halves to 5"
+                    ],
+                    explain: "<p>Four forms of the same thing. A single-parameter lambda gets <code>it</code> for free; naming the parameter is worth it as soon as there is more than one, or the lambda is more than a line.</p><p>The trailing-lambda rule — a last argument that is a lambda moves outside the parentheses — is what makes <code>setOnClickListener { }</code>, <code>repeat { }</code> and every DSL in Kotlin read the way they do.</p><p><code>counter</code> reaching 3 is the capture: a lambda may read <em>and write</em> a captured <code>var</code>, which Java does not permit. And the last case shows there is no <code>return</code> keyword — the final expression is the value, which is why a multi-line lambda still needs no ceremony.</p>"
+                }
             }],
             subsection: null
         },
@@ -356,8 +564,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "associateBy for List -> Map",
-                code: "data class User(val id: Int, val name: String)\nval users = listOf(User(1, \"Ada\"), User(2, \"Grace\"), User(3, \"Alan\"))\n\nval byId: Map<Int, User> = users.associateBy { it.id }\nprintln(byId[2]?.name)   // Grace\n\nval nameById: Map<Int, String> = users.associateBy({ it.id }, { it.name })\nval usersById2: Map<User, Int> = users.associateWith { it.name.length }"
+                title: "associateBy, associateWith, and duplicate keys",
+                code: "data class User(val id: Int, val name: String)\n\nfun main() {\n    val users = listOf(User(1, \"Ada\"), User(2, \"Grace\"), User(3, \"Alan\"))\n\n    val byId: Map<Int, User> = users.associateBy { it.id }\n    println(\"byId[2]?.name = \" + byId[2]?.name)\n    println(\"byId keys     = \" + byId.keys)\n\n    // Two lambdas: one picks the key, one picks the value.\n    val nameById: Map<Int, String> = users.associateBy({ it.id }, { it.name })\n    println(\"nameById      = \" + nameById)\n\n    // associateWith flips it: the element is the key, the lambda makes the value.\n    println(\"associateWith = \" + users.associateWith { it.name.length })\n\n    // Duplicate keys: the LAST one wins, silently.\n    val dupes = listOf(User(1, \"Ada\"), User(1, \"Ada Dup\"))\n    println(\"duplicate key -> \" + dupes.associateBy { it.id })\n\n    // groupBy keeps them all instead.\n    println(\"groupBy       -> \" + dupes.groupBy { it.id })\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "byId[2]?.name = Grace",
+                        "byId keys     = [1, 2, 3]",
+                        "nameById      = {1=Ada, 2=Grace, 3=Alan}",
+                        "associateWith = {User(id=1, name=Ada)=3, User(id=2, name=Grace)=5, User(id=3, name=Alan)=4}",
+                        "duplicate key -> {1=User(id=1, name=Ada Dup)}",
+                        "groupBy       -> {1=[User(id=1, name=Ada), User(id=1, name=Ada Dup)]}"
+                    ],
+                    explain: "<p><code>associateBy</code> turns a list into a map keyed by whatever the lambda returns, which is the standard fix for repeatedly scanning a list to find an item by id. The two-lambda form picks the value as well as the key.</p><p><code>associateWith</code> is the mirror image: the element becomes the key and the lambda produces the value.</p><p>The last two lines are the one to be careful about. On a duplicate key, <strong>the last entry silently wins</strong> — \"Ada\" is gone and only \"Ada Dup\" remains, with no error and no warning. When keys may repeat, <code>groupBy</code> is almost always what was meant: it keeps every element, in a list per key.</p>"
+                }
             }],
             subsection: null
         },
@@ -373,8 +593,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "open class and members",
-                code: "open class Animal(val name: String) {\n    open fun speak(): String = \"...\"\n}\n\nclass Dog(name: String) : Animal(name) {\n    override fun speak(): String = \"Woof\"\n}\n\n// class Cat : Dog(\"x\")  // ERROR: Dog isn't open, cannot be subclassed further"
+                title: "open, override, and final override",
+                code: "open class Animal(val name: String) {\n    open fun speak(): String = \"...\"\n    fun sleep(): String = \"$name sleeps\"      // not open: cannot be overridden\n}\n\nclass Dog(name: String) : Animal(name) {\n    override fun speak(): String = \"Woof\"\n}\n\n// `override` is itself open unless you close it.\nopen class Cat(name: String) : Animal(name) {\n    final override fun speak(): String = \"Meow\"   // final stops it here\n}\n\nclass Kitten(name: String) : Cat(name)            // may subclass, may not override speak\n\nfun main() {\n    val animals = listOf(Animal(\"Generic\"), Dog(\"Rex\"), Cat(\"Tom\"), Kitten(\"Tiny\"))\n    for (a in animals) println(a.name.padEnd(8) + a.speak())\n\n    println(Dog(\"Rex\").sleep())\n\n    // Classes are final by default, which is why `open` has to be written at\n    // all — and why Kitten can exist but cannot change speak().\n    println(Kitten(\"Tiny\").speak() + \" (inherited from Cat, and final there)\")\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "Generic ...",
+                        "Rex     Woof",
+                        "Tom     Meow",
+                        "Tiny    Meow",
+                        "Rex sleeps",
+                        "Meow (inherited from Cat, and final there)"
+                    ],
+                    explain: "<p>Kotlin classes and members are <strong>final by default</strong>, the opposite of Java. Inheritance has to be designed for deliberately, which is why <code>open</code> exists at all — <code>sleep()</code> has no <code>open</code>, so no subclass can change it.</p><p>The subtlety is that <code>override</code> is <em>itself</em> open. A subclass of <code>Dog</code> could override <code>speak</code> again unless something stops it. <code>Cat</code> writes <code>final override</code>, so <code>Kitten</code> inherits <code>Meow</code> and cannot replace it — which the last line shows.</p><p>The loop is the reason any of this matters: one <code>speak()</code> call site, four different results, chosen by the object.</p>"
+                }
             }],
             subsection: null
         },
@@ -403,8 +635,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "partition into two lists",
-                code: "val numbers = listOf(1, 2, 3, 4, 5, 6, 7, 8)\nval (even, odd) = numbers.partition { it % 2 == 0 }\n\nprintln(even)   // [2, 4, 6, 8]\nprintln(odd)    // [1, 3, 5, 7]"
+                title: "partition keeps both halves",
+                code: "data class User(val name: String, val active: Boolean)\n\nfun main() {\n    val numbers = listOf(1, 2, 3, 4, 5, 6, 7, 8)\n    val (even, odd) = numbers.partition { it % 2 == 0 }\n\n    println(\"even \" + even)\n    println(\"odd  \" + odd)\n\n    // partition keeps BOTH sides. filter throws the other half away.\n    println(\"filter only   \" + numbers.filter { it % 2 == 0 })\n\n    val users = listOf(User(\"Ada\", true), User(\"Grace\", false), User(\"Alan\", true))\n    val (active, inactive) = users.partition { it.active }\n    println(\"active   \" + active.map { it.name })\n    println(\"inactive \" + inactive.map { it.name })\n\n    // Order within each list is the original order.\n    println(\"order preserved \" + (even == listOf(2, 4, 6, 8)))\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "even [2, 4, 6, 8]",
+                        "odd  [1, 3, 5, 7]",
+                        "filter only   [2, 4, 6, 8]",
+                        "active   [Ada, Alan]",
+                        "inactive [Grace]",
+                        "order preserved true"
+                    ],
+                    explain: "<p><code>partition</code> returns a <code>Pair</code> of lists — matching and non-matching — and destructuring it into two names is what makes it read well. <code>filter</code> answers the same question and throws the other half away, so getting both means running the predicate twice and keeping the negation in step.</p><p>Order inside each list is the original order, which the last line confirms. That matters when partitioning something already sorted.</p>"
+                }
             }],
             subsection: null
         },
@@ -420,8 +664,21 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Custom infix function",
-                code: "infix fun Int.pow(exponent: Int): Int {\n    var result = 1\n    repeat(exponent) { result *= this }\n    return result\n}\n\nval value = 2 pow 10          // 1024, reads naturally\nval pair = \"key\" to \"value\"   // stdlib's infix `to`"
+                title: "infix functions, and how they bind",
+                code: "infix fun Int.pow(exponent: Int): Int {\n    var result = 1\n    repeat(exponent) { result *= this }\n    return result\n}\n\ndata class Money(val amount: Int, val currency: String)\ninfix fun Int.of(currency: String) = Money(this, currency)\n\nfun main() {\n    println(\"2 pow 10 = \" + (2 pow 10))\n    println(\"3 pow 3  = \" + (3 pow 3))\n\n    // The stdlib's `to` is an ordinary infix function, not syntax.\n    val pair = \"key\" to \"value\"\n    println(\"\\\"key\\\" to \\\"value\\\" = $pair\")\n\n    println(\"50 of \\\"USD\\\" = \" + (50 of \"USD\"))\n\n    // Infix binds looser than arithmetic, which is a common surprise.\n    println(\"2 pow 2 + 1  = \" + (2 pow 2 + 1) + \"   (parsed as 2 pow 3)\")\n    println(\"(2 pow 2) + 1 = \" + ((2 pow 2) + 1))\n\n    // Dotted form still works; infix only removes the dot and parentheses.\n    println(\"2.pow(10) = \" + 2.pow(10))\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "2 pow 10 = 1024",
+                        "3 pow 3  = 27",
+                        "\"key\" to \"value\" = (key, value)",
+                        "50 of \"USD\" = Money(amount=50, currency=USD)",
+                        "2 pow 2 + 1  = 8   (parsed as 2 pow 3)",
+                        "(2 pow 2) + 1 = 5",
+                        "2.pow(10) = 1024"
+                    ],
+                    explain: "<p><code>infix</code> only removes the dot and the parentheses — the last line calls the same function the ordinary way. It is available on single-parameter member or extension functions, and Kotlin's own <code>to</code> is exactly this, not syntax.</p><p>The two middle lines are the catch. Infix binds <strong>looser than arithmetic</strong>, so <code>2 pow 2 + 1</code> parses as <code>2 pow 3</code> and gives 8, not 5. That is the reason to reserve <code>infix</code> for operations where the reading order is obvious — <code>50 of \"USD\"</code>, <code>\"key\" to \"value\"</code> — and not for anything that will sit inside a larger expression.</p>"
+                }
             }],
             subsection: null
         },
@@ -437,8 +694,21 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "expect/actual in KMP",
-                code: "// commonMain\nexpect fun currentPlatformName(): String\n\nclass Greeter {\n    fun greet(): String = \"Running on ${currentPlatformName()}\"\n}\n\n// androidMain\nactual fun currentPlatformName(): String = \"Android\"\n\n// iosMain\nactual fun currentPlatformName(): String = \"iOS\""
+                title: "expect and actual in KMP",
+                code: "// commonMain\nexpect fun currentPlatformName(): String\n\nclass Greeter {\n    fun greet(): String = \"Running on ${currentPlatformName()}\"\n}\n\n// androidMain\nactual fun currentPlatformName(): String = \"Android\"\n\n// iosMain\nactual fun currentPlatformName(): String = \"iOS\"",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "commonMain declares expect fun currentPlatformName(). It has no body — it is a promise that every target will supply one.",
+                        "Shared code such as Greeter is written against that declaration and compiles without knowing any platform.",
+                        "androidMain supplies actual fun currentPlatformName() returning \"Android\".",
+                        "iosMain supplies its own actual, returning \"iOS\".",
+                        "Each target is compiled separately, and the compiler pairs every expect with exactly one actual for that target.",
+                        "A missing actual is a compile error for that target, so a platform cannot be forgotten.",
+                        "The result is one Greeter, compiled into an Android library and an iOS framework, giving different answers."
+                    ],
+                    explain: "<p>Step 6 is the property that makes this more than an interface: the pairing is checked at compile time per target, so an unimplemented platform fails the build rather than at run time.</p><p><code>expect</code>/<code>actual</code> is deliberately a last resort. Most shared code needs no platform hook at all, and where it does, an interface implemented per platform and injected is often easier to test. <code>expect</code>/<code>actual</code> earns its place for things with no sensible abstraction — the current platform name, a file path, a UUID generator.</p>"
+                }
             }],
             subsection: null
         },
@@ -468,7 +738,18 @@ const kotlinData = {
             codeSnippets: [{
                 language: "kotlin",
                 title: "runBlocking as an entry point",
-                code: "fun main() = runBlocking {\n    println(\"Start on ${Thread.currentThread().name}\")\n    val data = fetchData()   // suspend function\n    println(\"Got: $data\")\n}\n\nsuspend fun fetchData(): String {\n    delay(500)\n    return \"result\"\n}"
+                code: "import kotlinx.coroutines.*\n\nsuspend fun fetchData(): String {\n    delay(50)\n    return \"result\"\n}\n\nfun main() = runBlocking {\n    println(\"start on ${Thread.currentThread().name}\")\n    val data = fetchData()\n    println(\"got: $data\")\n    println(\"still on ${Thread.currentThread().name}\")\n\n    // runBlocking BLOCKS its thread until everything inside finishes — which is\n    // exactly why it belongs in main() and tests, and never in Android code.\n    val job = launch { delay(20); println(\"child finished before runBlocking returns\") }\n    println(\"child launched, runBlocking will wait for it\")\n    job.join()\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "start on main",
+                        "got: result",
+                        "still on main",
+                        "child launched, runBlocking will wait for it",
+                        "child finished before runBlocking returns"
+                    ],
+                    explain: "<p><code>runBlocking</code> is the bridge from ordinary blocking code into suspending code. It starts a coroutine and <strong>blocks the calling thread</strong> until everything inside has finished — including the child launched at the end, which is why its line prints before <code>main</code> returns.</p><p>That blocking is exactly why it belongs in <code>main</code> and in tests and nowhere else. Calling it on Android's main thread would freeze the UI for the duration, which is the opposite of what coroutines are for. Inside a coroutine you already have <code>launch</code>, <code>async</code> and <code>withContext</code>, none of which block anything.</p>"
+                }
             }],
             subsection: null
         },
@@ -510,7 +791,20 @@ const kotlinData = {
             codeSnippets: [{
                 language: "kotlin",
                 title: "Cancelling a parent cancels its children",
-                code: "class SyncViewModel : ViewModel() {\n    fun startSync() {\n        viewModelScope.launch {          // parent\n            launch { uploadPhotos() }    // child A\n            launch { downloadFeed() }    // child B\n        }\n    }\n\n    override fun onCleared() {\n        // viewModelScope is cancelled automatically here,\n        // cancelling child A and child B — no manual bookkeeping needed\n    }\n}"
+                code: "class SyncViewModel : ViewModel() {\n    fun startSync() {\n        viewModelScope.launch {          // parent\n            launch { uploadPhotos() }    // child A\n            launch { downloadFeed() }    // child B\n        }\n    }\n\n    override fun onCleared() {\n        // viewModelScope is cancelled automatically here,\n        // cancelling child A and child B — no manual bookkeeping needed\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "viewModelScope.launch starts a parent coroutine, whose Job is a child of the scope's Job.",
+                        "The two inner launches create children of that parent, forming a tree.",
+                        "The parent does not complete until both children have completed — even though its own body finished immediately.",
+                        "The user leaves the screen, and the ViewModel is cleared.",
+                        "onCleared cancels viewModelScope, which cancels its child, which cancels both grandchildren.",
+                        "The uploads and downloads stop at their next suspension point, and their finally blocks run.",
+                        "No job references were stored and no cancellation was written by hand."
+                    ],
+                    explain: "<p>Step 7 is the whole benefit. The callback-era version of this needed a field per in-flight operation and a cancel call for each in <code>onDestroy</code>, and the bug was always the one you forgot.</p><p>Step 3 is the less obvious half of the contract: a coroutine is not finished until its children are. That is what makes <code>coroutineScope { }</code> a reliable boundary, and it is why a leaked child cannot outlive the scope that created it.</p>"
+                }
             }],
             subsection: null
         },
@@ -526,8 +820,23 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "buildString for efficient concatenation",
-                code: "val report = buildString {\n    append(\"Report\\n\")\n    for (i in 1..3) {\n        append(\"Line $i\\n\")   // mutated in place via StringBuilder\n    }\n}\nprintln(report)"
+                title: "buildString, and why += in a loop is different",
+                code: "fun main() {\n    val report = buildString {\n        append(\"Report\\n\")\n        for (i in 1..3) {\n            append(\"Line $i\\n\")       // one StringBuilder, mutated in place\n        }\n    }\n    print(report)\n\n    println(\"---\")\n\n    // The same text built by concatenation allocates a new String per pass.\n    var slow = \"Report\\n\"\n    for (i in 1..3) slow += \"Line $i\\n\"\n    println(\"identical text? \" + (slow == report))\n\n    // A StringBuilder mutates and returns itself; a String never does.\n    val sb = StringBuilder(\"a\")\n    println(\"append returns the same object? \" + (sb.append(\"b\") === sb))\n\n    val s = \"a\"\n    println(\"plus returns a new object?      \" + (s.plus(\"b\") !== s))\n\n    // joinToString is usually shorter than either for a collection.\n    println((1..3).joinToString(prefix = \"Report: \") { \"Line $it\" })\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "Report",
+                        "Line 1",
+                        "Line 2",
+                        "Line 3",
+                        "---",
+                        "identical text? true",
+                        "append returns the same object? true",
+                        "plus returns a new object?      true",
+                        "Report: Line 1, Line 2, Line 3"
+                    ],
+                    explain: "<p>Both loops produce identical text and do very different work. <code>buildString</code> gives the block a <code>StringBuilder</code> and returns its contents — one buffer, appended to in place. The <code>+=</code> loop creates a new <code>String</code> on every pass and copies everything so far into it, which turns a linear job into a quadratic one.</p><p>The two identity checks are that difference stated precisely: <code>append</code> returned the same object, <code>plus</code> returned a different one. Strings are immutable, so there is no other way for them to behave.</p><p>For a collection, <code>joinToString</code> is shorter than either and does the same thing underneath. <code>StringBuffer</code> is the synchronised variant and is almost never the right choice on Android.</p>"
+                }
             }],
             subsection: null
         },
@@ -543,8 +852,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "val reference vs mutable content",
-                code: "val list = mutableListOf(1, 2, 3)\nlist.add(4)          // fine: mutating contents, not reassigning the reference\n// list = mutableListOf(5)   // ERROR: val cannot be reassigned\n\nvar count = 0\ncount += 1            // fine: var can be reassigned"
+                title: "val is about the reference, not the object",
+                code: "class Score {\n    var backing = 10                       // var: reassignable\n    val doubled: Int get() = backing * 2   // val with a getter: recomputed on read\n}\n\nfun main() {\n    val list = mutableListOf(1, 2, 3)\n    list.add(4)                    // fine: the CONTENTS change, not the reference\n    // list = mutableListOf(5)     // ERROR: val cannot be reassigned\n    println(\"val list after add: $list\")\n\n    var count = 0\n    count += 1                     // fine: a var may be reassigned\n    println(\"var count: $count\")\n\n    // val controls the reference, not the object it points at.\n    val readOnlyView: List<Int> = list\n    list.add(5)\n    println(\"val List changed underneath: $readOnlyView\")\n\n    // For real immutability the object has to be immutable too.\n    val frozen: List<Int> = listOf(1, 2, 3)\n    println(\"listOf is readable, not mutable: $frozen\")\n\n    // A val is not the same as a constant: a custom getter runs on every read.\n    val score = Score()\n    println(\"doubled = ${score.doubled}\")\n    score.backing = 20\n    println(\"doubled = ${score.doubled}  (still a val, still changed)\")\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "val list after add: [1, 2, 3, 4]",
+                        "var count: 1",
+                        "val List changed underneath: [1, 2, 3, 4, 5]",
+                        "listOf is readable, not mutable: [1, 2, 3]",
+                        "doubled = 20",
+                        "doubled = 40  (still a val, still changed)"
+                    ],
+                    explain: "<p>The first line is the whole misunderstanding. <code>list</code> is a <code>val</code> and it changed — because <code>val</code> forbids <strong>reassigning the reference</strong> and says nothing about the object it points at. <code>list = mutableListOf(5)</code> would not compile; <code>list.add(4)</code> is fine.</p><p>The third line takes it further: a <code>List</code> declared read-only can still change underneath you if something else holds the same object as a <code>MutableList</code>. <code>List</code> is a read-only <em>view</em>, not a guarantee of immutability.</p><p>And the last pair shows a <code>val</code> is not a constant. With a custom getter it is recomputed on every read — for a genuine compile-time constant you need <code>const val</code>.</p>"
+                }
             }],
             subsection: null
         },
@@ -560,8 +881,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Checking lateinit initialization",
-                code: "class ProfileActivity : AppCompatActivity() {\n    lateinit var binding: ActivityProfileBinding\n\n    override fun onDestroy() {\n        super.onDestroy()\n        if (::binding.isInitialized) {\n            binding.root.removeAllViews()\n        }\n    }\n}"
+                title: "isInitialized, and what happens without it",
+                code: "class Binding(val root: String) {\n    fun removeAllViews() = println(\"  binding: views removed\")\n}\n\n// Stands in for an Activity holding a view binding.\nclass ProfileScreen {\n    lateinit var binding: Binding\n\n    fun onCreate() {\n        binding = Binding(\"profile_root\")\n        println(\"  onCreate: binding assigned\")\n    }\n\n    fun onDestroy() {\n        if (::binding.isInitialized) {\n            binding.removeAllViews()\n        } else {\n            println(\"  onDestroy: nothing to clean up\")\n        }\n    }\n}\n\nfun main() {\n    println(\"destroyed without ever being created:\")\n    ProfileScreen().onDestroy()\n\n    println(\"normal lifecycle:\")\n    val screen = ProfileScreen()\n    screen.onCreate()\n    screen.onDestroy()\n\n    // Reading a lateinit before assignment throws, which is the whole reason\n    // the isInitialized check exists.\n    try {\n        println(ProfileScreen().binding.root)\n    } catch (e: UninitializedPropertyAccessException) {\n        println(\"reading it early threw: \" + e.message)\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "destroyed without ever being created:",
+                        "  onDestroy: nothing to clean up",
+                        "normal lifecycle:",
+                        "  onCreate: binding assigned",
+                        "  binding: views removed",
+                        "reading it early threw: lateinit property binding has not been initialized"
+                    ],
+                    explain: "<p>The last line is why the check exists. Reading a <code>lateinit</code> property before anything assigned it throws <code>UninitializedPropertyAccessException</code> — not a <code>NullPointerException</code>, because as far as the type system is concerned the property is not nullable at all.</p><p><code>::binding.isInitialized</code> is the only safe way to ask, and cleanup code is where it earns its place: <code>onDestroy</code> can run on a screen that was torn down before it finished being set up, and a bare <code>binding.removeAllViews()</code> there would crash.</p><p>The syntax only works on a <code>lateinit</code> property from inside the class that declares it.</p>"
+                }
             }],
             subsection: null
         },
@@ -577,8 +910,21 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "lazy with thread-safety mode",
-                code: "class ImageProcessor {\n    val regexCache: Regex by lazy(LazyThreadSafetyMode.NONE) {\n        println(\"Compiling regex...\")\n        Regex(\"[a-z]+\\\\.png$\")\n    }\n}\n\nval processor = ImageProcessor()\n// Regex not compiled yet\nprintln(processor.regexCache.matches(\"photo.png\"))   // compiled here, then cached"
+                title: "lazy runs once, on first read",
+                code: "class ImageProcessor {\n    val regexCache: Regex by lazy(LazyThreadSafetyMode.NONE) {\n        println(\"  compiling regex (this runs once)\")\n        Regex(\"[a-z]+\\\\.png$\")\n    }\n}\n\nfun main() {\n    val processor = ImageProcessor()\n    println(\"processor built — the regex has NOT been compiled yet\")\n\n    println(\"matches('photo.png') = \" + processor.regexCache.matches(\"photo.png\"))\n    println(\"matches('photo.jpg') = \" + processor.regexCache.matches(\"photo.jpg\"))\n\n    // The initialiser never runs a second time; the value is cached.\n    println(\"same Regex instance both times: \" + (processor.regexCache === processor.regexCache))\n\n    // A second object has its own lazy property, and its own initialiser run.\n    println(\"second processor:\")\n    ImageProcessor().regexCache\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "processor built — the regex has NOT been compiled yet",
+                        "  compiling regex (this runs once)",
+                        "matches('photo.png') = true",
+                        "matches('photo.jpg') = false",
+                        "same Regex instance both times: true",
+                        "second processor:",
+                        "  compiling regex (this runs once)"
+                    ],
+                    explain: "<p>Building the object printed nothing — the regex was compiled only when the property was first read, and the second read reused the cached value rather than running the initialiser again. The identity check confirms it is genuinely the same object.</p><p>The last two lines are the part people assume wrongly: <code>lazy</code> is <strong>per instance</strong>, not per class. A second <code>ImageProcessor</code> compiles its own regex.</p><p><code>LazyThreadSafetyMode.NONE</code> drops the synchronisation that the default mode uses to guarantee the initialiser runs once even under concurrent access. It is the right choice for anything only ever touched from the main thread, and a race waiting to happen anywhere else.</p>"
+                }
             }],
             subsection: null
         },
@@ -607,8 +953,21 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Top-level function vs companion object",
-                code: "// Top-level — file: StringUtils.kt\nfun String.capitalizeWords(): String =\n    split(\" \").joinToString(\" \") { it.replaceFirstChar(Char::uppercase) }\n\n// Companion object — tied to the class\nclass Config {\n    companion object {\n        fun default(): Config = Config()\n    }\n}"
+                title: "Three replacements for static",
+                code: "// Top-level: no class needed. Compiled to a static method on StaticEquivalentKt.\nfun String.capitalizeWords(): String =\n    split(\" \").joinToString(\" \") { it.replaceFirstChar(Char::uppercase) }\n\nconst val APP_NAME = \"DroidDeck\"\n\n// Companion object: tied to a class, and it is a real object with a real type.\nclass Config private constructor(val theme: String) {\n    companion object {\n        fun default(): Config = Config(\"light\")\n        fun dark(): Config = Config(\"dark\")\n    }\n    override fun toString() = \"Config(theme=$theme)\"\n}\n\nobject Singleton {          // an object declaration, not attached to a class\n    fun describe() = \"one instance, created on first use\"\n}\n\nfun main() {\n    println(\"ada lovelace\".capitalizeWords())\n    println(\"APP_NAME = $APP_NAME\")\n\n    println(Config.default())\n    println(Config.dark())\n\n    // Unlike Java's static, a companion is an object you can hold and pass.\n    val companion = Config.Companion\n    println(\"companion held in a variable -> \" + companion.default())\n\n    println(Singleton.describe())\n    println(\"Singleton is one instance: \" + (Singleton === Singleton))\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "Ada Lovelace",
+                        "APP_NAME = DroidDeck",
+                        "Config(theme=light)",
+                        "Config(theme=dark)",
+                        "companion held in a variable -> Config(theme=light)",
+                        "one instance, created on first use",
+                        "Singleton is one instance: true"
+                    ],
+                    explain: "<p>Kotlin has no <code>static</code>, and offers three different things in its place.</p><p>A <strong>top-level function</strong> needs no class at all — it compiles to a static method on a file class, and it is the right home for a utility that is not tied to any type. A <strong>companion object</strong> attaches to a class, which is what you want for a factory, since <code>Config.default()</code> belongs with <code>Config</code>. An <strong>object declaration</strong> is a standalone singleton.</p><p>The line that holds a companion in a variable is the real difference from Java. A companion is an object with a type, so it can implement an interface and be passed around; <code>static</code> members are just members and cannot.</p>"
+                }
             }],
             subsection: null
         },
@@ -624,8 +983,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Singleton via object declaration",
-                code: "object AppSettings {\n    var isDarkMode: Boolean = false\n    private val cache = mutableMapOf<String, String>()\n\n    fun put(key: String, value: String) {\n        cache[key] = value\n    }\n}\n\n// Usage — same instance everywhere\nAppSettings.isDarkMode = true\nAppSettings.put(\"lang\", \"en\")"
+                title: "object, and the reach that comes with it",
+                code: "object AppSettings {\n    var isDarkMode: Boolean = false\n    private val cache = mutableMapOf<String, String>()\n\n    fun put(key: String, value: String) { cache[key] = value }\n    fun get(key: String): String? = cache[key]\n    fun size() = cache.size\n}\n\nfun somewhereElse() {\n    // No reference was passed in; the object is reachable from anywhere.\n    println(\"elsewhere sees isDarkMode = \" + AppSettings.isDarkMode)\n    println(\"elsewhere sees lang       = \" + AppSettings.get(\"lang\"))\n}\n\nfun main() {\n    AppSettings.isDarkMode = true\n    AppSettings.put(\"lang\", \"en\")\n\n    somewhereElse()\n\n    println(\"one instance: \" + (AppSettings === AppSettings))\n    println(\"cache size:   \" + AppSettings.size())\n\n    // That reach is the cost as well as the point: this state outlives every\n    // caller and there is no seam to replace it in a test.\n    AppSettings.put(\"lang\", \"hi\")\n    somewhereElse()\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "elsewhere sees isDarkMode = true",
+                        "elsewhere sees lang       = en",
+                        "one instance: true",
+                        "cache size:   1",
+                        "elsewhere sees isDarkMode = true",
+                        "elsewhere sees lang       = hi"
+                    ],
+                    explain: "<p><code>object</code> is Kotlin's singleton: one instance, created lazily on first use, thread-safely, with no boilerplate. <code>somewhereElse()</code> takes no parameters and still sees the state, which is exactly the convenience being offered.</p><p>It is also the cost, and the last two lines show it. That state is global and mutable, it outlives every caller, and there is no way to substitute it. A test asserting on <code>AppSettings</code> is asserting on state some earlier test may have written.</p><p>Reach for <code>object</code> for stateless helpers and constants. For anything holding mutable state, an injected <code>@Singleton</code> gives you the same single instance with a seam to replace it.</p>"
+                }
             }],
             subsection: null
         },
@@ -654,8 +1025,18 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "apply for object configuration",
-                code: "val intent = Intent(this, DetailActivity::class.java).apply {\n    putExtra(\"user_id\", 42)\n    putExtra(\"source\", \"deep_link\")\n    flags = Intent.FLAG_ACTIVITY_NEW_TASK\n}\nstartActivity(intent)"
+                title: "apply configures and returns the receiver",
+                code: "// Stands in for android.content.Intent.\nclass Intent(val target: String) {\n    val extras = mutableMapOf<String, Any>()\n    var flags = 0\n    fun putExtra(key: String, value: Any) { extras[key] = value }\n    override fun toString() = \"Intent(target=$target, extras=$extras, flags=$flags)\"\n}\n\nfun main() {\n    val intent = Intent(\"DetailActivity\").apply {\n        putExtra(\"user_id\", 42)          // `this` is the Intent; no name repeated\n        putExtra(\"source\", \"deep_link\")\n        flags = 268435456\n    }\n    println(intent)\n\n    // apply returns the RECEIVER, so it can be used inline.\n    println(\"apply returns the same object: \" + (Intent(\"X\").apply { flags = 1 } is Intent))\n\n    val chained = Intent(\"Chained\").apply { putExtra(\"a\", 1) }.apply { putExtra(\"b\", 2) }\n    println(chained)\n\n    // The equivalent without apply: the variable name on every line.\n    val verbose = Intent(\"Verbose\")\n    verbose.putExtra(\"user_id\", 42)\n    verbose.putExtra(\"source\", \"deep_link\")\n    verbose.flags = 268435456\n    println(\"same result, more repetition: \" + (verbose.extras == intent.extras))\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "Intent(target=DetailActivity, extras={user_id=42, source=deep_link}, flags=268435456)",
+                        "apply returns the same object: true",
+                        "Intent(target=Chained, extras={a=1, b=2}, flags=0)",
+                        "same result, more repetition: true"
+                    ],
+                    explain: "<p>Inside <code>apply</code> the object is <code>this</code>, so its members are in scope unqualified and the variable name disappears from every line — compare the block at the bottom, which is the same four operations with <code>verbose.</code> written four times.</p><p>Because <code>apply</code> returns <strong>the receiver</strong>, the whole thing is an expression: the configured object can be assigned, chained, or passed straight to a function, which is why the Android idiom is <code>startActivity(Intent(...).apply { })</code>.</p><p>That return value is the whole difference from <code>run</code> and <code>with</code>, which return the lambda's result instead.</p>"
+                }
             }],
             subsection: null
         },
@@ -671,8 +1052,19 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "let for null-safety",
-                code: "fun showUserName(name: String?) {\n    name?.let {\n        // executes only if name is non-null; `it` is smart-cast to String\n        println(\"Hello, $it\")\n    } ?: println(\"No user\")\n}"
+                title: "let for null-safety, and where the idiom leaks",
+                code: "data class Address(val city: String?)\ndata class User(val name: String, val address: Address?)\n\nfun showUserName(name: String?) {\n    name?.let {\n        println(\"Hello, $it\")        // runs only when name is not null\n    } ?: println(\"No user\")\n}\n\nfun main() {\n    showUserName(\"Ada\")\n    showUserName(null)\n\n    // let returns the lambda's value, so it can transform as well as guard.\n    val length: Int = \"Ada\".let { it.length }\n    println(\"let returns the lambda result: $length\")\n\n    // Chaining through nullable properties.\n    val user = User(\"Ada\", Address(null))\n    println(\"city = \" + (user.address?.city?.let { \"in $it\" } ?: \"unknown\"))\n\n    // The trap: ?.let { } ?: run { } also fires the elvis branch when the\n    // lambda itself returns null.\n    val surprising = \"Ada\".let { null } ?: \"elvis branch ran anyway\"\n    println(surprising)\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "Hello, Ada",
+                        "No user",
+                        "let returns the lambda result: 3",
+                        "city = unknown",
+                        "elvis branch ran anyway"
+                    ],
+                    explain: "<p><code>?.let { }</code> runs the block only when the receiver is non-null, and inside it <code>it</code> is the non-null type — which is why no further checks are needed. <code>let</code> also returns the lambda's value, so it transforms as well as guards.</p><p>The last line is the flaw in the popular <code>?.let { } ?: run { }</code> pattern. The elvis operator does not know <em>why</em> the left side was null: if the receiver was non-null but the <strong>lambda returned null</strong>, the fallback runs anyway. Here the receiver was a perfectly good <code>\"Ada\"</code> and the \"no user\" branch still fired.</p><p>When both branches matter, an <code>if (x != null)</code> is clearer and cannot misfire.</p>"
+                }
             }],
             subsection: null
         },
@@ -701,8 +1093,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "apply vs with",
-                code: "// apply — returns the receiver, chainable, works with nullable\nval view = TextView(context).apply {\n    text = \"Hello\"\n    textSize = 16f\n}\n\n// with — returns the lambda result, receiver passed as argument\nval summary = with(view) {\n    \"$text (${textSize}sp)\"\n}"
+                title: "apply, with, also and run",
+                code: "class TextView {\n    var text: String = \"\"\n    var textSize: Float = 14f\n}\n\nfun main() {\n    // apply: configure and return the receiver.\n    val view = TextView().apply {\n        text = \"Hello\"\n        textSize = 16f\n    }\n    println(\"apply gave back a \" + view::class.simpleName)\n\n    // with: operate on a receiver and return the LAMBDA's value.\n    val summary: String = with(view) {\n        \"$text (${textSize}sp)\"\n    }\n    println(\"with gave back    \" + summary)\n\n    // also: like apply, but the receiver is `it` rather than `this`.\n    val logged = view.also { println(\"also sees text = \" + it.text) }\n    println(\"also returns the receiver too: \" + (logged === view))\n\n    // run: like with, but called on the receiver, and null-safe with ?.\n    println(\"run gives        \" + view.run { text.length })\n\n    val missing: TextView? = null\n    println(\"null?.run gives  \" + missing?.run { text })\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "apply gave back a TextView",
+                        "with gave back    Hello (16.0sp)",
+                        "also sees text = Hello",
+                        "also returns the receiver too: true",
+                        "run gives        5",
+                        "null?.run gives  null"
+                    ],
+                    explain: "<p>Two questions separate all four: <strong>what is the object called inside the block</strong>, and <strong>what comes out</strong>.</p><p><code>apply</code> and <code>also</code> return the receiver, so they are for configuring or observing something and carrying on with it — <code>apply</code> calls it <code>this</code>, <code>also</code> calls it <code>it</code>, which is handier when you want to log it or the name would shadow something.</p><p><code>with</code> and <code>run</code> return the lambda's value, so they are for computing something <em>from</em> the object. The difference is only how they are called, and that matters: <code>run</code> is an extension, so it chains off a nullable with <code>?.</code>, which the last line uses. <code>with</code> takes its receiver as an argument and cannot.</p>"
+                }
             }],
             subsection: null
         },
@@ -718,8 +1122,22 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Array vs List",
-                code: "val intArray: IntArray = intArrayOf(1, 2, 3)   // unboxed primitives\nintArray[0] = 99                                // mutable by index, fixed size\n\nval list: List<Int> = listOf(1, 2, 3)          // read-only, boxed Ints\nval mutable: MutableList<Int> = mutableListOf(1, 2, 3)\nmutable.add(4)                                  // can grow"
+                title: "Array, List and MutableList",
+                code: "fun main() {\n    val intArray: IntArray = intArrayOf(1, 2, 3)   // unboxed primitives\n    intArray[0] = 99                               // mutable by index, fixed size\n    println(\"IntArray        \" + intArray.joinToString())\n    println(\"size is fixed:  \" + intArray.size)\n\n    val list: List<Int> = listOf(1, 2, 3)          // read-only view, boxed Ints\n    println(\"List            \" + list)\n\n    val mutable: MutableList<Int> = mutableListOf(1, 2, 3)\n    mutable.add(4)\n    println(\"MutableList     \" + mutable)\n\n    // `List` is read-only, not immutable: the same object can be seen as both.\n    val readOnly: List<Int> = mutable\n    mutable.add(5)\n    println(\"read-only view changed underneath: \" + readOnly)\n\n    // Arrays compare by identity; lists compare by content.\n    println(\"arrays ==       \" + (intArrayOf(1, 2) == intArrayOf(1, 2)))\n    println(\"arrays contentEquals \" + intArrayOf(1, 2).contentEquals(intArrayOf(1, 2)))\n    println(\"lists ==        \" + (listOf(1, 2) == listOf(1, 2)))\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "IntArray        99, 2, 3",
+                        "size is fixed:  3",
+                        "List            [1, 2, 3]",
+                        "MutableList     [1, 2, 3, 4]",
+                        "read-only view changed underneath: [1, 2, 3, 4, 5]",
+                        "arrays ==       false",
+                        "arrays contentEquals true",
+                        "lists ==        true"
+                    ],
+                    explain: "<p>An <code>IntArray</code> holds unboxed primitives in a fixed-size block — mutable by index, never growable. That makes it the right choice for large numeric data and the wrong choice for almost everything else.</p><p>The line about the read-only view is the one to remember: <code>List</code> means <em>read-only</em>, not immutable. The same object was handed out as a <code>List</code> and mutated through the <code>MutableList</code> reference, and the read-only view saw the change. Returning <code>list.toList()</code> is what actually protects a caller.</p><p>The comparison lines are a genuine trap: arrays compare by identity even with <code>==</code>, so two arrays with identical contents are unequal. <code>contentEquals</code> is the one you want, and lists need no such care.</p>"
+                }
             }],
             subsection: null
         },
@@ -735,8 +1153,22 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Labeled break and labeled return",
-                code: "outer@ for (i in 1..3) {\n    for (j in 1..3) {\n        if (j == 2) continue@outer\n        if (i == 3) break@outer\n        println(\"i=$i j=$j\")\n    }\n}\n\nlistOf(1, 2, 3, 4).forEach {\n    if (it == 3) return@forEach   // skips just this iteration\n    println(it)\n}"
+                title: "Labelled break, continue and return",
+                code: "fun main() {\n    outer@ for (i in 1..3) {\n        for (j in 1..3) {\n            if (j == 2) continue@outer     // next i, not next j\n            if (i == 3) break@outer        // leaves both loops\n            println(\"i=$i j=$j\")\n        }\n    }\n\n    println(\"---\")\n\n    listOf(1, 2, 3, 4).forEach {\n        if (it == 3) return@forEach        // skips this element only, like `continue`\n        println(\"forEach $it\")\n    }\n\n    println(\"---\")\n\n    // Without a label, `return` inside forEach would return from main itself,\n    // because forEach is inline. The label is what keeps it local.\n    val firstOdd = run {\n        listOf(2, 4, 5, 6).forEach { if (it % 2 == 1) return@run it }\n        -1\n    }\n    println(\"first odd = $firstOdd\")\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "i=1 j=1",
+                        "i=2 j=1",
+                        "---",
+                        "forEach 1",
+                        "forEach 2",
+                        "forEach 4",
+                        "---",
+                        "first odd = 5"
+                    ],
+                    explain: "<p>The nested loops show why labels exist. A plain <code>continue</code> would go to the next <code>j</code>; <code>continue@outer</code> skips to the next <code>i</code>, and <code>break@outer</code> leaves both loops at once — which is otherwise a flag variable and an extra condition.</p><p><code>return@forEach</code> is the one seen most in real code, and it is the least obvious. Because <code>forEach</code> is inline, a bare <code>return</code> inside it returns from the <strong>enclosing function</strong>, not from the iteration — the same non-local return the <code>inline</code> question is about. The label is what makes it behave like <code>continue</code>.</p><p>The <code>run { }</code> block at the end is the idiom for breaking out of a <code>forEach</code> entirely with a value.</p>"
+                }
             }],
             subsection: null
         },
@@ -752,8 +1184,21 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Basic coroutine usage",
-                code: "class UserViewModel(private val repo: UserRepository) : ViewModel() {\n    fun loadUser(id: String) {\n        viewModelScope.launch {\n            val user = repo.fetchUser(id)   // suspend call, no thread blocked\n            _uiState.value = UiState.Success(user)\n        }\n    }\n}"
+                title: "A coroutine in a ViewModel",
+                code: "class UserViewModel(private val repo: UserRepository) : ViewModel() {\n    fun loadUser(id: String) {\n        viewModelScope.launch {\n            val user = repo.fetchUser(id)   // suspend call, no thread blocked\n            _uiState.value = UiState.Success(user)\n        }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "loadUser is called from the UI thread and returns immediately — launch does not wait.",
+                        "The coroutine body starts on Dispatchers.Main, because that is viewModelScope's default.",
+                        "repo.fetchUser suspends. The main thread is released and goes back to drawing frames.",
+                        "The repository does its work on whichever dispatcher it chose, typically IO.",
+                        "When it returns, the coroutine resumes on the main thread.",
+                        "_uiState.value is set from the main thread, which is where UI state must be written.",
+                        "If the ViewModel is cleared while the call is in flight, viewModelScope cancels the coroutine and the assignment never happens."
+                    ],
+                    explain: "<p>Steps 3 and 5 are why this reads like blocking code and is not. There is no callback, no thread handoff written by hand, and the line after the suspending call is already back on the main thread.</p><p>Step 7 is the safety property. Without it, a response arriving after the screen is gone would write to a dead ViewModel — the callback-era leak that this structure removes by construction.</p>"
+                }
             }],
             subsection: null
         },
@@ -769,8 +1214,19 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "coroutineScope for concurrent child work",
-                code: "suspend fun loadDashboard(): Dashboard = coroutineScope {\n    val profile = async { fetchProfile() }\n    val feed = async { fetchFeed() }\n    Dashboard(profile.await(), feed.await())\n    // coroutineScope suspends here until both children complete\n}"
+                title: "coroutineScope for concurrent children",
+                code: "import kotlinx.coroutines.*\n\ndata class Dashboard(val profile: String, val feed: String)\n\nsuspend fun fetchProfile(): String { delay(100); println(\"  profile done\"); return \"Ada\" }\nsuspend fun fetchFeed(): String { delay(50); println(\"  feed done\"); return \"3 posts\" }\n\nsuspend fun loadDashboard(): Dashboard = coroutineScope {\n    val profile = async { fetchProfile() }\n    val feed = async { fetchFeed() }\n    Dashboard(profile.await(), feed.await())\n    // coroutineScope does not return until both children are done\n}\n\nfun main() = runBlocking<Unit> {\n    println(\"loading\")\n    println(\"loaded: \" + loadDashboard())\n\n    // If one child fails, coroutineScope cancels the others and rethrows.\n    try {\n        coroutineScope {\n            launch { delay(200); println(\"this never prints\") }\n            launch { delay(10); throw IllegalStateException(\"child failed\") }\n        }\n    } catch (e: IllegalStateException) {\n        println(\"coroutineScope rethrew: \" + e.message)\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "loading",
+                        "  feed done",
+                        "  profile done",
+                        "loaded: Dashboard(profile=Ada, feed=3 posts)",
+                        "coroutineScope rethrew: child failed"
+                    ],
+                    explain: "<p><code>coroutineScope</code> suspends until every child inside it has finished, which is why the dashboard is complete on the next line. It is a suspending function, not a scope you store — it exists to give a group of concurrent children a well-defined lifetime.</p><p>The second half is the guarantee that matters. When one child threw, the other was <strong>cancelled</strong> — its 200ms wait never completed and its line never printed — and the exception was rethrown to the caller. That is structured concurrency: no child outlives the block, and no failure gets lost.</p><p><code>supervisorScope</code> is the same shape with the opposite rule for siblings.</p>"
+                }
             }],
             subsection: null
         },
@@ -787,7 +1243,20 @@ const kotlinData = {
             codeSnippets: [{
                 language: "kotlin",
                 title: "viewModelScope and lifecycleScope",
-                code: "class ProfileViewModel : ViewModel() {\n    fun refresh() {\n        viewModelScope.launch { /* cancelled on onCleared() */ }\n    }\n}\n\nclass ProfileFragment : Fragment() {\n    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {\n        viewLifecycleOwner.lifecycleScope.launch {\n            repeatOnLifecycle(Lifecycle.State.STARTED) {\n                viewModel.uiState.collect { render(it) }\n            }\n        }\n    }\n}"
+                code: "class ProfileViewModel : ViewModel() {\n    fun refresh() {\n        viewModelScope.launch { /* cancelled on onCleared() */ }\n    }\n}\n\nclass ProfileFragment : Fragment() {\n    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {\n        viewLifecycleOwner.lifecycleScope.launch {\n            repeatOnLifecycle(Lifecycle.State.STARTED) {\n                viewModel.uiState.collect { render(it) }\n            }\n        }\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "viewModelScope is tied to the ViewModel and is cancelled in onCleared.",
+                        "It therefore survives configuration changes: a rotation does not clear the ViewModel, so an in-flight request continues.",
+                        "lifecycleScope is tied to a lifecycle owner and is cancelled when that owner is destroyed.",
+                        "In a Fragment, viewLifecycleOwner.lifecycleScope matters more than lifecycleScope, because a Fragment's view is destroyed and recreated while the Fragment itself lives on.",
+                        "repeatOnLifecycle(STARTED) goes further: it starts the collection when the screen reaches STARTED and CANCELS it when the screen stops.",
+                        "On returning to the foreground, it starts a fresh collection.",
+                        "Without repeatOnLifecycle, a plain launch keeps collecting while the screen is in the background, updating a UI nobody is looking at."
+                    ],
+                    explain: "<p>Step 4 is the mistake that leaks in practice. Using <code>lifecycleScope</code> instead of <code>viewLifecycleOwner.lifecycleScope</code> in a Fragment binds the collection to the Fragment, which outlives its view — so the collector holds a destroyed view hierarchy.</p><p>Step 2 is the division of labour: work that should survive rotation goes in the ViewModel, and anything touching views goes in the view scope.</p>"
+                }
             }],
             subsection: null
         },
@@ -822,7 +1291,19 @@ const kotlinData = {
             codeSnippets: [{
                 language: "kotlin",
                 title: "Composing a CoroutineContext",
-                code: "val handler = CoroutineExceptionHandler { _, e -> println(\"Caught: $e\") }\nval context = Dispatchers.IO + CoroutineName(\"sync-job\") + handler\n\nCoroutineScope(context).launch {\n    println(coroutineContext[CoroutineName]?.name)   // \"sync-job\"\n}"
+                code: "import kotlinx.coroutines.*\n\nfun main() = runBlocking<Unit> {\n    val handler = CoroutineExceptionHandler { _, e -> println(\"caught: ${e.message}\") }\n\n    // A context is a set of elements, combined with +, keyed by type.\n    val context = Dispatchers.Default + CoroutineName(\"sync-job\") + handler\n\n    val scope = CoroutineScope(context)\n    scope.launch {\n        println(\"name        = \" + coroutineContext[CoroutineName]?.name)\n        println(\"has a job   = \" + (coroutineContext[Job] != null))\n        println(\"on a pool thread = \" + Thread.currentThread().name.startsWith(\"DefaultDispatcher\"))\n    }.join()\n\n    // A child inherits the parent's context, and can override one element.\n    scope.launch(CoroutineName(\"child\")) {\n        println(\"child name  = \" + coroutineContext[CoroutineName]?.name)\n    }.join()\n\n    // Adding the same key twice keeps the right-hand one.\n    val overridden = CoroutineName(\"first\") + CoroutineName(\"second\")\n    println(\"last wins   = \" + overridden[CoroutineName]?.name)\n\n    scope.launch { throw IllegalStateException(\"boom\") }.join()\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "name        = sync-job",
+                        "has a job   = true",
+                        "on a pool thread = true",
+                        "child name  = child",
+                        "last wins   = second",
+                        "caught: boom"
+                    ],
+                    explain: "<p>A context is a set of elements keyed by type, combined with <code>+</code> — a dispatcher, a name, a job, an exception handler. Every coroutine has one, and <code>coroutineContext[Key]</code> reads an element back out.</p><p>Two rules come out of the output. A child <strong>inherits</strong> its parent's context and may override individual elements, which is how <code>launch(Dispatchers.IO)</code> changes only the dispatcher. And combining two elements with the same key keeps the <strong>right-hand</strong> one, which is why the order in <code>Dispatchers.IO + CoroutineName(...)</code> matters when the same kind appears twice.</p><p>The one element you never inherit is <code>Job</code>: every coroutine gets its own, and that is what builds the parent-child tree.</p>"
+                }
             }],
             subsection: null
         },
@@ -838,8 +1319,21 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "launch vs async",
-                code: "viewModelScope.launch {\n    logEvent(\"screen_open\")   // fire-and-forget, no result needed\n}\n\nviewModelScope.launch {\n    val profile = async { repo.fetchProfile() }   // starts concurrently\n    val posts = async { repo.fetchPosts() }       // starts concurrently\n    render(profile.await(), posts.await())        // both awaited here\n}"
+                title: "launch against async",
+                code: "viewModelScope.launch {\n    logEvent(\"screen_open\")   // fire-and-forget, no result needed\n}\n\nviewModelScope.launch {\n    val profile = async { repo.fetchProfile() }   // starts concurrently\n    val posts = async { repo.fetchPosts() }       // starts concurrently\n    render(profile.await(), posts.await())        // both awaited here\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "launch starts a coroutine and returns a Job — a handle for cancelling and joining, with no result.",
+                        "The logging call needs nothing back, so launch is the right shape and there is nothing to await.",
+                        "In the second block, async starts fetchProfile and returns a Deferred immediately, without waiting.",
+                        "The second async starts fetchPosts, so both requests are now in flight.",
+                        "profile.await() suspends until the first result is ready.",
+                        "posts.await() usually returns straight away, because that request has been running the whole time.",
+                        "An exception in launch propagates to the parent at once; in async it is held in the Deferred until await is called."
+                    ],
+                    explain: "<p>Steps 3 and 4 are the point people miss: <strong>the concurrency comes from <code>async</code>, not from <code>await</code></strong>. Both requests are running before either is awaited, which is why the pair costs the longer of the two rather than the sum.</p><p>Which means <code>async { }.await()</code> written on one line is a mistake — it starts a coroutine and immediately waits for it, so nothing overlaps.</p><p>Step 7 is the other half of choosing between them, and it is the reason an <code>async</code> whose result is never awaited can swallow a failure entirely.</p>"
+                }
             }],
             subsection: null
         },
@@ -855,8 +1349,17 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "delay vs Thread.sleep",
-                code: "suspend fun retryWithBackoff() {\n    repeat(3) { attempt ->\n        try {\n            return fetchData()\n        } catch (e: IOException) {\n            delay(1000L * (attempt + 1))   // suspends, thread stays free\n        }\n    }\n}"
+                title: "delay suspends, Thread.sleep blocks",
+                code: "import kotlinx.coroutines.*\n\nfun main() = runBlocking {\n    // delay() suspends: the coroutine stops, the thread does not.\n    val started = mutableListOf<String>()\n    coroutineScope {\n        launch { started += \"A start\"; delay(50); started += \"A end\" }\n        launch { started += \"B start\"; delay(20); started += \"B end\" }\n    }\n    println(\"with delay():        $started\")\n\n    // Thread.sleep() blocks: nothing else on that thread can run meanwhile.\n    val blocking = mutableListOf<String>()\n    coroutineScope {\n        launch { blocking += \"A start\"; Thread.sleep(50); blocking += \"A end\" }\n        launch { blocking += \"B start\"; Thread.sleep(20); blocking += \"B end\" }\n    }\n    println(\"with Thread.sleep(): $blocking\")\n\n    // delay is also a cancellation point; Thread.sleep is not.\n    val job = launch { try { delay(1000) } finally { println(\"delay was cancelled\") } }\n    delay(20)\n    job.cancelAndJoin()\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "with delay():        [A start, B start, B end, A end]",
+                        "with Thread.sleep(): [A start, A end, B start, B end]",
+                        "delay was cancelled"
+                    ],
+                    explain: "<p>The two lists are the whole answer. With <code>delay</code>: <code>A start, B start, B end, A end</code> — both coroutines started, A suspended and released the thread, B ran and finished first because its wait was shorter. With <code>Thread.sleep</code>: <code>A start, A end, B start, B end</code> — A held the thread for its full 50ms and B could not even begin.</p><p>Same structure, same dispatcher, and one of them is concurrent while the other is not. A blocking call inside a coroutine does not just slow that coroutine down; it takes a thread out of the pool that everything else is sharing.</p><p>The last line adds the other difference: <code>delay</code> is a cancellation point and <code>Thread.sleep</code> is not, so a blocked coroutine cannot be cancelled until it wakes up on its own.</p>"
+                }
             }],
             subsection: null
         },
@@ -872,8 +1375,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "value class for type-safe IDs",
-                code: "@JvmInline\nvalue class UserId(val value: String)\n\n@JvmInline\nvalue class OrderId(val value: String)\n\nfun fetchUser(id: UserId) { /* ... */ }\n\nfun example() {\n    val userId = UserId(\"u-1\")\n    // fetchUser(OrderId(\"o-1\"))   // COMPILE ERROR: type mismatch, catches bugs early\n    fetchUser(userId)\n}"
+                title: "value class, for types that cannot be mixed up",
+                code: "@JvmInline\nvalue class UserId(val value: String)\n\n@JvmInline\nvalue class OrderId(val value: String)\n\nfun fetchUser(id: UserId) = \"fetching user ${id.value}\"\nfun fetchOrder(id: OrderId) = \"fetching order ${id.value}\"\n\nfun main() {\n    val userId = UserId(\"u-1\")\n    val orderId = OrderId(\"o-1\")\n\n    println(fetchUser(userId))\n    println(fetchOrder(orderId))\n\n    // fetchUser(orderId)   // COMPILE ERROR — and that is the entire point.\n    // Both wrap a String, so without value classes this mix-up compiles fine.\n\n    println(\"underlying value  \" + userId.value)\n    println(\"wrapper toString  \" + userId)\n\n    // Equality is by the wrapped value.\n    println(\"UserId(\\\"u-1\\\") == UserId(\\\"u-1\\\") \" + (userId == UserId(\"u-1\")))\n\n    // At runtime the wrapper is usually erased to the String itself — but not\n    // when it is boxed, for instance inside a collection.\n    val ids: List<UserId> = listOf(userId)\n    println(\"boxed in a list   \" + ids)\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "fetching user u-1",
+                        "fetching order o-1",
+                        "underlying value  u-1",
+                        "wrapper toString  UserId(value=u-1)",
+                        "UserId(\"u-1\") == UserId(\"u-1\") true",
+                        "boxed in a list   [UserId(value=u-1)]"
+                    ],
+                    explain: "<p>The commented-out line is the feature. <code>UserId</code> and <code>OrderId</code> both wrap a <code>String</code>, and passing one where the other is expected does not compile. Without them both parameters are <code>String</code>, the arguments can be swapped at any call site, and nothing complains until production.</p><p>The cost is usually nothing. A <code>value class</code> is erased at runtime to the type it wraps, so <code>fetchUser(userId)</code> passes a bare <code>String</code> with no allocation — the safety is entirely a compile-time construct.</p><p>\"Usually\", because boxing brings the wrapper back: putting one in a collection, or using it as a generic argument or a nullable, allocates a real object. The last line shows that boxed form.</p>"
+                }
             }],
             subsection: null
         },
@@ -889,8 +1404,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Sealed class hierarchy",
-                code: "sealed class Result<out T>\ndata class Success<T>(val data: T) : Result<T>()\ndata class Error(val message: String) : Result<Nothing>()\nobject Loading : Result<Nothing>()\n\nfun <T> render(result: Result<T>) = when (result) {\n    is Success -> println(\"Data: ${result.data}\")\n    is Error -> println(\"Error: ${result.message}\")\n    Loading -> println(\"Loading...\")\n    // no `else` needed — compiler verifies exhaustiveness\n}"
+                title: "A sealed hierarchy, and exhaustive when",
+                code: "sealed class Result<out T>\ndata class Success<T>(val data: T) : Result<T>()\ndata class Error(val message: String) : Result<Nothing>()\nobject Loading : Result<Nothing>()\n\nfun <T> render(result: Result<T>): String = when (result) {\n    is Success -> \"Data: ${result.data}\"\n    is Error -> \"Error: ${result.message}\"\n    Loading -> \"Loading...\"\n    // no `else` branch — the compiler knows the hierarchy is closed\n}\n\nfun main() {\n    val states: List<Result<String>> = listOf(\n        Loading,\n        Success(\"Ada\"),\n        Error(\"no network\")\n    )\n    states.forEach { println(render(it)) }\n\n    // Success is a data class, so equality is structural.\n    println(\"two Successes equal? \" + (Success(\"Ada\") == Success(\"Ada\")))\n\n    // Loading is an object: there is only one, so == and === agree.\n    println(\"Loading is a singleton \" + (Loading === Loading))\n\n    // Smart casting is what makes result.data reachable without a cast.\n    val r: Result<String> = Success(\"Grace\")\n    if (r is Success) println(\"smart cast gives \" + r.data)\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "Loading...",
+                        "Data: Ada",
+                        "Error: no network",
+                        "two Successes equal? true",
+                        "Loading is a singleton true",
+                        "smart cast gives Grace"
+                    ],
+                    explain: "<p>The <code>when</code> has no <code>else</code> branch and compiles, because <code>sealed</code> tells the compiler the full list of subclasses — they must be declared in the same package and module. That is the property worth having: add a fourth state and every <code>when</code> over <code>Result</code> stops compiling until it is handled. An <code>else</code> branch would have swallowed the new case silently.</p><p>Smart casting is the other half. Inside <code>is Success -&gt;</code> the compiler knows the type, so <code>result.data</code> needs no cast.</p><p>The mix of <code>data class</code> and <code>object</code> is deliberate: states carrying data are classes, and a state with nothing to carry is an <code>object</code>, so there is exactly one <code>Loading</code> and <code>===</code> holds.</p>"
+                }
             }],
             subsection: null
         },
@@ -906,8 +1433,21 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Sealed class for screen UI state",
-                code: "sealed interface ProfileUiState {\n    data object Loading : ProfileUiState\n    data class Loaded(val user: User) : ProfileUiState\n    data class Error(val throwable: Throwable) : ProfileUiState\n}\n\n@Composable\nfun ProfileScreen(state: ProfileUiState) {\n    when (state) {\n        ProfileUiState.Loading -> LoadingSpinner()\n        is ProfileUiState.Loaded -> ProfileContent(state.user)\n        is ProfileUiState.Error -> ErrorMessage(state.throwable.message)\n    }\n}"
+                title: "A sealed hierarchy for screen state",
+                code: "sealed interface ProfileUiState {\n    data object Loading : ProfileUiState\n    data class Loaded(val user: User) : ProfileUiState\n    data class Error(val throwable: Throwable) : ProfileUiState\n}\n\n@Composable\nfun ProfileScreen(state: ProfileUiState) {\n    when (state) {\n        ProfileUiState.Loading -> LoadingSpinner()\n        is ProfileUiState.Loaded -> ProfileContent(state.user)\n        is ProfileUiState.Error -> ErrorMessage(state.throwable.message)\n    }\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "ProfileUiState is sealed, so the compiler knows Loading, Loaded and Error are the only possibilities.",
+                        "The ViewModel exposes a StateFlow<ProfileUiState> and sets it to Loading before starting work.",
+                        "On success it sets Loaded(user); on failure, Error(throwable).",
+                        "The screen collects that flow and runs one when over the state.",
+                        "That when needs no else branch, and the compiler checks every case is handled.",
+                        "Adding a fourth state — say Empty — breaks compilation everywhere the state is consumed, until each site handles it.",
+                        "Because the states are distinct types, an impossible combination such as \"loading with an error\" cannot be represented at all."
+                    ],
+                    explain: "<p>Step 7 is why this beats the older habit of a data class with <code>isLoading</code>, <code>user</code> and <code>error</code> fields. That shape allows sixteen combinations for three fields, most of them meaningless, and every consumer has to decide what \"loading and error at once\" means. A sealed hierarchy allows exactly the states that exist.</p><p>Step 6 is the safety net: an <code>else</code> branch would have made a new state compile silently and behave wrongly at runtime. Exhaustiveness turns adding a state into a task the compiler hands you a checklist for.</p><p><code>data object Loading</code> rather than <code>object</code> is a Kotlin 1.9 refinement — it just gives a readable <code>toString</code>.</p>"
+                }
             }],
             subsection: null
         },
@@ -923,8 +1463,23 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Collection basics",
-                code: "val readOnly: List<Int> = listOf(1, 2, 3)\nval mutable: MutableList<Int> = mutableListOf(1, 2, 3)\nmutable.add(4)\n\nval uniqueSet: Set<String> = setOf(\"a\", \"b\", \"a\")   // {\"a\", \"b\"}\nval map: Map<String, Int> = mapOf(\"a\" to 1, \"b\" to 2)\n\nval evens = (1..10).filter { it % 2 == 0 }.map { it * it }"
+                title: "Lists, sets, maps and the operator chain",
+                code: "fun main() {\n    val readOnly: List<Int> = listOf(1, 2, 3)\n    val mutable: MutableList<Int> = mutableListOf(1, 2, 3)\n    mutable.add(4)\n    println(\"List        \" + readOnly)\n    println(\"MutableList \" + mutable)\n\n    val uniqueSet: Set<String> = setOf(\"a\", \"b\", \"a\")\n    println(\"Set         \" + uniqueSet + \"  (duplicate dropped, order kept)\")\n\n    val map: Map<String, Int> = mapOf(\"a\" to 1, \"b\" to 2)\n    println(\"Map         \" + map)\n    println(\"map[\\\"a\\\"]    \" + map[\"a\"] + \", missing key -> \" + map[\"z\"])\n\n    // Operators are lazy only in a Sequence; on a List each step builds a list.\n    val evens = (1..10).filter { it % 2 == 0 }.map { it * it }\n    println(\"chained     \" + evens)\n\n    println(\"sum/max     \" + evens.sum() + \" / \" + evens.max())\n    println(\"grouped     \" + (1..6).groupBy { if (it % 2 == 0) \"even\" else \"odd\" })\n    println(\"flatten     \" + listOf(listOf(1, 2), listOf(3)).flatten())\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "List        [1, 2, 3]",
+                        "MutableList [1, 2, 3, 4]",
+                        "Set         [a, b]  (duplicate dropped, order kept)",
+                        "Map         {a=1, b=2}",
+                        "map[\"a\"]    1, missing key -> null",
+                        "chained     [4, 16, 36, 64, 100]",
+                        "sum/max     220 / 100",
+                        "grouped     {odd=[1, 3, 5], even=[2, 4, 6]}",
+                        "flatten     [1, 2, 3]"
+                    ],
+                    explain: "<p>Kotlin splits every collection into a read-only interface and a mutable one, which is why <code>listOf</code> and <code>mutableListOf</code> are different calls rather than a flag.</p><p><code>setOf</code> dropped the duplicate and kept insertion order, because the default implementation is a <code>LinkedHashSet</code> — the same is true of <code>mapOf</code>, so iteration order is predictable rather than arbitrary.</p><p>Indexing a map returns <code>null</code> for a missing key rather than throwing, which is why the result type is nullable.</p><p>One thing the output cannot show: on a <code>List</code>, <code>filter</code> then <code>map</code> builds an intermediate list at each step. For a long chain over a large collection, <code>asSequence()</code> makes it lazy and single-pass.</p>"
+                }
             }],
             subsection: null
         },
@@ -940,8 +1495,21 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Elvis operator patterns",
-                code: "fun greet(name: String?): String = \"Hello, ${name ?: \"Guest\"}\"\n\nfun process(input: String?) {\n    val value = input ?: return   // early-exit if null\n    println(value.length)\n}\n\nval city = user?.address?.city ?: \"Unknown\""
+                title: "Elvis: default, early return, and throw",
+                code: "data class Address(val city: String?)\ndata class User(val name: String, val address: Address?)\n\nfun greet(name: String?): String = \"Hello, ${name ?: \"Guest\"}\"\n\nfun process(input: String?) {\n    val value = input ?: return println(\"  process: nothing to do\")\n    println(\"  process: length is ${value.length}\")\n}\n\nfun main() {\n    println(greet(\"Ada\"))\n    println(greet(null))\n\n    process(\"hello\")\n    process(null)\n\n    val user: User? = User(\"Ada\", Address(null))\n    println(\"city = \" + (user?.address?.city ?: \"Unknown\"))\n\n    val noUser: User? = null\n    println(\"city = \" + (noUser?.address?.city ?: \"Unknown\"))\n\n    // The right-hand side can also throw, which is the \"require or fail\" idiom.\n    try {\n        val required = noUser ?: throw IllegalStateException(\"user is required here\")\n        println(required)\n    } catch (e: IllegalStateException) {\n        println(\"threw: \" + e.message)\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "Hello, Ada",
+                        "Hello, Guest",
+                        "  process: length is 5",
+                        "  process: nothing to do",
+                        "city = Unknown",
+                        "city = Unknown",
+                        "threw: user is required here"
+                    ],
+                    explain: "<p>Three uses of one operator. As a <strong>default</strong> it replaces a null with something usable. As an <strong>early exit</strong> — <code>val value = input ?: return</code> — it turns a null check into a guard clause, and because <code>return</code> has type <code>Nothing</code> the compiler accepts it on the right-hand side and smart-casts <code>value</code> to non-null afterwards.</p><p>As a <strong>throw</strong> it is the \"this must not be null here\" assertion, and it is strictly better than <code>!!</code> because it can say why.</p><p>Chained with <code>?.</code> it collapses a whole nested null check into one line: any null anywhere in <code>user?.address?.city</code> short-circuits to the fallback.</p>"
+                }
             }],
             subsection: null
         },
@@ -957,8 +1525,19 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Coroutine timeouts",
-                code: "suspend fun fetchWithLimit(): String? =\n    withTimeoutOrNull(3000L) {\n        api.fetchSlowData()\n    }\n\nsuspend fun fetchOrThrow() {\n    try {\n        withTimeout(3000L) { api.fetchSlowData() }\n    } catch (e: TimeoutCancellationException) {\n        println(\"Timed out\")\n    }\n}"
+                title: "withTimeout and withTimeoutOrNull",
+                code: "import kotlinx.coroutines.*\n\nsuspend fun fetchSlowData(): String { delay(300); return \"data\" }\nsuspend fun fetchFastData(): String { delay(10); return \"data\" }\n\nfun main() = runBlocking {\n    // withTimeoutOrNull returns null instead of throwing.\n    println(\"slow within 100ms -> \" + withTimeoutOrNull(100) { fetchSlowData() })\n    println(\"fast within 100ms -> \" + withTimeoutOrNull(100) { fetchFastData() })\n\n    // withTimeout throws TimeoutCancellationException instead.\n    try {\n        withTimeout(100) { fetchSlowData() }\n    } catch (e: TimeoutCancellationException) {\n        println(\"withTimeout threw \" + e::class.simpleName)\n    }\n\n    // The timeout cancels the block, so cleanup in finally still runs.\n    withTimeoutOrNull(50) {\n        try {\n            delay(1000)\n        } finally {\n            println(\"finally ran when the timeout fired\")\n        }\n    }\n    println(\"done\")\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "slow within 100ms -> null",
+                        "fast within 100ms -> data",
+                        "withTimeout threw TimeoutCancellationException",
+                        "finally ran when the timeout fired",
+                        "done"
+                    ],
+                    explain: "<p>The two differ only in how they fail. <code>withTimeoutOrNull</code> returns <code>null</code>, which suits a value you can do without; <code>withTimeout</code> throws <code>TimeoutCancellationException</code>, which suits a case where carrying on makes no sense.</p><p>The last case is the important one: a timeout <strong>cancels</strong> the block rather than abandoning it, so the work actually stops and a <code>finally</code> still runs. The request is not left in flight consuming a connection.</p><p>The catch to know: because <code>TimeoutCancellationException</code> is a <code>CancellationException</code>, a broad <code>catch (e: Exception)</code> inside the block will swallow it and break cancellation.</p>"
+                }
             }],
             subsection: null
         },
@@ -974,8 +1553,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Combining concurrent results",
-                code: "suspend fun loadHome(): HomeData = coroutineScope {\n    val user = async { repo.fetchUser() }\n    val posts = async { repo.fetchPosts() }\n    val ads = async { repo.fetchAds() }\n\n    val (u, p, a) = awaitAll(user, posts, ads)\n    HomeData(u as User, p as List<Post>, a as List<Ad>)\n}"
+                title: "awaitAll for several concurrent results",
+                code: "import kotlinx.coroutines.*\n\nclass Repo {\n    suspend fun fetchUser(): String { delay(150); println(\"  user done\"); return \"Ada\" }\n    suspend fun fetchPosts(): Int { delay(100); println(\"  posts done\"); return 3 }\n    suspend fun fetchAds(): Int { delay(50); println(\"  ads done\"); return 1 }\n}\n\nval repo = Repo()\n\nsuspend fun loadHome() = coroutineScope {\n    val user = async { repo.fetchUser() }\n    val posts = async { repo.fetchPosts() }\n    val ads = async { repo.fetchAds() }\n\n    // awaitAll waits for every Deferred and fails fast if any one of them does.\n    val results = awaitAll(user, posts, ads)\n    \"HomeData(user=${results[0]}, posts=${results[1]}, ads=${results[2]})\"\n}\n\nfun main() = runBlocking<Unit> {\n    println(\"loading\")\n    println(loadHome())\n\n    // awaitAll fails as soon as ONE fails, without waiting for the rest.\n    try {\n        coroutineScope {\n            val ok = async { delay(200); \"slow but fine\" }\n            val bad = async<String> { delay(10); throw IllegalStateException(\"one failed\") }\n            awaitAll(ok, bad)\n        }\n    } catch (e: IllegalStateException) {\n        println(\"awaitAll failed fast: \" + e.message)\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "loading",
+                        "  ads done",
+                        "  posts done",
+                        "  user done",
+                        "HomeData(user=Ada, posts=3, ads=1)",
+                        "awaitAll failed fast: one failed"
+                    ],
+                    explain: "<p>The three calls overlap — ads finish first despite being requested last — and <code>awaitAll</code> collects them once all three are done. It is <code>await()</code> on each <code>Deferred</code> in turn, with better failure behaviour.</p><p>That behaviour is the second half. <code>awaitAll</code> <strong>fails fast</strong>: the moment one child throws, it stops waiting for the rest rather than sitting through the slowest one before reporting an error it already knew about. Because this is inside <code>coroutineScope</code>, the surviving children are cancelled too.</p><p>The cost is that <code>awaitAll</code> returns <code>List&lt;T&gt;</code> of a common type, so heterogeneous results need casting — which is why hand-written <code>await()</code> calls are still common when the types differ.</p>"
+                }
             }],
             subsection: null
         },
@@ -991,8 +1582,21 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Job lifecycle and SupervisorJob",
-                code: "val job = viewModelScope.launch {\n    delay(1000)\n    println(\"done\")\n}\nprintln(job.isActive)   // true\njob.cancel()\n\n// SupervisorJob — sibling failures don't cancel each other\nval supervisor = CoroutineScope(SupervisorJob() + Dispatchers.IO)\nsupervisor.launch { throw RuntimeException(\"A failed\") }\nsupervisor.launch { println(\"B still runs\") }"
+                title: "Job state, and what SupervisorJob changes",
+                code: "import kotlinx.coroutines.*\n\nfun main() = runBlocking<Unit> {\n    val job = launch {\n        delay(50)\n        println(\"job finished\")\n    }\n    println(\"isActive right after launch = \" + job.isActive)\n    job.join()\n    println(\"isCompleted after join      = \" + job.isCompleted)\n\n    // A handler that records rather than prints, so the output does not depend\n    // on when the handler thread gets a turn.\n    val seen = mutableListOf<String>()\n    val handler = CoroutineExceptionHandler { _, e -> seen += e.message ?: \"?\" }\n\n    // Under a plain Job, a failing child cancels the whole scope.\n    val plain = CoroutineScope(Job() + handler)\n    plain.launch { throw RuntimeException(\"A failed\") }.join()\n    plain.launch { println(\"B under a plain Job\") }.join()\n    println(\"plain Job scope still active?   \" + plain.isActive)\n\n    // Under a SupervisorJob, failure does not travel sideways.\n    val supervisor = CoroutineScope(SupervisorJob() + handler)\n    supervisor.launch { throw RuntimeException(\"A failed\") }.join()\n    supervisor.launch { println(\"B under a SupervisorJob ran\") }.join()\n    println(\"supervisor scope still active?  \" + supervisor.isActive)\n\n    println(\"failures reported to handler:   \" + seen)\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "isActive right after launch = true",
+                        "job finished",
+                        "isCompleted after join      = true",
+                        "plain Job scope still active?   false",
+                        "B under a SupervisorJob ran",
+                        "supervisor scope still active?  true",
+                        "failures reported to handler:   [A failed, A failed]"
+                    ],
+                    explain: "<p>A <code>Job</code> is the handle on a coroutine's lifecycle — <code>isActive</code>, <code>isCompleted</code>, <code>isCancelled</code>, plus <code>cancel</code> and <code>join</code>.</p><p>The middle block is the behaviour worth internalising. Under a plain <code>Job</code>, one child failing cancelled the entire scope: <strong>\"B under a plain Job\" never printed</strong>, and the scope reported itself inactive. Anything launched afterwards is dead on arrival — the usual cause of a screen that silently stops responding after one unrelated error.</p><p>A <code>SupervisorJob</code> lets failure travel up but not sideways, so B ran and the scope stayed usable. That is why <code>viewModelScope</code> uses one.</p><p>Both failures still reached the handler, which is what the last line records.</p>"
+                }
             }],
             subsection: null
         },
@@ -1008,8 +1612,21 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "job.cancel vs scope.cancel",
-                code: "val uploadJob = viewModelScope.launch { uploadFile() }\nval syncJob = viewModelScope.launch { syncData() }\n\nuploadJob.cancel()   // only the upload stops; syncJob keeps running\n\n// scope.cancel() would stop BOTH and disable viewModelScope entirely"
+                title: "job.cancel against scope.cancel",
+                code: "val uploadJob = viewModelScope.launch { uploadFile() }\nval syncJob = viewModelScope.launch { syncData() }\n\nuploadJob.cancel()   // only the upload stops; syncJob keeps running\n\n// scope.cancel() would stop BOTH and disable viewModelScope entirely",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Two coroutines are launched in viewModelScope. Each returns its own Job.",
+                        "uploadJob.cancel() cancels that coroutine and its children only.",
+                        "syncJob is a sibling, not a child, so it is untouched and keeps running.",
+                        "The scope itself remains active, and new coroutines can still be launched into it.",
+                        "scope.cancel() instead cancels the scope's own Job.",
+                        "That cancels every child, so both the upload and the sync stop.",
+                        "It also puts the scope permanently in a cancelled state: anything launched afterwards will not run at all."
+                    ],
+                    explain: "<p>Step 7 is the trap. A cancelled scope is not reusable — it is finished. Calling <code>viewModelScope.cancel()</code> by hand leaves a ViewModel that silently ignores every later <code>launch</code>, and there is no error to notice.</p><p>Cancel the <em>job</em> to stop one operation; let the framework cancel the <em>scope</em> when the owner dies. Cancelling a lifecycle scope yourself is almost always a mistake.</p>"
+                }
             }],
             subsection: null
         },
@@ -1025,8 +1642,18 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Swallowed exception without await",
-                code: "val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)\n\nscope.async {\n    throw RuntimeException(\"never seen!\")\n}\n// no .await() call — exception is silently held inside the Deferred\n\n// Under a plain Job (e.g. coroutineScope { async { ... } }),\n// the same throw would crash the parent immediately, await() or not."
+                title: "The exception an un-awaited async holds",
+                code: "import kotlinx.coroutines.*\n\nfun main() = runBlocking<Unit> {\n    // Under a SupervisorJob, an async whose result is never awaited holds its\n    // exception inside the Deferred, and nothing ever reports it.\n    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)\n    val neverAwaited = scope.async { throw RuntimeException(\"never seen!\") }\n    delay(50)\n    println(\"the coroutine has failed:      \" + neverAwaited.isCancelled)\n    println(\"but nothing was reported, and execution continues\")\n\n    // The exception only surfaces when someone asks for the value.\n    try {\n        neverAwaited.await()\n    } catch (e: RuntimeException) {\n        println(\"await() finally surfaced it:   \" + e.message)\n    }\n\n    // Under a plain Job the failure propagates to the parent regardless.\n    try {\n        coroutineScope {\n            async<Unit> { throw IllegalStateException(\"propagates without await\") }\n        }\n    } catch (e: IllegalStateException) {\n        println(\"plain Job propagated it anyway: \" + e.message)\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "the coroutine has failed:      true",
+                        "but nothing was reported, and execution continues",
+                        "await() finally surfaced it:   never seen!",
+                        "plain Job propagated it anyway: propagates without await"
+                    ],
+                    explain: "<p>The first two lines are the bug. The coroutine failed — <code>isCancelled</code> is <code>true</code> — and <strong>nothing was reported</strong>. <code>async</code> stores its exception inside the <code>Deferred</code> to rethrow when someone asks for the value, and if nobody ever calls <code>await()</code>, nobody ever asks.</p><p>Not even the <code>CoroutineExceptionHandler</code> helps, because as far as the machinery is concerned the failure has an owner: the <code>Deferred</code>. It is only genuinely lost under a <code>SupervisorJob</code>, where the failure has nowhere else to go.</p><p>Under a plain <code>Job</code> — the last line — the exception propagates to the parent whether or not it is awaited. So the rule is simple: <strong>if you are not going to await it, use <code>launch</code>.</strong></p>"
+                }
             }],
             subsection: null
         },
@@ -1054,7 +1681,20 @@ const kotlinData = {
             codeSnippets: [{
                 language: "kotlin",
                 title: "Debounced search with Flow",
-                code: "private val query = MutableStateFlow(\"\")\n\nval results: Flow<List<Result>> = query\n    .debounce(300L)\n    .distinctUntilChanged()\n    .filter { it.length >= 2 }\n    .flatMapLatest { text -> repo.search(text) }\n\nfun onQueryChanged(text: String) {\n    query.value = text\n}"
+                code: "private val query = MutableStateFlow(\"\")\n\nval results: Flow<List<Result>> = query\n    .debounce(300L)\n    .distinctUntilChanged()\n    .filter { it.length >= 2 }\n    .flatMapLatest { text -> repo.search(text) }\n\nfun onQueryChanged(text: String) {\n    query.value = text\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "Each keystroke sets query.value, and StateFlow conflates duplicates automatically.",
+                        "debounce(300) waits for a 300ms gap, so a burst of typing yields one value instead of one per character.",
+                        "distinctUntilChanged drops a query identical to the previous one — what typing a character and deleting it produces.",
+                        "filter discards queries shorter than two characters, which are not worth a request.",
+                        "flatMapLatest starts the search for whatever survived.",
+                        "If a newer query arrives first, the in-flight search is cancelled and replaced.",
+                        "The collector therefore only ever sees results for the most recent query."
+                    ],
+                    explain: "<p>Steps 2 to 4 exist to <em>not</em> make requests. Together they turn roughly one call per keystroke into one per pause, which is the difference between a usable search and a rate limit.</p><p>Step 6 is the correctness half rather than the efficiency half. Without <code>flatMapLatest</code>, a slow response for \"and\" can land after the response for \"android\" and overwrite the right answer — the classic out-of-order search bug, made impossible here by cancellation.</p>"
+                }
             }],
             subsection: null
         },
@@ -1080,8 +1720,22 @@ const kotlinData = {
             },
             codeSnippets: [{
                 language: "kotlin",
-                title: "Series vs parallel coroutine execution",
-                code: "suspend fun runInSeries() {\n    val a = fetchA()   // waits fully before next line\n    val b = fetchB()\n    println(a + b)\n}\n\nsuspend fun runInParallel() = coroutineScope {\n    val a = async { fetchA() }   // starts immediately\n    val b = async { fetchB() }   // starts immediately, overlaps with A\n    println(a.await() + b.await())\n}"
+                title: "Series against parallel",
+                code: "import kotlinx.coroutines.*\n\nsuspend fun fetchA(): String { delay(100); println(\"  A finished\"); return \"A\" }\nsuspend fun fetchB(): String { delay(60); println(\"  B finished\"); return \"B\" }\n\nsuspend fun runInSeries(): String {\n    val a = fetchA()      // nothing else happens until this returns\n    val b = fetchB()\n    return a + b\n}\n\nsuspend fun runInParallel(): String = coroutineScope {\n    val a = async { fetchA() }   // starts immediately\n    val b = async { fetchB() }   // starts immediately, overlapping with A\n    a.await() + b.await()\n}\n\nfun main() = runBlocking {\n    println(\"series:\")\n    println(\"  result = \" + runInSeries())\n\n    println(\"parallel:\")\n    println(\"  result = \" + runInParallel())\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "series:",
+                        "  A finished",
+                        "  B finished",
+                        "  result = AB",
+                        "parallel:",
+                        "  B finished",
+                        "  A finished",
+                        "  result = AB"
+                    ],
+                    explain: "<p>Same two calls, same result, different arrival order — and that order is the evidence. In series A finished before B started, because the second line could not run until the first returned. In parallel B finished first, since it is the shorter of the two and both were already running.</p><p>The time taken follows from that: series costs A + B, parallel costs whichever is longer. The rule is about dependency — if B needs A's result, series is not a choice, it is the only option. When they are independent, <code>async</code> is close to free.</p>"
+                }
             }],
             subsection: null
         },
@@ -1097,8 +1751,22 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "yield for cooperative cancellation",
-                code: "suspend fun heavyComputation() {\n    for (i in 1..1_000_000) {\n        if (i % 1000 == 0) yield()   // allow cancellation + other coroutines to run\n        // CPU-bound work here\n    }\n}\n\nval naturals = sequence {\n    var n = 1\n    while (true) {\n        yield(n++)   // lazily produces the next value on demand\n    }\n}"
+                title: "Two different yields",
+                code: "import kotlinx.coroutines.*\n\nfun main() = runBlocking<Unit> {\n    // A sequence yields values lazily, one per request — an infinite source\n    // that costs nothing until taken from.\n    val naturals = sequence {\n        var n = 1\n        while (true) {\n            yield(n++)\n        }\n    }\n    println(\"first 5 naturals = \" + naturals.take(5).toList())\n\n    // The coroutine yield() is a different function with a related job: it is a\n    // suspension point, which makes a CPU-bound loop cancellable.\n    val cancellable = launch(Dispatchers.Default) {\n        var i = 0\n        try {\n            while (true) {\n                i++\n                if (i % 1000 == 0) yield()   // gives cancellation a chance to land\n            }\n        } finally {\n            println(\"cancellable loop stopped after being cancelled\")\n        }\n    }\n    delay(50)\n    cancellable.cancelAndJoin()\n\n    // yield() also lets other coroutines on the same dispatcher take a turn.\n    coroutineScope {\n        launch { repeat(3) { println(\"  first $it\"); yield() } }\n        launch { repeat(3) { println(\"  second $it\"); yield() } }\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "first 5 naturals = [1, 2, 3, 4, 5]",
+                        "cancellable loop stopped after being cancelled",
+                        "  first 0",
+                        "  second 0",
+                        "  first 1",
+                        "  second 1",
+                        "  first 2",
+                        "  second 2"
+                    ],
+                    explain: "<p>The name is shared by two unrelated things.</p><p><code>yield(n)</code> in a <code>sequence { }</code> builder <strong>produces a value</strong> lazily. The generator is an infinite <code>while (true)</code> and costs nothing, because nothing runs until <code>take(5)</code> asks.</p><p><code>yield()</code> in a coroutine <strong>produces the thread</strong>. It takes no argument and returns nothing; it is a suspension point, which does two jobs. It gives cancellation somewhere to land — the CPU-bound loop stops when cancelled only because of it — and it lets other coroutines on the same dispatcher take a turn, which is why the last block interleaves rather than running one to completion and then the other.</p>"
+                }
             }],
             subsection: null
         },
@@ -1115,7 +1783,20 @@ const kotlinData = {
             codeSnippets: [{
                 language: "kotlin",
                 title: "Property delegation and class delegation",
-                code: "class SettingsViewModel {\n    var theme: String by Delegates.observable(\"light\") { _, old, new ->\n        println(\"theme changed: $old -> $new\")\n    }\n}\n\ninterface Logger { fun log(msg: String) }\nclass ConsoleLogger : Logger { override fun log(msg: String) = println(msg) }\n\n// Delegates every Logger call to `impl` without writing forwarding methods\nclass Service(impl: Logger) : Logger by impl"
+                code: "import kotlin.properties.Delegates\n\nclass SettingsViewModel {\n    var theme: String by Delegates.observable(\"light\") { _, old, new ->\n        println(\"  theme changed: $old -> $new\")\n    }\n\n    // vetoable can reject a change outright.\n    var fontScale: Int by Delegates.vetoable(100) { _, _, new -> new in 50..200 }\n}\n\ninterface Logger { fun log(msg: String) }\nclass ConsoleLogger : Logger { override fun log(msg: String) = println(\"  log: $msg\") }\n\n// Class delegation: every Logger call is forwarded to `impl`, with no\n// forwarding methods written by hand.\nclass Service(impl: Logger) : Logger by impl {\n    fun work() = log(\"working\")\n}\n\nfun main() {\n    val vm = SettingsViewModel()\n    vm.theme = \"dark\"\n    vm.theme = \"light\"\n\n    vm.fontScale = 150\n    println(\"fontScale accepted: \" + vm.fontScale)\n    vm.fontScale = 900\n    println(\"fontScale after a rejected change: \" + vm.fontScale)\n\n    Service(ConsoleLogger()).work()\n\n    // by lazy is the same mechanism: a property backed by an object.\n    val expensive: String by lazy { \"  computed once\"; \"computed once\" }\n    println(expensive)\n    println(expensive)\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "  theme changed: light -> dark",
+                        "  theme changed: dark -> light",
+                        "fontScale accepted: 150",
+                        "fontScale after a rejected change: 150",
+                        "  log: working",
+                        "computed once",
+                        "computed once"
+                    ],
+                    explain: "<p>Two different features that share a keyword.</p><p><strong>Property delegation</strong> hands get and set to another object. <code>observable</code> fires a callback after each change, and <code>vetoable</code> can refuse one — the font scale stayed at 150 because 900 failed the predicate, with no exception and no separate validation code. <code>by lazy</code> is the same mechanism.</p><p><strong>Class delegation</strong> is the last part: <code>Service</code> implements <code>Logger</code> without writing a single forwarding method, because <code>by impl</code> generates them. That is composition with the boilerplate removed, and it is the practical answer to \"prefer composition over inheritance\" — the usual objection being how much typing it takes.</p>"
+                }
             }],
             subsection: null
         },
@@ -1132,7 +1813,20 @@ const kotlinData = {
             codeSnippets: [{
                 language: "kotlin",
                 title: "stateIn in a ViewModel",
-                code: "class FeedViewModel(repo: FeedRepository) : ViewModel() {\n    val uiState: StateFlow<List<Post>> = repo.observePosts()\n        .stateIn(\n            scope = viewModelScope,\n            started = SharingStarted.WhileSubscribed(5000L),\n            initialValue = emptyList()\n        )\n}"
+                code: "class FeedViewModel(repo: FeedRepository) : ViewModel() {\n    val uiState: StateFlow<List<Post>> = repo.observePosts()\n        .stateIn(\n            scope = viewModelScope,\n            started = SharingStarted.WhileSubscribed(5000L),\n            initialValue = emptyList()\n        )\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "repo.observePosts() is a cold Flow: each collector would start its own database observation.",
+                        "stateIn converts it to a hot StateFlow, shared by every collector, running in viewModelScope.",
+                        "initialValue gives the StateFlow a value before the source has emitted anything, so the screen has something to draw immediately.",
+                        "WhileSubscribed(5000) starts the upstream when the first collector subscribes.",
+                        "When the last collector goes away — the screen stops — a five second timer starts.",
+                        "If the screen comes back within those five seconds, the same upstream is still running and the current value is delivered at once.",
+                        "If it does not, the upstream is cancelled and the database observation stops."
+                    ],
+                    explain: "<p>The five seconds in step 5 is chosen for one specific event: a screen rotation, which destroys and recreates the view in well under that. Without the timeout, rotating would tear down the database observation and immediately start it again.</p><p><code>stateIn</code> takes an <code>initialValue</code> and conflates; <code>shareIn</code> does neither, and is the right choice for events, where there is no \"current value\" and dropping duplicates would be wrong.</p><p><code>SharingStarted.Eagerly</code> and <code>Lazily</code> keep the upstream alive for the whole scope, which for a database or location observer means work continuing while the app is in the background.</p>"
+                }
             }],
             subsection: null
         },
@@ -1148,8 +1842,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "flatMapLatest for search",
-                code: "val searchResults: Flow<List<Result>> = queryFlow\n    .debounce(300)\n    .flatMapLatest { query ->\n        repo.search(query)   // previous in-flight search is cancelled automatically\n    }"
+                title: "flatMapLatest against flatMapConcat",
+                code: "import kotlinx.coroutines.*\nimport kotlinx.coroutines.flow.*\n\nclass Repo {\n    fun search(query: String): Flow<String> = flow {\n        delay(30)                        // the request\n        emit(\"results for '$query'\")\n    }\n}\n\nval repo = Repo()\n\nfun main() = runBlocking {\n    val queries = flow {\n        emit(\"an\")\n        delay(10)\n        emit(\"and\")      // arrives before \"an\" finished — cancels it\n        delay(10)\n        emit(\"android\")  // cancels \"and\" too\n        delay(100)\n    }\n\n    println(\"flatMapLatest — only the newest search survives:\")\n    queries.flatMapLatest { repo.search(it) }.collect { println(\"  $it\") }\n\n    println(\"flatMapConcat — every search runs, in order, to completion:\")\n    queries.flatMapConcat { repo.search(it) }.collect { println(\"  $it\") }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "flatMapLatest — only the newest search survives:",
+                        "  results for 'android'",
+                        "flatMapConcat — every search runs, in order, to completion:",
+                        "  results for 'an'",
+                        "  results for 'and'",
+                        "  results for 'android'"
+                    ],
+                    explain: "<p>Three queries typed in quick succession. <code>flatMapLatest</code> produced <strong>one result</strong>, for the newest query, because each new query cancelled the in-flight search before it could emit. <code>flatMapConcat</code> produced <strong>all three</strong>, in order, waiting for each to finish before starting the next.</p><p>For a search box the first is correct and the second is the classic bug: with <code>flatMapConcat</code>, results for \"an\" and \"and\" arrive after the user has finished typing \"android\", and the last one to land wins. Cancelling is what makes out-of-order results impossible rather than merely unlikely.</p><p><code>flatMapMerge</code> is the third option — everything concurrent, results in completion order — which suits independent parallel work and never suits search.</p>"
+                }
             }],
             subsection: null
         },
@@ -1165,8 +1871,20 @@ const kotlinData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "collect vs collectLatest",
-                code: "// Every value processed fully, in order\nviewModelScope.launch {\n    repo.events.collect { event -> persistToLog(event) }\n}\n\n// Only the latest value's render survives; stale renders are cancelled\nviewModelScope.launch {\n    viewModel.uiState.collectLatest { state ->\n        renderExpensiveUi(state)   // cancelled if a newer state arrives mid-render\n    }\n}"
+                title: "collect against collectLatest",
+                code: "import kotlinx.coroutines.*\nimport kotlinx.coroutines.flow.*\n\nfun states(): Flow<String> = flow {\n    emit(\"state 1\")\n    delay(20)\n    emit(\"state 2\")\n    delay(20)\n    emit(\"state 3\")\n}\n\nfun main() = runBlocking {\n    println(\"collect — every value is processed to completion:\")\n    states().collect { state ->\n        delay(30)                       // slower than the producer\n        println(\"  finished $state\")\n    }\n\n    println(\"collectLatest — a new value cancels the previous block:\")\n    states().collectLatest { state ->\n        delay(30)\n        println(\"  finished $state\")    // only the last one survives\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "collect — every value is processed to completion:",
+                        "  finished state 1",
+                        "  finished state 2",
+                        "  finished state 3",
+                        "collectLatest — a new value cancels the previous block:",
+                        "  finished state 3"
+                    ],
+                    explain: "<p>Three values in, and the difference is stark: <code>collect</code> finished all three, <code>collectLatest</code> finished <strong>only the last</strong>.</p><p>The collector here is slower than the producer, and that is the case that separates them. <code>collect</code> processes every value to completion, so it falls further behind and eventually does work nobody needs. <code>collectLatest</code> cancels the block the moment a newer value arrives, so only the most recent one is ever completed.</p><p>Which you want depends on whether the values are <em>state</em> or <em>events</em>. Rendering the newest UI state — throw away the stale one. Writing events to a log — you need every single one, and <code>collectLatest</code> would silently drop them.</p>"
+                }
             }],
             subsection: null
         }

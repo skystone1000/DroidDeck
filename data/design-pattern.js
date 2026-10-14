@@ -16,8 +16,18 @@ const designPatternData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Builder pattern with NotificationCompat",
-                code: "val notification = NotificationCompat.Builder(context, CHANNEL_ID)\n    .setContentTitle(\"New message\")\n    .setContentText(\"You have a new message\")\n    .setSmallIcon(R.drawable.ic_notification)\n    .setPriority(NotificationCompat.PRIORITY_DEFAULT)\n    .setAutoCancel(true)\n    .build()\n\nNotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)"
+                title: "The Builder shape, as NotificationCompat uses it",
+                code: "// The shape NotificationCompat.Builder uses: each setter returns the builder,\n// and build() produces the finished, immutable object.\nclass Notification private constructor(\n    val title: String,\n    val text: String,\n    val priority: Int,\n    val autoCancel: Boolean\n) {\n    override fun toString() =\n        \"Notification(title='$title', text='$text', priority=$priority, autoCancel=$autoCancel)\"\n\n    class Builder(private val channelId: String) {\n        private var title = \"\"\n        private var text = \"\"\n        private var priority = 0\n        private var autoCancel = false\n\n        fun setContentTitle(value: String) = apply { title = value }\n        fun setContentText(value: String) = apply { text = value }\n        fun setPriority(value: Int) = apply { priority = value }\n        fun setAutoCancel(value: Boolean) = apply { autoCancel = value }\n\n        fun build() = Notification(title, text, priority, autoCancel)\n    }\n}\n\nfun main() {\n    val builder = Notification.Builder(\"messages\")\n        .setContentTitle(\"New message\")\n        .setContentText(\"You have a new message\")\n        .setPriority(1)\n        .setAutoCancel(true)\n\n    println(builder.build())\n\n    // Every setter returned the same builder, not a copy.\n    println(\"setters return the builder itself: \" + (builder.setPriority(2) === builder))\n\n    // Options left unset keep their defaults — no telescoping constructors.\n    println(Notification.Builder(\"messages\").setContentTitle(\"Minimal\").build())\n\n    // build() produces a new object each time, so the builder can be reused.\n    val first = builder.build()\n    val second = builder.build()\n    println(\"two builds are the same object? \" + (first === second))\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "Notification(title='New message', text='You have a new message', priority=1, autoCancel=true)",
+                        "setters return the builder itself: true",
+                        "Notification(title='Minimal', text='', priority=0, autoCancel=false)",
+                        "two builds are the same object? false"
+                    ],
+                    explain: "<p>Two lines carry the pattern. Every setter returned <strong>the same builder</strong>, which is what makes the calls chain, and <code>build()</code> returned a <strong>new object</strong> each time, which is what makes the result immutable and the builder reusable.</p><p>The third line is the reason the pattern exists. <code>Notification</code> has four fields and only one was set; without a builder that means either a four-argument constructor with meaningless defaults at every call site, or a family of overloads for each combination. The builder lets a caller name only what it cares about.</p><p>Kotlin makes this pattern largely unnecessary for classes you own — see the named-arguments question — but every Android API predating Kotlin uses it, so it has to be read fluently.</p>"
+                }
             }],
             subsection: null
         },
@@ -33,8 +43,20 @@ const designPatternData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Kotlin object singleton vs DI-scoped singleton",
-                code: "// Classic singleton — hard to test, global state\nobject AnalyticsTracker {\n    fun track(event: String) { /* ... */ }\n}\n\n// DI-scoped singleton — one instance, but injectable/mockable\n@Singleton\nclass AnalyticsTrackerImpl @Inject constructor(\n    private val client: AnalyticsClient\n) : AnalyticsTracker {\n    override fun track(event: String) = client.log(event)\n}"
+                title: "object singleton against a DI-scoped one",
+                code: "// Classic singleton: one instance, created by the language, reachable from\n// anywhere — which is also why it is hard to replace in a test.\nobject AnalyticsTracker {\n    var events = 0\n        private set\n    fun track(event: String) { events++; println(\"AnalyticsTracker: $event\") }\n}\n\n// The injectable form. Still one instance in production, because whatever\n// builds the graph decides that — not the class itself.\ninterface Analytics {\n    fun track(event: String)\n}\n\nclass AnalyticsTrackerImpl(private val client: (String) -> Unit) : Analytics {\n    override fun track(event: String) = client(\"impl: $event\")\n}\n\nclass FakeAnalytics : Analytics {\n    val recorded = mutableListOf<String>()\n    override fun track(event: String) { recorded += event }\n}\n\nclass CheckoutViewModel(private val analytics: Analytics) {\n    fun onPurchase() = analytics.track(\"purchase\")\n}\n\nfun main() {\n    AnalyticsTracker.track(\"app_open\")\n    AnalyticsTracker.track(\"screen_view\")\n    println(\"same instance every time: \" + (AnalyticsTracker === AnalyticsTracker))\n    println(\"events recorded globally: \" + AnalyticsTracker.events)\n\n    // Production wiring.\n    CheckoutViewModel(AnalyticsTrackerImpl { println(it) }).onPurchase()\n\n    // The same ViewModel under test, with the dependency replaced.\n    val fake = FakeAnalytics()\n    CheckoutViewModel(fake).onPurchase()\n    println(\"test saw: \" + fake.recorded)\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "AnalyticsTracker: app_open",
+                        "AnalyticsTracker: screen_view",
+                        "same instance every time: true",
+                        "events recorded globally: 2",
+                        "impl: purchase",
+                        "test saw: [purchase]"
+                    ],
+                    explain: "<p>Both halves produce one instance. The difference is <em>who decided</em>.</p><p><code>object AnalyticsTracker</code> decides for itself, and the count of 2 is the problem in miniature: that state is global, it survives between tests, and a test that wants to assert on tracking has nothing to substitute. There is no seam.</p><p>The bottom two lines are the same <code>CheckoutViewModel</code> run twice with different collaborators — the real implementation, then a fake that records what it was told. Neither the ViewModel nor the interface changed. Marking the implementation <code>@Singleton</code> still yields exactly one instance in production; the difference is that the decision now lives in the object graph rather than the class, and the graph can be rebuilt for a test.</p>"
+                }
             }],
             subsection: null
         },
@@ -50,8 +72,17 @@ const designPatternData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Custom ViewModel factory",
-                code: "class UserViewModelFactory(\n    private val repository: UserRepository\n) : ViewModelProvider.Factory {\n    override fun <T : ViewModel> create(modelClass: Class<T>): T {\n        if (modelClass.isAssignableFrom(UserViewModel::class.java)) {\n            @Suppress(\"UNCHECKED_CAST\")\n            return UserViewModel(repository) as T\n        }\n        throw IllegalArgumentException(\"Unknown ViewModel class\")\n    }\n}"
+                title: "A factory, in the shape ViewModelProvider expects",
+                code: "// The shape of ViewModelProvider.Factory: construction is moved out of the\n// caller and into an object that knows how to build the thing.\nopen class ViewModel\n\nclass UserRepository {\n    fun name() = \"Ada\"\n}\n\nclass UserViewModel(private val repository: UserRepository) : ViewModel() {\n    fun user() = repository.name()\n}\n\nclass SettingsViewModel : ViewModel()\n\nclass UserViewModelFactory(private val repository: UserRepository) {\n    fun <T : ViewModel> create(modelClass: Class<T>): T {\n        if (modelClass.isAssignableFrom(UserViewModel::class.java)) {\n            @Suppress(\"UNCHECKED_CAST\")\n            return UserViewModel(repository) as T\n        }\n        throw IllegalArgumentException(\"Unknown ViewModel class: ${modelClass.simpleName}\")\n    }\n}\n\nfun main() {\n    val factory = UserViewModelFactory(UserRepository())\n\n    val viewModel = factory.create(UserViewModel::class.java)\n    println(\"built \" + viewModel::class.simpleName + \", user = \" + viewModel.user())\n\n    // The caller never sees the constructor, so the dependency stays hidden\n    // from it — which is the whole point when the framework does the calling.\n    val another = factory.create(UserViewModel::class.java)\n    println(\"factory returns a new instance each time: \" + (viewModel !== another))\n\n    try {\n        factory.create(SettingsViewModel::class.java)\n    } catch (e: IllegalArgumentException) {\n        println(\"caught: \" + e.message)\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "built UserViewModel, user = Ada",
+                        "factory returns a new instance each time: true",
+                        "caught: Unknown ViewModel class: SettingsViewModel"
+                    ],
+                    explain: "<p>The factory exists because the caller is not the one doing the constructing. Android instantiates ViewModels itself, on rotation and process death, and it has no way to know your ViewModel needs a repository. Handing it a factory is how the dependency gets in.</p><p>The last line is the unsatisfying part of this particular API. <code>create</code> is generic over <code>T</code>, but type erasure means the check has to be done by hand against a <code>Class</code> object, with an unchecked cast and a runtime throw for anything unrecognised — a compile-time question answered at runtime.</p><p>Hilt's <code>@HiltViewModel</code> generates all of this, which is why hand-written factories are now mostly something you read in older code rather than write.</p>"
+                }
             }],
             subsection: null
         },
@@ -67,8 +98,19 @@ const designPatternData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Observer pattern via StateFlow",
-                code: "class UserViewModel : ViewModel() {\n    private val _state = MutableStateFlow<User?>(null)\n    val state: StateFlow<User?> = _state.asStateFlow() // subject\n}\n\n// observer — collects updates lifecycle-aware\nlifecycleScope.launch {\n    repeatOnLifecycle(Lifecycle.State.STARTED) {\n        viewModel.state.collect { user -> render(user) }\n    }\n}"
+                title: "Observer via StateFlow",
+                code: "import kotlinx.coroutines.*\nimport kotlinx.coroutines.flow.*\n\ndata class User(val name: String)\n\nclass UserViewModel {\n    private val _state = MutableStateFlow<User?>(null)   // the subject\n    val state: StateFlow<User?> = _state.asStateFlow()   // read-only to observers\n\n    fun load(name: String) { _state.value = User(name) }\n}\n\nfun main() = runBlocking {\n    val viewModel = UserViewModel()\n\n    // The observer. In an Activity this is lifecycleScope + repeatOnLifecycle.\n    val job = launch {\n        viewModel.state.collect { user -> println(\"render($user)\") }\n    }\n    delay(20)\n\n    viewModel.load(\"Ada\")\n    delay(20)\n\n    viewModel.load(\"Ada\")        // same value — StateFlow conflates it away\n    delay(20)\n\n    viewModel.load(\"Grace\")\n    delay(20)\n\n    println(\"current value without collecting: \" + viewModel.state.value)\n    job.cancel()                 // unsubscribing is what stops the leak\n    println(\"observer cancelled\")\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "render(null)",
+                        "render(User(name=Ada))",
+                        "render(User(name=Grace))",
+                        "current value without collecting: User(name=Grace)",
+                        "observer cancelled"
+                    ],
+                    explain: "<p>Look at what is missing: <code>load(\"Ada\")</code> was called twice and <code>render</code> ran once for it. <code>StateFlow</code> conflates — it compares with <code>equals</code> and does not re-emit a value equal to the current one — so the observer is not woken to redraw something identical.</p><p>The first line is the other half of the contract: the collector received <code>null</code>, the current value, the moment it subscribed. An observer never has to ask what it missed, which is why this shape suits UI state and why a screen returning from the background is correct immediately.</p><p>The subject exposes <code>MutableStateFlow</code> privately and <code>asStateFlow()</code> publicly, so observers can read and only the ViewModel can write. Cancelling the job is the unsubscribe — in an Activity, <code>repeatOnLifecycle</code> does that on every stop, which is what stops a background screen collecting forever.</p>"
+                }
             }],
             subsection: null
         },
@@ -98,8 +140,21 @@ const designPatternData = {
             },
             codeSnippets: [{
                 language: "kotlin",
-                title: "Repository combining local cache and network",
-                code: "class UserRepository(\n    private val api: ApiService,\n    private val dao: UserDao\n) {\n    fun getUser(id: String): Flow<User> = flow {\n        emit(dao.getUser(id))\n        val fresh = api.fetchUser(id)\n        dao.insert(fresh)\n        emit(fresh)\n    }.flowOn(Dispatchers.IO)\n}"
+                title: "Repository over cache and network",
+                code: "class UserRepository(\n    private val api: ApiService,\n    private val dao: UserDao\n) {\n    fun getUser(id: String): Flow<User> = flow {\n        emit(dao.getUser(id))\n        val fresh = api.fetchUser(id)\n        dao.insert(fresh)\n        emit(fresh)\n    }.flowOn(Dispatchers.IO)\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "The ViewModel collects getUser(id). Nothing has run yet — the flow is cold.",
+                        "The builder emits whatever the DAO has cached, so the screen shows real data almost immediately, offline included.",
+                        "The network call then runs. The collector is suspended; the UI keeps its cached content on screen.",
+                        "The fresh response is written to the database, which is what makes the cache authoritative rather than a copy.",
+                        "The fresh value is emitted, and the screen updates from stale to current.",
+                        "flowOn(Dispatchers.IO) means all of that happened off the main thread, while the collector stayed on it.",
+                        "If the network call fails, the cached emission has already been delivered — the screen keeps working and only the refresh is lost."
+                    ],
+                    explain: "<p>Steps 2 and 5 are the pattern: <strong>two emissions from one call</strong>, cached then fresh. The ViewModel does not know or care which storage answered, which is what the repository is hiding.</p><p>Step 7 is why this ordering matters. Emitting the cache first means a network failure degrades the screen instead of breaking it, and it is the reason the cache read is not wrapped in the same try as the fetch.</p><p>The weakness of this particular version is that it emits the cached value even when it is <code>null</code> or stale beyond usefulness. Production repositories usually add a freshness check, and Room + <code>NetworkBoundResource</code> is the fuller form of the same shape.</p>"
+                }
             }],
             subsection: null
         },
@@ -116,7 +171,20 @@ const designPatternData = {
             codeSnippets: [{
                 language: "kotlin",
                 title: "RecyclerView.Adapter as the Adapter pattern",
-                code: "class UserAdapter(private val users: List<User>) :\n    RecyclerView.Adapter<UserAdapter.ViewHolder>() {\n\n    class ViewHolder(val binding: ItemUserBinding) :\n        RecyclerView.ViewHolder(binding.root)\n\n    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {\n        val binding = ItemUserBinding.inflate(\n            LayoutInflater.from(parent.context), parent, false\n        )\n        return ViewHolder(binding)\n    }\n\n    override fun onBindViewHolder(holder: ViewHolder, position: Int) {\n        holder.binding.name.text = users[position].name\n    }\n\n    override fun getItemCount() = users.size\n}"
+                code: "class UserAdapter(private val users: List<User>) :\n    RecyclerView.Adapter<UserAdapter.ViewHolder>() {\n\n    class ViewHolder(val binding: ItemUserBinding) :\n        RecyclerView.ViewHolder(binding.root)\n\n    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {\n        val binding = ItemUserBinding.inflate(\n            LayoutInflater.from(parent.context), parent, false\n        )\n        return ViewHolder(binding)\n    }\n\n    override fun onBindViewHolder(holder: ViewHolder, position: Int) {\n        holder.binding.name.text = users[position].name\n    }\n\n    override fun getItemCount() = users.size\n}",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "RecyclerView asks the adapter how many items exist, via getItemCount.",
+                        "For the first visible row it calls onCreateViewHolder, which inflates a layout and wraps it in a ViewHolder.",
+                        "onBindViewHolder is called with that holder and position 0, and copies data from the model into the views.",
+                        "This repeats only for as many rows as fit on screen, plus a small buffer — not for the whole list.",
+                        "As the user scrolls, a row leaving the top is handed back and RecyclerView calls onBindViewHolder on it again with a new position.",
+                        "onCreateViewHolder is not called again for that row. The expensive inflation happened once and the view is reused.",
+                        "The adapter is the only thing that knows both the data type and the view type; RecyclerView knows neither."
+                    ],
+                    explain: "<p>Step 7 is why this is the Adapter pattern rather than merely a class called Adapter. <code>RecyclerView</code> speaks in positions and <code>ViewHolder</code>s; your code speaks in <code>User</code> objects. The adapter translates between two interfaces that were never designed to meet.</p><p>Steps 5 and 6 are the recycling that gives the widget its name, and the source of its classic bug: because holders are reused, <code>onBindViewHolder</code> must set <em>every</em> field every time. Setting a value only inside an <code>if</code> leaves the previous row's content visible on a recycled view.</p>"
+                }
             }],
             subsection: null
         },
@@ -145,8 +213,21 @@ const designPatternData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Constructor injection vs internal construction",
-                code: "// Bad: hidden dependency, hard to test\nclass UserViewModel : ViewModel() {\n    private val repo = UserRepositoryImpl(ApiClient.retrofit)\n}\n\n// Good: injected dependency, easy to fake in tests\nclass UserViewModel(private val repo: UserRepository) : ViewModel()"
+                title: "Constructor injection against internal construction",
+                code: "// Bad: hidden dependency, hard to test\nclass UserViewModel : ViewModel() {\n    private val repo = UserRepositoryImpl(ApiClient.retrofit)\n}\n\n// Good: injected dependency, easy to fake in tests\nclass UserViewModel(private val repo: UserRepository) : ViewModel()",
+                output: {
+                    kind: "trace",
+                    lines: [
+                        "In the first version, constructing UserViewModel also constructs UserRepositoryImpl, which constructs an ApiClient, which opens a real Retrofit stack.",
+                        "A test that wants to check the ViewModel therefore gets a network client it never asked for.",
+                        "There is no seam: the dependency is created inside the constructor, so nothing outside can replace it.",
+                        "In the second version the repository arrives as a constructor parameter.",
+                        "Production code passes UserRepositoryImpl, and the behaviour is identical.",
+                        "A test passes FakeUserRepository, and the same ViewModel now runs with no network at all.",
+                        "The dependency is also visible in the signature, so the ViewModel's requirements can be read without opening it."
+                    ],
+                    explain: "<p>Step 3 is the whole argument, and it is about testability rather than elegance. A dependency constructed inside a class cannot be substituted from outside it, so anything that class touches is dragged into every test of it.</p><p>Step 7 is the quieter benefit: a constructor is an honest list of what a class needs. The first version needs a network stack and says nothing about it.</p><p>Hilt and Dagger only automate step 5 — deciding what to pass. The property that makes the code testable is the parameter itself, and it costs nothing.</p>"
+                }
             }],
             subsection: null
         },
@@ -162,8 +243,21 @@ const designPatternData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Strategy pattern for validation",
-                code: "interface ValidationStrategy {\n    fun isValid(input: String): Boolean\n}\n\nclass EmailValidation : ValidationStrategy {\n    override fun isValid(input: String) = Patterns.EMAIL_ADDRESS.matcher(input).matches()\n}\n\nclass PasswordValidation : ValidationStrategy {\n    override fun isValid(input: String) = input.length >= 8\n}\n\nclass Validator(private val strategy: ValidationStrategy) {\n    fun validate(input: String) = strategy.isValid(input)\n}"
+                title: "Strategy for validation",
+                code: "interface ValidationStrategy {\n    fun isValid(input: String): Boolean\n}\n\nclass EmailValidation : ValidationStrategy {\n    private val pattern = Regex(\"^[^@\\\\s]+@[^@\\\\s]+\\\\.[^@\\\\s]+$\")\n    override fun isValid(input: String) = pattern.matches(input)\n}\n\nclass PasswordValidation : ValidationStrategy {\n    override fun isValid(input: String) = input.length >= 8\n}\n\nclass NotEmptyValidation : ValidationStrategy {\n    override fun isValid(input: String) = input.isNotBlank()\n}\n\nclass Validator(private val strategy: ValidationStrategy) {\n    fun validate(input: String) = strategy.isValid(input)\n}\n\nfun main() {\n    val email = Validator(EmailValidation())\n    val password = Validator(PasswordValidation())\n\n    println(\"email  'ada@example.com' -> \" + email.validate(\"ada@example.com\"))\n    println(\"email  'ada@'            -> \" + email.validate(\"ada@\"))\n    println(\"passwd 'short'           -> \" + password.validate(\"short\"))\n    println(\"passwd 'longenough'      -> \" + password.validate(\"longenough\"))\n\n    // A new rule is a new class. Validator was not touched.\n    println(\"notEmpty '   '           -> \" + Validator(NotEmptyValidation()).validate(\"   \"))\n\n    // The strategy can also be chosen at runtime, which an if/else chain\n    // inside Validator could not do without knowing every case up front.\n    val byField = mapOf(\n        \"email\" to EmailValidation(),\n        \"password\" to PasswordValidation()\n    )\n    for ((field, strategy) in byField) {\n        println(\"$field via map -> \" + Validator(strategy).validate(\"ada@example.com\"))\n    }\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "email  'ada@example.com' -> true",
+                        "email  'ada@'            -> false",
+                        "passwd 'short'           -> false",
+                        "passwd 'longenough'      -> true",
+                        "notEmpty '   '           -> false",
+                        "email via map -> true",
+                        "password via map -> true"
+                    ],
+                    explain: "<p><code>Validator</code> contains no validation rules and was not modified when a third one arrived. It holds a <code>ValidationStrategy</code> and calls it, which is the pattern: behaviour that varies is moved behind an interface and passed in.</p><p>The last two lines show what an <code>if</code>/<code>else</code> chain inside <code>Validator</code> could not do — the rule is chosen from a map at runtime, keyed by field name, with no branch that has to know every case up front. Adding a rule is a new class and a new map entry.</p><p>This is Open/Closed from SOLID as a concrete arrangement, and it is the same shape as a <code>Comparator</code>: the algorithm is a parameter.</p>"
+                }
             }],
             subsection: null
         },
@@ -192,8 +286,19 @@ const designPatternData = {
             diagramConfig: null,
             codeSnippets: [{
                 language: "kotlin",
-                title: "Named/default args replacing a Builder",
-                code: "data class User(\n    val name: String,\n    val age: Int = 0,\n    val email: String? = null\n)\n\nval user = User(name = \"Aditya\", age = 28)"
+                title: "Named and default arguments instead of a Builder",
+                code: "data class User(\n    val name: String,\n    val age: Int = 0,\n    val email: String? = null,\n    val premium: Boolean = false\n)\n\nfun main() {\n    // What a Builder exists to provide, the language provides directly.\n    val user = User(name = \"Aditya\", age = 28)\n    println(user)\n\n    // Arguments may be named in any order, and omitted ones take defaults.\n    println(User(email = \"ada@example.com\", name = \"Ada\"))\n\n    // No build() step, and the object is already immutable.\n    val upgraded = user.copy(premium = true)\n    println(upgraded)\n    println(\"copy left the original alone: $user\")\n\n    // data class also generates equals, so two identically built users match.\n    println(\"equal to a fresh identical User? \" + (user == User(name = \"Aditya\", age = 28)))\n}",
+                output: {
+                    kind: "stdout",
+                    lines: [
+                        "User(name=Aditya, age=28, email=null, premium=false)",
+                        "User(name=Ada, age=0, email=ada@example.com, premium=false)",
+                        "User(name=Aditya, age=28, email=null, premium=true)",
+                        "copy left the original alone: User(name=Aditya, age=28, email=null, premium=false)",
+                        "equal to a fresh identical User? true"
+                    ],
+                    explain: "<p>This is the Builder question answered by the language. Two of four fields were named at the call site, the rest took defaults, and the second line shows the order does not matter — all the things a Builder is written to provide, with no builder class to maintain.</p><p><code>copy</code> covers what a builder's reuse covered: a modified version, with the original untouched, which the fourth line confirms. And because <code>data class</code> generates <code>equals</code>, two identically built users compare equal — something a hand-written Builder result gives you only if you remember to write it.</p><p>A Builder still earns its place in Kotlin when the API must be callable from Java, which has no named arguments, or when construction needs validation partway through.</p>"
+                }
             }],
             subsection: null
         },
