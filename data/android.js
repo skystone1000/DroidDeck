@@ -283,8 +283,20 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Application vs Activity context",
-                    "code": "class MyApp : Application() {\n    companion object {\n        // Safe: Application context outlives every Activity\n        lateinit var appContext: Context\n            private set\n    }\n\n    override fun onCreate() {\n        super.onCreate()\n        appContext = applicationContext\n    }\n}\n\nclass MainActivity : AppCompatActivity() {\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        // Fine: dialog needs the themed Activity context\n        AlertDialog.Builder(this).setTitle(\"Hi\").show()\n    }\n}"
+                    "title": "Application context against Activity context",
+                    "code": "class MyApp : Application() {\n    companion object {\n        // Safe: Application context outlives every Activity\n        lateinit var appContext: Context\n            private set\n    }\n\n    override fun onCreate() {\n        super.onCreate()\n        appContext = applicationContext\n    }\n}\n\nclass MainActivity : AppCompatActivity() {\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        // Fine: dialog needs the themed Activity context\n        AlertDialog.Builder(this).setTitle(\"Hi\").show()\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The process starts and Application.onCreate assigns the application context to a static field.",
+                                "That context lives as long as the process, so holding it in a static field leaks nothing.",
+                                "An Activity is created. It is also a Context, but one bound to a window, a theme and a lifecycle.",
+                                "Anything holding the Activity context past onDestroy keeps the whole view hierarchy alive with it.",
+                                "A singleton, a static field or a long-lived callback must therefore take the application context.",
+                                "Inflating a layout or showing a dialog must NOT — those need the themed Activity context, or the result is unstyled or crashes."
+                            ],
+                            "explain": "<p>Steps 4 and 6 are the two halves of the rule, and they pull in opposite directions: use the application context for anything that outlives a screen, and the Activity context for anything that draws.</p><p>The static field here is safe only because it holds the application context. The same pattern with an Activity is the single most common leak in Android, and it is what LeakCanary finds first.</p><p><code>getApplicationContext()</code> from inside an Activity is the escape hatch when a long-lived object needs a context at all.</p>"
+                        }
                 }
             ],
             "subsection": "base"
@@ -384,8 +396,20 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "xml",
-                    "title": "Minimal manifest with a launcher Activity",
-                    "code": "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n\n    <uses-permission android:name=\"android.permission.INTERNET\" />\n\n    <application\n        android:name=\".MyApp\"\n        android:icon=\"@mipmap/ic_launcher\"\n        android:theme=\"@style/Theme.App\">\n\n        <activity\n            android:name=\".MainActivity\"\n            android:exported=\"true\">\n            <intent-filter>\n                <action android:name=\"android.intent.action.MAIN\" />\n                <category android:name=\"android.intent.category.LAUNCHER\" />\n            </intent-filter>\n        </activity>\n    </application>\n</manifest>"
+                    "title": "What the manifest declares before any code runs",
+                    "code": "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\">\n\n    <uses-permission android:name=\"android.permission.INTERNET\" />\n\n    <application\n        android:name=\".MyApp\"\n        android:icon=\"@mipmap/ic_launcher\"\n        android:theme=\"@style/Theme.App\">\n\n        <activity\n            android:name=\".MainActivity\"\n            android:exported=\"true\">\n            <intent-filter>\n                <action android:name=\"android.intent.action.MAIN\" />\n                <category android:name=\"android.intent.category.LAUNCHER\" />\n            </intent-filter>\n        </activity>\n    </application>\n</manifest>",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The system reads the manifest at install time, before a line of the app has executed.",
+                                "uses-permission declares INTERNET, which is install-time and granted automatically.",
+                                "application android:name names the custom Application class, so the system instantiates MyApp rather than the default.",
+                                "The activity with MAIN and LAUNCHER is what puts an icon in the launcher — remove that filter and the app is installed and unopenable.",
+                                "exported=\"true\" is mandatory from Android 12 for any component with an intent filter, and the build fails without it.",
+                                "At launch the system creates the process, then the Application, then the launcher Activity."
+                            ],
+                            "explain": "<p>Step 1 is the framing that makes the rest make sense: the manifest is how the app describes itself to the system <em>before</em> it can run, which is why components have to be declared there rather than registered in code.</p><p>Step 5 is the modern trap. Android 12 made <code>android:exported</code> explicit precisely because a component with an intent filter is reachable by other apps, and defaulting that to true was a decade-long security mistake.</p>"
+                        }
                 }
             ],
             "subsection": "base"
@@ -413,8 +437,20 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Custom Application class",
-                    "code": "class MyApp : Application() {\n    override fun onCreate() {\n        super.onCreate()\n        // Keep this fast — it runs before anything else\n        Timber.plant(Timber.DebugTree())\n        WorkManager.initialize(this, workManagerConfiguration)\n    }\n\n    override fun onTrimMemory(level: Int) {\n        super.onTrimMemory(level)\n        if (level >= TRIM_MEMORY_RUNNING_LOW) {\n            imageCache.evictAll()\n        }\n    }\n}"
+                    "title": "What Application.onCreate delays",
+                    "code": "class MyApp : Application() {\n    override fun onCreate() {\n        super.onCreate()\n        // Keep this fast — it runs before anything else\n        Timber.plant(Timber.DebugTree())\n        WorkManager.initialize(this, workManagerConfiguration)\n    }\n\n    override fun onTrimMemory(level: Int) {\n        super.onTrimMemory(level)\n        if (level >= TRIM_MEMORY_RUNNING_LOW) {\n            imageCache.evictAll()\n        }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The process is created and the Application object is instantiated before any Activity exists.",
+                                "onCreate runs on the main thread, and nothing can be drawn until it returns.",
+                                "Timber is planted and WorkManager is initialised.",
+                                "Every millisecond spent here is added directly to cold start time, on every launch.",
+                                "Only then does the system create and start the launcher Activity.",
+                                "Work that is not needed to draw the first frame therefore belongs elsewhere — lazily, or in App Startup, or on a background thread."
+                            ],
+                            "explain": "<p>Step 4 is why this class is a performance question as much as a structural one. It is a tempting place to put initialisation because everything can reach it, and it is the worst place to put anything slow.</p><p>The other constraint worth knowing: <code>Application.onCreate</code> also runs in every process the app has, so an app with a <code>:sync</code> process pays this cost twice and must guard anything that should happen once.</p>"
+                        }
                 }
             ],
             "subsection": "base"
@@ -443,8 +479,20 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Factory pattern with arguments, not a custom constructor",
-                    "code": "class UserFragment : Fragment(R.layout.fragment_user) {\n\n    private val userId: Int get() = requireArguments().getInt(ARG_USER_ID)\n\n    companion object {\n        private const val ARG_USER_ID = \"arg_user_id\"\n\n        fun newInstance(userId: Int) = UserFragment().apply {\n            arguments = bundleOf(ARG_USER_ID to userId)\n        }\n    }\n}"
+                    "title": "Why a Fragment must have a no-argument constructor",
+                    "code": "class UserFragment : Fragment(R.layout.fragment_user) {\n\n    private val userId: Int get() = requireArguments().getInt(ARG_USER_ID)\n\n    companion object {\n        private const val ARG_USER_ID = \"arg_user_id\"\n\n        fun newInstance(userId: Int) = UserFragment().apply {\n            arguments = bundleOf(ARG_USER_ID to userId)\n        }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The Fragment is created through newInstance, which sets its arguments Bundle.",
+                                "The system recreates the Fragment after a configuration change or process death.",
+                                "It does so reflectively, by calling the NO-ARGUMENT constructor — it has no way to supply custom parameters.",
+                                "A Fragment with only a custom constructor therefore crashes with InstantiationException at that moment, not when it was written.",
+                                "The arguments Bundle, however, IS saved and restored by the system.",
+                                "So the recreated Fragment reads its userId from requireArguments and continues correctly."
+                            ],
+                            "explain": "<p>Step 4 is what makes this a real bug rather than a style rule: the code works perfectly until the device is rotated or the process is killed, so it survives development and fails in the field.</p><p>The arguments Bundle is the supported channel because it is the one the system persists. Anything passed another way is gone after recreation, which is the same reason a constructor parameter cannot work.</p><p><code>Fragment(R.layout.fragment_user)</code> is the modern form — it hands the layout to the base class rather than overriding <code>onCreateView</code>.</p>"
+                        }
                 }
             ],
             "subsection": "activity-and-fragment"
@@ -532,8 +580,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "finish() during onCreate skips onPause/onStop",
-                    "code": "class GateActivity : AppCompatActivity() {\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        if (!authRepository.isLoggedIn()) {\n            startActivity(Intent(this, LoginActivity::class.java))\n            finish() // never started/resumed -> only onDestroy() fires\n            return\n        }\n        setContentView(R.layout.activity_gate)\n    }\n}"
+                    "title": "finish() in onCreate skips most of the lifecycle",
+                    "code": "class GateActivity : AppCompatActivity() {\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        if (!authRepository.isLoggedIn()) {\n            startActivity(Intent(this, LoginActivity::class.java))\n            finish() // never started/resumed -> only onDestroy() fires\n            return\n        }\n        setContentView(R.layout.activity_gate)\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The Activity is created and onCreate begins.",
+                                "The auth check fails, so startActivity is called for the login screen and finish() is called immediately.",
+                                "The Activity never becomes visible, so onStart and onResume never run.",
+                                "Because it was never resumed, onPause and onStop have nothing to undo and are also skipped.",
+                                "onDestroy runs, and it is the ONLY lifecycle callback after onCreate that does.",
+                                "Anything registered in onStart and released in onStop was never registered, so nothing leaks.",
+                                "Anything registered in onCreate must still be released in onDestroy, because that is the only cleanup that will run."
+                            ],
+                            "explain": "<p>Step 5 is the answer to the question as asked, and step 7 is why it matters. Cleanup paired with <code>onCreate</code> belongs in <code>onDestroy</code>; cleanup paired with <code>onStart</code> belongs in <code>onStop</code>. Mixing the pairs produces either a leak or a crash on a null resource.</p><p>The <code>return</code> after <code>finish()</code> is essential: <code>finish()</code> only schedules the teardown, and the rest of <code>onCreate</code> would otherwise run to completion on an Activity that is already going away.</p>"
+                        }
                 }
             ],
             "subsection": "activity-and-fragment"
@@ -585,8 +646,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Saving and restoring simple UI state",
-                    "code": "class SearchActivity : AppCompatActivity() {\n    private var queryText: String = \"\"\n\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        setContentView(R.layout.activity_search)\n        queryText = savedInstanceState?.getString(\"query\") ?: \"\"\n    }\n\n    override fun onSaveInstanceState(outState: Bundle) {\n        super.onSaveInstanceState(outState)\n        outState.putString(\"query\", searchEditText.text.toString())\n    }\n}"
+                    "title": "Saving and restoring instance state",
+                    "code": "class SearchActivity : AppCompatActivity() {\n    private var queryText: String = \"\"\n\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        setContentView(R.layout.activity_search)\n        queryText = savedInstanceState?.getString(\"query\") ?: \"\"\n    }\n\n    override fun onSaveInstanceState(outState: Bundle) {\n        super.onSaveInstanceState(outState)\n        outState.putString(\"query\", searchEditText.text.toString())\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The Activity is created for the first time with a null savedInstanceState, so the query defaults to empty.",
+                                "The user types. The value lives in a field.",
+                                "The device rotates. The system calls onSaveInstanceState BEFORE destroying the Activity.",
+                                "The query is written into the Bundle, which the system holds outside the process.",
+                                "The Activity is destroyed and a new instance is created, this time with that Bundle.",
+                                "onCreate reads the query back and the field is restored.",
+                                "If the process was killed in the background instead, the same Bundle is restored from disk when the user returns."
+                            ],
+                            "explain": "<p>Step 7 is what distinguishes this from a ViewModel. A ViewModel survives rotation and <strong>not</strong> process death; the saved instance state Bundle survives both, because the system persists it.</p><p>The Bundle is also small and serialised on the main thread, so it is for identifiers and scroll positions, not for lists of data. Anything large should be refetchable from an id.</p><p><code>SavedStateHandle</code> is the modern form, combining both: a ViewModel whose state is backed by this same Bundle.</p>"
+                        }
                 }
             ],
             "subsection": "activity-and-fragment"
@@ -677,8 +751,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "xml",
-                    "title": "Declaring launch mode in the manifest",
-                    "code": "<activity\n    android:name=\".HomeActivity\"\n    android:launchMode=\"singleTask\"\n    android:exported=\"true\" />"
+                    "title": "What singleTask does to the back stack",
+                    "code": "<activity\n    android:name=\".HomeActivity\"\n    android:launchMode=\"singleTask\"\n    android:exported=\"true\" />",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "HomeActivity is declared singleTask in the manifest, so the system applies it to every launch of that Activity.",
+                                "The user navigates Home to A to B, giving a stack of Home, A, B.",
+                                "Something launches HomeActivity again — a notification tap, a deep link, a navigate-up.",
+                                "With standard launch mode this would push a SECOND Home on top, giving Home, A, B, Home.",
+                                "With singleTask, the system finds the existing Home instead of creating one.",
+                                "It clears everything above it, so A and B are destroyed, and delivers the intent to onNewIntent.",
+                                "The stack is Home alone, and onCreate is NOT called — the existing instance is reused."
+                            ],
+                            "explain": "<p>Step 7 is where the bugs come from: because <code>onCreate</code> does not run, any intent handling written only in <code>onCreate</code> is skipped, and the screen shows stale content. Handling the intent in <code>onNewIntent</code> as well is the fix.</p><p>Step 6 is the reason to use it at all — a single home screen that cannot be stacked on itself, which is what a launcher or a main tabbed screen usually wants.</p><p><code>singleTop</code> is the gentler version: it reuses the instance only when it is already at the top, and clears nothing.</p>"
+                        }
                 }
             ],
             "subsection": "activity-and-fragment"
@@ -777,7 +864,20 @@ const androidData = {
                 {
                     "language": "kotlin",
                     "title": "replace() with a back-stack entry",
-                    "code": "supportFragmentManager.commit {\n    setReorderingAllowed(true)\n    replace(R.id.fragment_container, DetailFragment.newInstance(itemId))\n    addToBackStack(\"detail\")\n}"
+                    "code": "supportFragmentManager.commit {\n    setReorderingAllowed(true)\n    replace(R.id.fragment_container, DetailFragment.newInstance(itemId))\n    addToBackStack(\"detail\")\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "commit schedules the transaction; it is not executed immediately.",
+                                "setReorderingAllowed(true) lets the framework optimise the operations and is required for correct shared-element transitions.",
+                                "replace removes any Fragment currently in the container and adds DetailFragment.",
+                                "The removed Fragment's VIEW is destroyed — onDestroyView runs — but the Fragment instance is kept because of the back stack.",
+                                "addToBackStack records the transaction so the system back button can reverse it.",
+                                "Back pops the entry: DetailFragment is removed and the previous Fragment's view is recreated from scratch.",
+                                "With add() instead of replace(), the first Fragment would have stayed visible underneath, and both would be drawn."
+                            ],
+                            "explain": "<p>Step 7 is the practical difference. <code>add</code> stacks Fragments on top of each other, which is right for something like a bottom sheet over content and wrong for navigation — the old screen keeps receiving touches and both are drawn.</p><p>Step 6 is the cost of <code>replace</code>: the returned-to Fragment rebuilds its view, so scroll position and view state are lost unless they were saved.</p><p>Without <code>addToBackStack</code>, back would leave the app entirely rather than returning to the previous screen.</p>"
+                        }
                 }
             ],
             "subsection": "activity-and-fragment"
@@ -805,8 +905,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Sharing state via an Activity-scoped ViewModel",
-                    "code": "class SharedViewModel : ViewModel() {\n    private val _selectedItem = MutableStateFlow<Item?>(null)\n    val selectedItem: StateFlow<Item?> = _selectedItem\n\n    fun select(item: Item) { _selectedItem.value = item }\n}\n\nclass ListFragment : Fragment() {\n    private val sharedVm: SharedViewModel by activityViewModels()\n    fun onItemClicked(item: Item) = sharedVm.select(item)\n}\n\nclass DetailFragment : Fragment() {\n    private val sharedVm: SharedViewModel by activityViewModels()\n    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {\n        viewLifecycleOwner.lifecycleScope.launch {\n            sharedVm.selectedItem.collect { render(it) }\n        }\n    }\n}"
+                    "title": "Two Fragments sharing an Activity-scoped ViewModel",
+                    "code": "class SharedViewModel : ViewModel() {\n    private val _selectedItem = MutableStateFlow<Item?>(null)\n    val selectedItem: StateFlow<Item?> = _selectedItem\n\n    fun select(item: Item) { _selectedItem.value = item }\n}\n\nclass ListFragment : Fragment() {\n    private val sharedVm: SharedViewModel by activityViewModels()\n    fun onItemClicked(item: Item) = sharedVm.select(item)\n}\n\nclass DetailFragment : Fragment() {\n    private val sharedVm: SharedViewModel by activityViewModels()\n    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {\n        viewLifecycleOwner.lifecycleScope.launch {\n            sharedVm.selectedItem.collect { render(it) }\n        }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "Both Fragments obtain the ViewModel with activityViewModels, keyed on the Activity rather than themselves.",
+                                "The ViewModelStore is the Activity's, so both receive the SAME instance.",
+                                "The list Fragment calls select(item), which writes the StateFlow.",
+                                "The detail Fragment is collecting that flow and receives the new value.",
+                                "Neither Fragment holds a reference to the other, and neither needs to exist for the other to work.",
+                                "On rotation both Fragments are recreated and both get the same surviving ViewModel, with the selection intact.",
+                                "When the Activity is finally destroyed, the ViewModel is cleared."
+                            ],
+                            "explain": "<p>Step 5 is the point. The alternatives — an interface implemented by the Activity, a direct <code>findFragmentById</code> lookup — couple the two Fragments to each other and break the moment one is used elsewhere.</p><p>Step 1 is the line that decides everything: <code>by viewModels()</code> would scope it to each Fragment and give two separate instances, which is the usual cause of \"the other screen does not see my selection\".</p><p>The Fragment Result API is the alternative for a one-off answer, where a shared long-lived state holder is more than the situation needs.</p>"
+                        }
                 }
             ],
             "subsection": "activity-and-fragment"
@@ -951,8 +1064,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Minimal custom View",
-                    "code": "class BadgeView @JvmOverloads constructor(\n    context: Context,\n    attrs: AttributeSet? = null\n) : View(context, attrs) {\n\n    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.RED }\n    var count: Int = 0\n        set(value) { field = value; invalidate() }\n\n    override fun onMeasure(widthSpec: Int, heightSpec: Int) {\n        val size = (24 * resources.displayMetrics.density).toInt()\n        setMeasuredDimension(size, size)\n    }\n\n    override fun onDraw(canvas: Canvas) {\n        super.onDraw(canvas)\n        canvas.drawCircle(width / 2f, height / 2f, width / 2f, paint)\n    }\n}"
+                    "title": "A custom View, from constructor to pixels",
+                    "code": "class BadgeView @JvmOverloads constructor(\n    context: Context,\n    attrs: AttributeSet? = null\n) : View(context, attrs) {\n\n    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.RED }\n    var count: Int = 0\n        set(value) { field = value; invalidate() }\n\n    override fun onMeasure(widthSpec: Int, heightSpec: Int) {\n        val size = (24 * resources.displayMetrics.density).toInt()\n        setMeasuredDimension(size, size)\n    }\n\n    override fun onDraw(canvas: Canvas) {\n        super.onDraw(canvas)\n        canvas.drawCircle(width / 2f, height / 2f, width / 2f, paint)\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "@JvmOverloads generates the constructor overloads the framework needs to inflate this View from XML.",
+                                "The Paint is created once as a field — allocating it in onDraw would allocate on every frame.",
+                                "The system measures the View, then lays it out, then calls onDraw.",
+                                "onDraw runs on the main thread for every frame the View is invalidated on.",
+                                "Setting count changes what should be drawn.",
+                                "invalidate() marks the View dirty and schedules a redraw; onDraw runs again on the next frame.",
+                                "requestLayout() would be needed instead if the change affected the View's SIZE, not just its appearance."
+                            ],
+                            "explain": "<p>Step 2 is the rule that separates a smooth custom View from a janky one: <strong>no allocation in onDraw</strong>. It runs up to sixty times a second, and a <code>Paint</code> or a <code>Rect</code> created there is sixty allocations a second for the garbage collector.</p><p>Step 7 is the distinction that gets asked. <code>invalidate</code> means \"redraw me\"; <code>requestLayout</code> means \"my size may have changed, re-measure the hierarchy\". Calling the wrong one gives either a stale layout or an unnecessary measure pass.</p>"
+                        }
                 }
             ],
             "subsection": "views-and-viewgroups"
@@ -1096,8 +1222,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "xml",
-                    "title": "Using merge to avoid an extra wrapper ViewGroup",
-                    "code": "<!-- reusable_toolbar.xml, included into a layout that is already a FrameLayout -->\n<merge xmlns:android=\"http://schemas.android.com/apk/res/android\">\n    <ImageView android:id=\"@+id/icon\" android:layout_width=\"24dp\" android:layout_height=\"24dp\" />\n    <TextView android:id=\"@+id/title\" android:layout_width=\"wrap_content\" android:layout_height=\"wrap_content\" />\n</merge>"
+                    "title": "What merge removes from the hierarchy",
+                    "code": "<!-- reusable_toolbar.xml, included into a layout that is already a FrameLayout -->\n<merge xmlns:android=\"http://schemas.android.com/apk/res/android\">\n    <ImageView android:id=\"@+id/icon\" android:layout_width=\"24dp\" android:layout_height=\"24dp\" />\n    <TextView android:id=\"@+id/title\" android:layout_width=\"wrap_content\" android:layout_height=\"wrap_content\" />\n</merge>",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "Without merge, the included layout's root — say a FrameLayout — becomes a real ViewGroup in the tree.",
+                                "The parent is already a FrameLayout, so the tree now has two nested ones doing the same job.",
+                                "Every measure and layout pass walks both, and every draw pass traverses both.",
+                                "merge tells the inflater there is no root: the children are added directly to the parent.",
+                                "The ImageView and TextView become direct children of the existing FrameLayout.",
+                                "One level of nesting disappears, along with its measure, layout and draw cost.",
+                                "merge only works when the parent's type is known and suitable, which is why it is used with include rather than standalone."
+                            ],
+                            "explain": "<p>The cost this avoids compounds with depth, which is the real point. A View system layout is measured and laid out top to bottom, and nested weights can cause multiple measure passes — so a redundant level near the root of a deep tree is paid for many times per frame.</p><p><code>ConstraintLayout</code> attacks the same problem from the other side, replacing deep nesting with a single flat layer. Layout Inspector is how you find out which you have.</p>"
+                        }
                 }
             ],
             "subsection": "views-and-viewgroups"
@@ -1239,8 +1378,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Sharing a RecycledViewPool between nested RecyclerViews",
-                    "code": "val sharedPool = RecyclerView.RecycledViewPool()\n\nouterAdapter.onBindInnerRecyclerView = { innerRv ->\n    innerRv.setRecycledViewPool(sharedPool)\n    innerRv.setHasFixedSize(true)\n}"
+                    "title": "Sharing a RecycledViewPool between nested lists",
+                    "code": "val sharedPool = RecyclerView.RecycledViewPool()\n\nouterAdapter.onBindInnerRecyclerView = { innerRv ->\n    innerRv.setRecycledViewPool(sharedPool)\n    innerRv.setHasFixedSize(true)\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "A vertical RecyclerView holds rows, each containing its own horizontal RecyclerView.",
+                                "By default every inner list has its OWN view pool, so each one inflates its item views from scratch.",
+                                "Scrolling vertically recycles a whole row, and its inner list's pool goes with it.",
+                                "The next row inflates the same item layouts all over again — inflation being the expensive part.",
+                                "Setting a shared RecycledViewPool means every inner list draws from one pool of recycled views.",
+                                "A view scrolled off one row is reused by another, and the inflation happens a handful of times rather than per row.",
+                                "setHasFixedSize(true) tells the outer list its own size cannot change when items change, so it skips a requestLayout per update."
+                            ],
+                            "explain": "<p>Step 5 is the fix and it is one line. The nested-list pattern is common — a feed of carousels — and it is one of the few places where a RecyclerView performs badly by default.</p><p>The prerequisite for sharing is that the inner lists use the <strong>same view types</strong> for the same layouts; otherwise views come out of the pool and are discarded, which is worse than not sharing.</p><p><code>setHasFixedSize</code> is unrelated to the pool and worth knowing separately: it is a promise about the RecyclerView's dimensions, not about the number of items.</p>"
+                        }
                 }
             ],
             "subsection": "displaying-lists-of-content"
@@ -1338,8 +1490,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Adapter + ViewHolder",
-                    "code": "class UserAdapter(private val users: List<User>) :\n    RecyclerView.Adapter<UserAdapter.UserViewHolder>() {\n\n    class UserViewHolder(val binding: ItemUserBinding) :\n        RecyclerView.ViewHolder(binding.root)\n\n    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): UserViewHolder {\n        val binding = ItemUserBinding.inflate(\n            LayoutInflater.from(parent.context), parent, false\n        )\n        return UserViewHolder(binding)\n    }\n\n    override fun onBindViewHolder(holder: UserViewHolder, position: Int) {\n        val user = users[position]\n        holder.binding.name.text = user.name\n        holder.binding.avatar.load(user.avatarUrl)\n    }\n\n    override fun getItemCount() = users.size\n}"
+                    "title": "What the Adapter and the ViewHolder each do",
+                    "code": "class UserAdapter(private val users: List<User>) :\n    RecyclerView.Adapter<UserAdapter.UserViewHolder>() {\n\n    class UserViewHolder(val binding: ItemUserBinding) :\n        RecyclerView.ViewHolder(binding.root)\n\n    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): UserViewHolder {\n        val binding = ItemUserBinding.inflate(\n            LayoutInflater.from(parent.context), parent, false\n        )\n        return UserViewHolder(binding)\n    }\n\n    override fun onBindViewHolder(holder: UserViewHolder, position: Int) {\n        val user = users[position]\n        holder.binding.name.text = user.name\n        holder.binding.avatar.load(user.avatarUrl)\n    }\n\n    override fun getItemCount() = users.size\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "RecyclerView asks getItemCount to know how many items exist.",
+                                "For each visible position it calls onCreateViewHolder, which inflates a layout and wraps it.",
+                                "The ViewHolder holds the resolved view references, so findViewById never runs again for that view.",
+                                "onBindViewHolder copies data from the model into those views for a given position.",
+                                "Only as many holders as fit on screen, plus a buffer, are ever created.",
+                                "Scrolling hands a holder that left the screen back, and onBindViewHolder is called on it with a new position.",
+                                "onCreateViewHolder is NOT called again for it — the inflation happened once."
+                            ],
+                            "explain": "<p>Steps 3 and 7 are the two costs the pattern removes: repeated <code>findViewById</code> and repeated inflation, both of which the old <code>ListView</code> paid unless you implemented the ViewHolder pattern by hand.</p><p>Step 6 is the source of the classic bug. Because holders are reused, <code>onBindViewHolder</code> must set <strong>every</strong> field on every call. Setting something only inside an <code>if</code> leaves the previous row's value visible.</p>"
+                        }
                 }
             ],
             "subsection": "displaying-lists-of-content"
@@ -1390,8 +1555,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Multiple view types with a sealed model",
-                    "code": "sealed class FeedItem {\n    data class Header(val title: String) : FeedItem()\n    data class Post(val body: String) : FeedItem()\n}\n\nclass FeedAdapter(private val items: List<FeedItem>) :\n    RecyclerView.Adapter<RecyclerView.ViewHolder>() {\n\n    override fun getItemViewType(position: Int) = when (items[position]) {\n        is FeedItem.Header -> TYPE_HEADER\n        is FeedItem.Post -> TYPE_POST\n    }\n\n    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =\n        when (viewType) {\n            TYPE_HEADER -> HeaderViewHolder.create(parent)\n            else -> PostViewHolder.create(parent)\n        }\n\n    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {\n        when (val item = items[position]) {\n            is FeedItem.Header -> (holder as HeaderViewHolder).bind(item)\n            is FeedItem.Post -> (holder as PostViewHolder).bind(item)\n        }\n    }\n\n    override fun getItemCount() = items.size\n\n    companion object { const val TYPE_HEADER = 0; const val TYPE_POST = 1 }\n}"
+                    "title": "Multiple view types from a sealed model",
+                    "code": "sealed class FeedItem {\n    data class Header(val title: String) : FeedItem()\n    data class Post(val body: String) : FeedItem()\n}\n\nclass FeedAdapter(private val items: List<FeedItem>) :\n    RecyclerView.Adapter<RecyclerView.ViewHolder>() {\n\n    override fun getItemViewType(position: Int) = when (items[position]) {\n        is FeedItem.Header -> TYPE_HEADER\n        is FeedItem.Post -> TYPE_POST\n    }\n\n    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =\n        when (viewType) {\n            TYPE_HEADER -> HeaderViewHolder.create(parent)\n            else -> PostViewHolder.create(parent)\n        }\n\n    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {\n        when (val item = items[position]) {\n            is FeedItem.Header -> (holder as HeaderViewHolder).bind(item)\n            is FeedItem.Post -> (holder as PostViewHolder).bind(item)\n        }\n    }\n\n    override fun getItemCount() = items.size\n\n    companion object { const val TYPE_HEADER = 0; const val TYPE_POST = 1 }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The list holds a sealed FeedItem, so every element is a Header or a Post and nothing else.",
+                                "getItemViewType is called for each position and returns a different int per subtype.",
+                                "RecyclerView calls onCreateViewHolder ONCE PER TYPE, passing that int as viewType.",
+                                "A when over the viewType inflates and returns the right ViewHolder.",
+                                "The RecycledViewPool keeps a separate pool per view type, so a Header is never recycled as a Post.",
+                                "onBindViewHolder receives the holder and must dispatch on the type again to bind correctly.",
+                                "A when over the sealed class is exhaustive, so adding a third item type breaks compilation until it is handled everywhere."
+                            ],
+                            "explain": "<p>Step 7 is why the sealed class is worth the ceremony over an <code>Any</code> list with <code>instanceof</code> checks: adding a type produces compile errors at exactly the three places that need updating, rather than a silently unhandled case at runtime.</p><p>Step 5 is the mechanism that makes multiple types safe — the pool is per type, so a recycled view always matches the layout it is about to be bound to.</p>"
+                        }
                 }
             ],
             "subsection": "displaying-lists-of-content"
@@ -1419,8 +1597,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "ListAdapter with a DiffUtil.ItemCallback",
-                    "code": "class UserDiffCallback : DiffUtil.ItemCallback<User>() {\n    override fun areItemsTheSame(old: User, new: User) = old.id == new.id\n    override fun areContentsTheSame(old: User, new: User) = old == new\n}\n\nclass UserAdapter : ListAdapter<User, UserAdapter.VH>(UserDiffCallback()) {\n    class VH(val binding: ItemUserBinding) : RecyclerView.ViewHolder(binding.root)\n\n    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =\n        VH(ItemUserBinding.inflate(LayoutInflater.from(parent.context), parent, false))\n\n    override fun onBindViewHolder(holder: VH, position: Int) {\n        holder.binding.name.text = getItem(position).name\n    }\n}\n\n// Elsewhere: adapter.submitList(newUsers) triggers the background diff + animated update"
+                    "title": "How ListAdapter updates a list",
+                    "code": "class UserDiffCallback : DiffUtil.ItemCallback<User>() {\n    override fun areItemsTheSame(old: User, new: User) = old.id == new.id\n    override fun areContentsTheSame(old: User, new: User) = old == new\n}\n\nclass UserAdapter : ListAdapter<User, UserAdapter.VH>(UserDiffCallback()) {\n    class VH(val binding: ItemUserBinding) : RecyclerView.ViewHolder(binding.root)\n\n    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =\n        VH(ItemUserBinding.inflate(LayoutInflater.from(parent.context), parent, false))\n\n    override fun onBindViewHolder(holder: VH, position: Int) {\n        holder.binding.name.text = getItem(position).name\n    }\n}\n\n// Elsewhere: adapter.submitList(newUsers) triggers the background diff + animated update",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "submitList is called with a new list. The old list is still on screen.",
+                                "ListAdapter runs DiffUtil on a background thread, comparing the two lists.",
+                                "areItemsTheSame asks \"is this the same entity\" — compared by id, not by content.",
+                                "For pairs where that is true, areContentsTheSame asks whether anything visible changed.",
+                                "DiffUtil produces a minimal set of operations: these inserted, that moved, this one changed.",
+                                "Those are dispatched on the main thread as notifyItemInserted, notifyItemMoved and notifyItemChanged.",
+                                "RecyclerView animates each one, and rebinds only the rows that actually changed."
+                            ],
+                            "explain": "<p>Steps 3 and 4 are the pair that gets confused, and getting them the wrong way round has visible symptoms. If <code>areItemsTheSame</code> compares contents, every edit looks like a delete plus an insert and the row flashes instead of animating. If <code>areContentsTheSame</code> compares ids, it always returns true and edits are never redrawn.</p><p>The whole point is step 7: <code>notifyDataSetChanged</code> rebinds every visible row, loses the scroll position and animates nothing. Diffing rebinds one.</p><p>The comparison is O(n) in the size of the change, and it runs off the main thread, which is what makes it safe for large lists.</p>"
+                        }
                 }
             ],
             "subsection": "displaying-lists-of-content"
@@ -1471,8 +1662,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Targeted single-item update with a payload",
-                    "code": "fun toggleLike(position: Int) {\n    val updated = items[position].copy(liked = !items[position].liked)\n    items[position] = updated\n    adapter.notifyItemChanged(position, \"LIKE_PAYLOAD\")\n}\n\n// In the adapter:\noverride fun onBindViewHolder(holder: VH, position: Int, payloads: MutableList<Any>) {\n    if (payloads.isNotEmpty()) {\n        holder.updateLikeIconOnly(items[position].liked)\n    } else {\n        super.onBindViewHolder(holder, position, payloads)\n    }\n}"
+                    "title": "A targeted update with a payload",
+                    "code": "fun toggleLike(position: Int) {\n    val updated = items[position].copy(liked = !items[position].liked)\n    items[position] = updated\n    adapter.notifyItemChanged(position, \"LIKE_PAYLOAD\")\n}\n\n// In the adapter:\noverride fun onBindViewHolder(holder: VH, position: Int, payloads: MutableList<Any>) {\n    if (payloads.isNotEmpty()) {\n        holder.updateLikeIconOnly(items[position].liked)\n    } else {\n        super.onBindViewHolder(holder, position, payloads)\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "One item changes — a like is toggled.",
+                                "notifyItemChanged(position) alone would rebind the whole row, re-setting text, images and everything else.",
+                                "Passing a payload tells RecyclerView this is a partial change.",
+                                "The three-argument onBindViewHolder overload is called, with the payload list.",
+                                "If the list is non-empty, the adapter updates only the affected view — the like icon.",
+                                "If it is empty, the adapter falls back to a full bind, which is the case after a scroll-recycle.",
+                                "The row is not re-inflated, images are not reloaded, and the change animation is not interrupted."
+                            ],
+                            "explain": "<p>Step 6 is the part that must not be skipped. The payload overload is called for partial updates <em>and</em> for full binds, so an implementation that assumes a payload is always present will render blank rows after scrolling.</p><p>The visible benefit is step 7: a full rebind of a row containing an image restarts the image load, producing a flicker on something as small as a like button.</p>"
+                        }
                 }
             ],
             "subsection": "displaying-lists-of-content"
@@ -1500,8 +1704,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Carousel-style snapping list",
-                    "code": "val snapHelper = LinearSnapHelper()\nsnapHelper.attachToRecyclerView(recyclerView)\nrecyclerView.layoutManager = LinearLayoutManager(context, RecyclerView.HORIZONTAL, false)"
+                    "title": "How a SnapHelper snaps",
+                    "code": "val snapHelper = LinearSnapHelper()\nsnapHelper.attachToRecyclerView(recyclerView)\nrecyclerView.layoutManager = LinearLayoutManager(context, RecyclerView.HORIZONTAL, false)",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "attachToRecyclerView installs the helper as an OnFlingListener and a scroll listener.",
+                                "The user flings the list horizontally.",
+                                "RecyclerView begins its normal fling and decelerates.",
+                                "As it settles, the helper calls findTargetSnapPosition to decide which item should end up in position.",
+                                "findSnapView and calculateDistanceToFinalSnap give the remaining offset.",
+                                "The helper smooth-scrolls that last distance, so the item lands aligned rather than wherever momentum stopped.",
+                                "LinearSnapHelper centres the nearest item; PagerSnapHelper snaps one item at a time, like a ViewPager."
+                            ],
+                            "explain": "<p>Step 7 is the choice worth knowing. <code>LinearSnapHelper</code> allows a fling to travel several items and then centres whatever is nearest — right for a carousel. <code>PagerSnapHelper</code> limits every fling to a single item — right for full-width pages.</p><p>Both are two lines, and both replace what used to be a custom <code>OnScrollListener</code> doing arithmetic on child positions.</p>"
+                        }
                 }
             ],
             "subsection": "displaying-lists-of-content"
@@ -1528,8 +1745,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Basic AlertDialog",
-                    "code": "AlertDialog.Builder(context)\n    .setTitle(\"Delete item\")\n    .setMessage(\"This action cannot be undone.\")\n    .setPositiveButton(\"Delete\") { _, _ -> viewModel.delete(itemId) }\n    .setNegativeButton(\"Cancel\", null)\n    .show()"
+                    "title": "Showing an AlertDialog",
+                    "code": "AlertDialog.Builder(context)\n    .setTitle(\"Delete item\")\n    .setMessage(\"This action cannot be undone.\")\n    .setPositiveButton(\"Delete\") { _, _ -> viewModel.delete(itemId) }\n    .setNegativeButton(\"Cancel\", null)\n    .show()",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The builder is configured with a title, a message and two buttons.",
+                                "show() creates the Dialog and adds its window to the Activity that the context belongs to.",
+                                "The dialog is a window on top of the Activity — the Activity is not paused and stays visible behind it.",
+                                "A button tap invokes its listener and dismisses the dialog automatically.",
+                                "Passing null as a listener, as the Cancel button does, still dismisses; it just does nothing else.",
+                                "The device rotates. The Activity is destroyed, and the dialog goes with it — without reappearing.",
+                                "A dialog shown with a non-Activity context throws, because it has no window to attach to."
+                            ],
+                            "explain": "<p>Step 6 is the limitation that makes this the wrong tool for anything the user must answer. A raw <code>AlertDialog</code> has no lifecycle of its own, so rotation dismisses it silently and any pending decision is lost.</p><p>Step 7 is the crash people hit when trying to show a dialog from a repository or a service: <code>show()</code> needs an Activity context, and the application context will not do.</p><p>Both problems are what <code>DialogFragment</code> exists to solve.</p>"
+                        }
                 }
             ],
             "subsection": "dialogs-and-toasts"
@@ -1556,8 +1786,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Showing a Toast",
-                    "code": "Toast.makeText(context, \"Saved successfully\", Toast.LENGTH_SHORT).show()"
+                    "title": "What a Toast actually does",
+                    "code": "Toast.makeText(context, \"Saved successfully\", Toast.LENGTH_SHORT).show()",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "makeText builds the Toast; nothing is shown until show() is called.",
+                                "show() hands it to the system NotificationManagerService, not to the Activity.",
+                                "The toast is therefore drawn by the system, outside the app's window.",
+                                "It appears for the requested duration and disappears on its own — there is no dismiss and no callback.",
+                                "Because it is not part of the Activity, it survives the Activity being finished and can appear over another app.",
+                                "From Android 11, a toast from a background app is blocked entirely.",
+                                "From Android 12, custom toast views are ignored and only text is shown."
+                            ],
+                            "explain": "<p>Steps 5 to 7 are the reason toasts have quietly stopped being the default feedback mechanism. They are uncancellable, unactionable, appear outside the app, and have been progressively restricted because they were used for spam and for overlay attacks.</p><p><code>Snackbar</code> is the replacement for anything in-app: it lives inside the layout, respects the lifecycle, can carry an action, and can be dismissed.</p>"
+                        }
                 }
             ],
             "subsection": "dialogs-and-toasts"
@@ -1585,8 +1828,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "DialogFragment wrapping an AlertDialog",
-                    "code": "class ConfirmDeleteDialog : DialogFragment() {\n    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {\n        return AlertDialog.Builder(requireContext())\n            .setTitle(\"Delete item\")\n            .setPositiveButton(\"Delete\") { _, _ ->\n                setFragmentResult(\"delete_confirmed\", bundleOf())\n            }\n            .setNegativeButton(\"Cancel\", null)\n            .create()\n    }\n}\n\n// Usage: ConfirmDeleteDialog().show(supportFragmentManager, \"confirm_delete\")"
+                    "title": "DialogFragment over a raw Dialog",
+                    "code": "class ConfirmDeleteDialog : DialogFragment() {\n    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {\n        return AlertDialog.Builder(requireContext())\n            .setTitle(\"Delete item\")\n            .setPositiveButton(\"Delete\") { _, _ ->\n                setFragmentResult(\"delete_confirmed\", bundleOf())\n            }\n            .setNegativeButton(\"Cancel\", null)\n            .create()\n    }\n}\n\n// Usage: ConfirmDeleteDialog().show(supportFragmentManager, \"confirm_delete\")",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The DialogFragment is shown through the FragmentManager, so it becomes part of the Fragment back stack.",
+                                "onCreateDialog builds the same AlertDialog as before, but the Fragment owns it.",
+                                "The device rotates. The Activity and the Fragment are destroyed.",
+                                "The FragmentManager recreates the DialogFragment and calls onCreateDialog again, so the dialog REAPPEARS with its state.",
+                                "The confirm button calls setFragmentResult rather than a callback held by the caller.",
+                                "The host Fragment or Activity has a result listener registered, and receives the result whenever it is in a valid state.",
+                                "Because the result goes through the FragmentManager, no reference to the caller is held and nothing leaks."
+                            ],
+                            "explain": "<p>Step 4 is the whole reason to prefer this. A raw <code>AlertDialog</code> vanishes on rotation; a <code>DialogFragment</code> is restored, which is what any dialog asking the user to confirm something needs.</p><p>Step 7 is the second reason. Passing a lambda into a dialog captures the Activity, and after recreation that lambda points at a dead one. The Fragment Result API delivers through the manager instead, so the listener is always the live instance.</p>"
+                        }
                 }
             ],
             "subsection": "dialogs-and-toasts"
@@ -1637,8 +1893,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Implicit intent to share text",
-                    "code": "val shareIntent = Intent(Intent.ACTION_SEND).apply {\n    type = \"text/plain\"\n    putExtra(Intent.EXTRA_TEXT, \"Check this out!\")\n}\nstartActivity(Intent.createChooser(shareIntent, \"Share via\"))"
+                    "title": "An implicit intent and the chooser",
+                    "code": "val shareIntent = Intent(Intent.ACTION_SEND).apply {\n    type = \"text/plain\"\n    putExtra(Intent.EXTRA_TEXT, \"Check this out!\")\n}\nstartActivity(Intent.createChooser(shareIntent, \"Share via\"))",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The intent names an ACTION and a MIME type, and no component at all.",
+                                "startActivity hands it to the system, which resolves it against every installed app's intent filters.",
+                                "Every app declaring ACTION_SEND with text/plain is a candidate.",
+                                "createChooser forces the system picker to appear even when the user has set a default.",
+                                "The user chooses an app; the system starts that app's Activity with this intent.",
+                                "The receiving app reads EXTRA_TEXT and does whatever it does with it.",
+                                "If no app matches, startActivity throws ActivityNotFoundException."
+                            ],
+                            "explain": "<p>Step 4 is why <code>createChooser</code> is used rather than <code>startActivity(shareIntent)</code> directly. Without it the system may launch a previously chosen default, which is wrong for sharing — the target is usually different every time.</p><p>Step 7 is the case worth handling: on a device with no matching app, this crashes. From Android 11, package visibility rules also mean <code>resolveActivity</code> returns null unless the app declares a <code>queries</code> element, which broke a lot of pre-existing null checks.</p>"
+                        }
                 }
             ],
             "subsection": "intents-and-broadcasting"
@@ -1666,8 +1935,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Explicit intent between Activities",
-                    "code": "val intent = Intent(this, DetailActivity::class.java).apply {\n    putExtra(\"item_id\", itemId)\n}\nstartActivity(intent)"
+                    "title": "An explicit intent between Activities",
+                    "code": "val intent = Intent(this, DetailActivity::class.java).apply {\n    putExtra(\"item_id\", itemId)\n}\nstartActivity(intent)",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The intent names a concrete class, so no resolution against intent filters is needed.",
+                                "putExtra writes the item id into the intent's Bundle.",
+                                "startActivity asks the system to start that component.",
+                                "The system creates DetailActivity — in this app's process, in the same task — and pushes it onto the back stack.",
+                                "DetailActivity reads the extra in onCreate via intent.getStringExtra.",
+                                "Pressing back finishes it and returns to the caller, which resumes.",
+                                "The extras go into a Bundle, so they are limited to primitives, Strings, Parcelables and Serializables."
+                            ],
+                            "explain": "<p>The distinction from an implicit intent is entirely step 1: naming the component means the system does not have to ask which app should handle this, so an explicit intent cannot open another app's screen by accident and cannot fail to resolve.</p><p>Step 7 is the practical limit and the reason to pass an <strong>id</strong> rather than an object. A Bundle is serialised across a Binder transaction with a hard size cap of about 1MB, and exceeding it throws <code>TransactionTooLargeException</code> — usually in production, with a photo attached.</p>"
+                        }
                 }
             ],
             "subsection": "intents-and-broadcasting"
@@ -1695,8 +1977,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Dynamically registered receiver",
-                    "code": "val batteryReceiver = object : BroadcastReceiver() {\n    override fun onReceive(context: Context, intent: Intent) {\n        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)\n        viewModel.onBatteryLevel(level)\n    }\n}\n\noverride fun onStart() {\n    super.onStart()\n    registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))\n}\n\noverride fun onStop() {\n    super.onStop()\n    unregisterReceiver(batteryReceiver)\n}"
+                    "title": "A dynamically registered receiver",
+                    "code": "val batteryReceiver = object : BroadcastReceiver() {\n    override fun onReceive(context: Context, intent: Intent) {\n        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)\n        viewModel.onBatteryLevel(level)\n    }\n}\n\noverride fun onStart() {\n    super.onStart()\n    registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))\n}\n\noverride fun onStop() {\n    super.onStop()\n    unregisterReceiver(batteryReceiver)\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The receiver is created as an object and registered with registerReceiver, typically in onStart.",
+                                "It is registered for a specific action via an IntentFilter.",
+                                "The system broadcasts a matching intent — a battery level change.",
+                                "onReceive runs ON THE MAIN THREAD, with roughly ten seconds before the system considers it stuck.",
+                                "It reads the extra and hands the value to the ViewModel, doing no work itself.",
+                                "unregisterReceiver must be called in the matching teardown — onStop — or the receiver leaks the Activity.",
+                                "A manifest-declared receiver would instead be woken even when the app is not running, which most implicit broadcasts no longer allow since Android 8."
+                            ],
+                            "explain": "<p>Step 4 is the constraint that shapes every receiver: it runs on the main thread and must return quickly, so <code>onReceive</code> is a place to hand work off, never to do it. Anything longer belongs in WorkManager.</p><p>Step 6 is the leak. A dynamically registered receiver holds whatever it captured, and pairing <code>register</code> in <code>onStart</code> with <code>unregister</code> in <code>onStop</code> is what keeps that bounded.</p><p>Step 7 is the modern restriction worth stating: since Android 8 most implicit broadcasts cannot be received by a manifest-declared receiver at all, which is why dynamic registration is now the common case.</p>"
+                        }
                 }
             ],
             "subsection": "intents-and-broadcasting"
@@ -1747,8 +2042,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "PendingIntent for a notification tap (API 31+ safe)",
-                    "code": "val contentIntent = Intent(context, MainActivity::class.java)\nval pendingIntent = PendingIntent.getActivity(\n    context,\n    requestCode,\n    contentIntent,\n    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE\n)\n\nNotificationCompat.Builder(context, CHANNEL_ID)\n    .setContentIntent(pendingIntent)\n    .setAutoCancel(true)\n    .build()"
+                    "title": "What a PendingIntent hands over",
+                    "code": "val contentIntent = Intent(context, MainActivity::class.java)\nval pendingIntent = PendingIntent.getActivity(\n    context,\n    requestCode,\n    contentIntent,\n    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE\n)\n\nNotificationCompat.Builder(context, CHANNEL_ID)\n    .setContentIntent(pendingIntent)\n    .setAutoCancel(true)\n    .build()",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "A PendingIntent wraps an Intent together with the permission to send it AS THIS APP.",
+                                "It is given to another process — the notification system, an AlarmManager, a widget host.",
+                                "That process can later fire the intent even though this app may not be running.",
+                                "FLAG_IMMUTABLE says the receiving process may not modify the wrapped intent. It is mandatory from Android 12.",
+                                "FLAG_UPDATE_CURRENT reuses an existing PendingIntent with the same requestCode and replaces its extras.",
+                                "Two notifications built with the same requestCode therefore share one PendingIntent — the second overwrites the first's extras.",
+                                "Giving them different requestCodes is what keeps their payloads distinct."
+                            ],
+                            "explain": "<p>Step 4 is the security fix that broke a great deal of code. A mutable <code>PendingIntent</code> lets another app fill in the blanks and have this app send the result, which was a real privilege-escalation route — hence the hard requirement to declare mutability.</p><p>Steps 6 and 7 are the everyday bug: several notifications that all open the same item, because they were built with the same request code and the extras were silently shared.</p>"
+                        }
                 }
             ],
             "subsection": "intents-and-broadcasting"
@@ -1908,8 +2216,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Offloading work from a Service's main-thread callback",
-                    "code": "class SyncService : Service() {\n    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)\n\n    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {\n        scope.launch {\n            repository.sync() // runs off the main thread\n            stopSelf(startId)\n        }\n        return START_NOT_STICKY\n    }\n\n    override fun onDestroy() {\n        scope.cancel()\n        super.onDestroy()\n    }\n\n    override fun onBind(intent: Intent?) = null\n}"
+                    "title": "A Service does not get its own thread",
+                    "code": "class SyncService : Service() {\n    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)\n\n    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {\n        scope.launch {\n            repository.sync() // runs off the main thread\n            stopSelf(startId)\n        }\n        return START_NOT_STICKY\n    }\n\n    override fun onDestroy() {\n        scope.cancel()\n        super.onDestroy()\n    }\n\n    override fun onBind(intent: Intent?) = null\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "startService is called and the system creates the Service.",
+                                "onStartCommand runs ON THE MAIN THREAD — a Service is a component, not a thread.",
+                                "Doing the sync directly here would block the UI of whatever is on screen.",
+                                "So a coroutine is launched on Dispatchers.IO and onStartCommand returns immediately.",
+                                "The work runs off the main thread while the Service stays alive.",
+                                "stopSelf(startId) is called when it finishes, and the id ensures a newer request is not cancelled by an older one completing.",
+                                "The scope must be cancelled in onDestroy, or the work outlives the Service."
+                            ],
+                            "explain": "<p>Step 2 is the misconception this question exists to correct, and it is extremely common. A <code>Service</code> runs on the main thread of its process; it is a way of telling the system \"this app is still doing something\", not a background thread.</p><p>Step 6 is the detail that matters when the Service can be started repeatedly: <code>stopSelf(startId)</code> stops only if no newer start has arrived, whereas bare <code>stopSelf()</code> would kill work that had only just been requested.</p>"
+                        }
                 }
             ],
             "subsection": "services"
@@ -1960,8 +2281,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Starting a foreground service with a type",
-                    "code": "class LocationTrackingService : Service() {\n    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {\n        val notification = NotificationCompat.Builder(this, CHANNEL_ID)\n            .setContentTitle(\"Tracking your run\")\n            .setSmallIcon(R.drawable.ic_run)\n            .build()\n        startForeground(\n            NOTIFICATION_ID,\n            notification,\n            ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION\n        )\n        return START_STICKY\n    }\n\n    override fun onBind(intent: Intent?) = null\n}"
+                    "title": "A foreground service and its notification",
+                    "code": "class LocationTrackingService : Service() {\n    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {\n        val notification = NotificationCompat.Builder(this, CHANNEL_ID)\n            .setContentTitle(\"Tracking your run\")\n            .setSmallIcon(R.drawable.ic_run)\n            .build()\n        startForeground(\n            NOTIFICATION_ID,\n            notification,\n            ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION\n        )\n        return START_STICKY\n    }\n\n    override fun onBind(intent: Intent?) = null\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "startForegroundService is called, and the system starts the Service.",
+                                "The app now has a hard deadline: startForeground must be called within about five seconds.",
+                                "Missing it throws ForegroundServiceDidNotStartInTimeException and the app crashes.",
+                                "startForeground posts an ongoing notification, which is the user-visible price of the promise.",
+                                "The process is now much less likely to be killed under memory pressure, and background execution limits do not apply.",
+                                "From Android 10 the service must declare a foregroundServiceType, and from Android 14 that type must be justified.",
+                                "stopForeground and stopSelf end it, and the notification is removed."
+                            ],
+                            "explain": "<p>Steps 2 and 3 are the crash that catches people: <code>startForegroundService</code> and <code>startForeground</code> are two different calls, and the gap between them is a five second fuse.</p><p>Step 4 is the deal being struck. A foreground service gets to keep running because the user can see that it is, which is why the notification cannot be hidden.</p><p>Step 6 is the direction of travel — Android 14 requires a declared type and a Play justification, so anything deferrable belongs in WorkManager instead.</p>"
+                        }
                 }
             ],
             "subsection": "services"
@@ -2012,8 +2346,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Constrained, retryable WorkRequest",
-                    "code": "val uploadRequest = OneTimeWorkRequestBuilder<UploadWorker>()\n    .setConstraints(\n        Constraints.Builder()\n            .setRequiredNetworkType(NetworkType.CONNECTED)\n            .setRequiresCharging(false)\n            .build()\n    )\n    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)\n    .build()\n\nWorkManager.getInstance(context).enqueueUniqueWork(\n    \"upload_photo\",\n    ExistingWorkPolicy.KEEP,\n    uploadRequest\n)"
+                    "title": "How WorkManager guarantees execution",
+                    "code": "val uploadRequest = OneTimeWorkRequestBuilder<UploadWorker>()\n    .setConstraints(\n        Constraints.Builder()\n            .setRequiredNetworkType(NetworkType.CONNECTED)\n            .setRequiresCharging(false)\n            .build()\n    )\n    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.SECONDS)\n    .build()\n\nWorkManager.getInstance(context).enqueueUniqueWork(\n    \"upload_photo\",\n    ExistingWorkPolicy.KEEP,\n    uploadRequest\n)",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The request is built with constraints and enqueued. WorkManager writes it to its own database immediately.",
+                                "That persistence is the guarantee: the work now survives process death and device reboot.",
+                                "WorkManager waits until the constraints are met — here, a network connection.",
+                                "It then schedules execution through JobScheduler on modern versions, respecting Doze and app standby.",
+                                "The Worker runs. Returning Result.retry() schedules another attempt with a backoff policy.",
+                                "Returning Result.failure() stops it permanently; Result.success() marks it done and removes it.",
+                                "The work is NOT guaranteed to run at a particular TIME — only that it will run eventually, once its constraints hold."
+                            ],
+                            "explain": "<p>Step 7 is the precise claim, and it is the one people overstate. WorkManager guarantees <strong>execution</strong>, not <strong>timing</strong>. Doze can defer a job for hours, and anything that must happen at a moment needs an alarm instead.</p><p>Step 2 is where the guarantee comes from: the request is in a database before <code>enqueue</code> returns, so a reboot loses nothing.</p><p>Constraints are also a battery feature. Deferring an upload to an unmetered network with the screen off costs the user far less than doing it immediately.</p>"
+                        }
                 }
             ],
             "subsection": "services"
@@ -2065,8 +2412,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "xml",
-                    "title": "Running a Service in a separate process",
-                    "code": "<service\n    android:name=\".sync.SyncService\"\n    android:process=\":sync\"\n    android:exported=\"false\" />"
+                    "title": "What android:process actually creates",
+                    "code": "<service\n    android:name=\".sync.SyncService\"\n    android:process=\":sync\"\n    android:exported=\"false\" />",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "android:process=\":sync\" tells the system to run this Service in a second process, private to the app.",
+                                "When the Service starts, the system forks a new process from Zygote.",
+                                "That process gets its OWN Application object, and Application.onCreate runs again.",
+                                "It gets its own heap, its own static fields, and its own copy of every singleton.",
+                                "A static variable set in the main process is not visible in this one — they are separate memory spaces.",
+                                "Communication between them must go over IPC: a bound Service, a ContentProvider, a Messenger.",
+                                "The second process also costs memory of its own, and startup time when it is created."
+                            ],
+                            "explain": "<p>Steps 4 and 5 are the source of nearly every bug involving this feature. Initialisation code assumes it runs once, singletons assume they are unique, and neither holds. Anything in <code>Application.onCreate</code> that must happen once needs a process-name check.</p><p>The reasons to accept that cost are narrow: isolating a crash-prone component such as a WebView or native library, or getting a separate heap for something memory-hungry.</p>"
+                        }
                 }
             ],
             "subsection": "inter-process-communication"
@@ -2135,8 +2495,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Implementing the AIDL Stub in a Service",
-                    "code": "// IMathService.aidl declares: int add(int a, int b);\n\nclass MathService : Service() {\n    private val binder = object : IMathService.Stub() {\n        override fun add(a: Int, b: Int): Int = a + b\n    }\n\n    override fun onBind(intent: Intent?): IBinder = binder\n}"
+                    "title": "AIDL and a Binder transaction",
+                    "code": "// IMathService.aidl declares: int add(int a, int b);\n\nclass MathService : Service() {\n    private val binder = object : IMathService.Stub() {\n        override fun add(a: Int, b: Int): Int = a + b\n    }\n\n    override fun onBind(intent: Intent?): IBinder = binder\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The .aidl file declares the interface. The build generates a Stub base class and a Proxy.",
+                                "The Service implements Stub and returns it from onBind.",
+                                "A client in another process binds and receives an IBinder.",
+                                "Stub.asInterface wraps it in the generated Proxy.",
+                                "The client calls add(2, 3) on the Proxy, which marshals the arguments into a Parcel.",
+                                "The Binder driver in the kernel carries that Parcel to the Service process and invokes the real add.",
+                                "The result is marshalled back. The client's call BLOCKS until it returns, and it runs on a Binder thread pool thread in the service."
+                            ],
+                            "explain": "<p>Step 7 has two consequences worth stating. A synchronous AIDL call from the main thread blocks the UI for the length of the round trip, so it should be called from a background thread or declared <code>oneway</code>. And on the service side, the implementation runs on a Binder pool thread — so it must be thread-safe, which the simple <code>add</code> here happens to be.</p><p>AIDL is only needed for cross-process calls with a custom interface. Same-process binding needs only a plain <code>Binder</code> subclass, and a Messenger is enough when the messages are simple and serialised.</p>"
+                        }
                 }
             ],
             "subsection": "inter-process-communication"
@@ -2212,8 +2585,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Running tasks in parallel and awaiting all results",
-                    "code": "suspend fun loadDashboard(): Dashboard = coroutineScope {\n    val userDeferred = async { userRepository.getUser() }\n    val postsDeferred = async { postRepository.getPosts() }\n    val statsDeferred = async { statsRepository.getStats() }\n\n    // Suspends here until all three complete; any failure cancels the rest\n    Dashboard(\n        user = userDeferred.await(),\n        posts = postsDeferred.await(),\n        stats = statsDeferred.await()\n    )\n}"
+                    "title": "Three calls in parallel, awaited together",
+                    "code": "suspend fun loadDashboard(): Dashboard = coroutineScope {\n    val userDeferred = async { userRepository.getUser() }\n    val postsDeferred = async { postRepository.getPosts() }\n    val statsDeferred = async { statsRepository.getStats() }\n\n    // Suspends here until all three complete; any failure cancels the rest\n    Dashboard(\n        user = userDeferred.await(),\n        posts = postsDeferred.await(),\n        stats = statsDeferred.await()\n    )\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "coroutineScope establishes a boundary: it will not return until every child inside it is done.",
+                                "The three async calls start immediately, one after another, without waiting.",
+                                "All three requests are now in flight at once.",
+                                "await() on the first suspends until it completes.",
+                                "The other two await() calls usually return straight away, because those requests have been running the whole time.",
+                                "The total time is the SLOWEST call, not the sum of the three.",
+                                "If any one of them throws, coroutineScope cancels the other two and rethrows to the caller."
+                            ],
+                            "explain": "<p>Step 2 is where the concurrency comes from. <code>async</code> starts the work; <code>await</code> only collects it. Writing <code>async { }.await()</code> on one line starts a coroutine and immediately waits for it, which is all of the machinery and none of the benefit.</p><p>Step 7 is what the callback version of this could never do cleanly. Three nested callbacks with a shared counter and a partial-failure flag is the code this replaces, and getting the cancellation right by hand is the part everyone skips.</p>"
+                        }
                 }
             ],
             "subsection": "long-running-operations"
@@ -2264,8 +2650,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "A bounded ThreadPoolExecutor",
-                    "code": "val pool = ThreadPoolExecutor(\n    4,              // corePoolSize\n    8,              // maximumPoolSize\n    30, TimeUnit.SECONDS,\n    LinkedBlockingQueue()\n)\n\npool.execute { downloadFile(url) }"
+                    "title": "What a bounded pool bounds",
+                    "code": "val pool = ThreadPoolExecutor(\n    4,              // corePoolSize\n    8,              // maximumPoolSize\n    30, TimeUnit.SECONDS,\n    LinkedBlockingQueue()\n)\n\npool.execute { downloadFile(url) }",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "Creating a thread per task means the thread count follows the workload, and each thread costs about 1MB of stack.",
+                                "A pool creates threads up to corePoolSize and reuses them, so the creation cost is paid a handful of times.",
+                                "Tasks four onwards go into the queue. The pool does NOT grow while the queue has room.",
+                                "Only when the queue is full does it create more threads, up to maximumPoolSize.",
+                                "Idle threads above the core count are reclaimed after keepAliveTime.",
+                                "With a LinkedBlockingQueue and no capacity, the queue is unbounded — so it never fills, and maximumPoolSize is never reached.",
+                                "That unbounded queue is also where memory goes when producers outrun consumers."
+                            ],
+                            "explain": "<p>Steps 3 and 6 together are the behaviour that surprises people. A pool configured 4-to-8 with an unbounded queue will use exactly four threads forever, and <code>maximumPoolSize</code> is decoration. Reaching the maximum requires a <strong>bounded</strong> queue.</p><p>Step 7 is the failure mode of the version shown: an unbounded queue converts a throughput problem into an out-of-memory error, with no backpressure and no rejection.</p><p>On modern Android this is mostly historical — <code>Dispatchers.IO</code> is a tuned pool and needs none of this configured by hand.</p>"
+                        }
                 }
             ],
             "subsection": "long-running-operations"
@@ -2354,8 +2753,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "HandlerThread with a Handler",
-                    "code": "val handlerThread = HandlerThread(\"worker\").apply { start() }\nval backgroundHandler = Handler(handlerThread.looper)\nval mainHandler = Handler(Looper.getMainLooper())\n\nbackgroundHandler.post {\n    val result = decodeLargeBitmap()\n    mainHandler.post { imageView.setImageBitmap(result) }\n}"
+                    "title": "Looper, Handler and the message queue",
+                    "code": "val handlerThread = HandlerThread(\"worker\").apply { start() }\nval backgroundHandler = Handler(handlerThread.looper)\nval mainHandler = Handler(Looper.getMainLooper())\n\nbackgroundHandler.post {\n    val result = decodeLargeBitmap()\n    mainHandler.post { imageView.setImageBitmap(result) }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "A plain Thread has no Looper and no message queue; it runs its body and dies.",
+                                "HandlerThread.start() runs a loop that prepares a Looper and blocks reading from a MessageQueue.",
+                                "A Handler is constructed against that Looper, so posting to it enqueues onto that thread's queue.",
+                                "backgroundHandler.post enqueues the decode. The calling thread returns immediately.",
+                                "The HandlerThread's loop takes the message and runs it — on that thread.",
+                                "To get back to the UI, the result is posted to a Handler built on Looper.getMainLooper().",
+                                "The main thread's Looper — the one running since app start — dequeues it and runs it there."
+                            ],
+                            "explain": "<p>Step 7 is the part worth internalising: the main thread is not special machinery, it is a thread running exactly this loop. Every UI callback, every touch event and every <code>View.post</code> is a message on that queue, which is why blocking it blocks everything.</p><p><code>quitSafely()</code> on the HandlerThread is what this snippet leaves out and what leaks without: a HandlerThread runs until told to stop.</p><p>Coroutines replace all of it — <code>Dispatchers.Default</code> then <code>Dispatchers.Main</code> — but this is the machinery underneath, and it is what the question is really about.</p>"
+                        }
                 }
             ],
             "subsection": "long-running-operations"
@@ -2454,7 +2866,20 @@ const androidData = {
                 {
                     "language": "kotlin",
                     "title": "Decoding a downsampled bitmap",
-                    "code": "fun decodeSampledBitmap(res: Resources, resId: Int, reqWidth: Int, reqHeight: Int): Bitmap {\n    val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }\n    BitmapFactory.decodeResource(res, resId, options)\n\n    var sampleSize = 1\n    var (halfH, halfW) = options.outHeight / 2 to options.outWidth / 2\n    while (halfH / sampleSize >= reqHeight && halfW / sampleSize >= reqWidth) {\n        sampleSize *= 2\n    }\n\n    return BitmapFactory.decodeResource(res, resId, options.apply {\n        inSampleSize = sampleSize\n        inJustDecodeBounds = false\n        inPreferredConfig = Bitmap.Config.RGB_565\n    })\n}"
+                    "code": "fun decodeSampledBitmap(res: Resources, resId: Int, reqWidth: Int, reqHeight: Int): Bitmap {\n    val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }\n    BitmapFactory.decodeResource(res, resId, options)\n\n    var sampleSize = 1\n    var (halfH, halfW) = options.outHeight / 2 to options.outWidth / 2\n    while (halfH / sampleSize >= reqHeight && halfW / sampleSize >= reqWidth) {\n        sampleSize *= 2\n    }\n\n    return BitmapFactory.decodeResource(res, resId, options.apply {\n        inSampleSize = sampleSize\n        inJustDecodeBounds = false\n        inPreferredConfig = Bitmap.Config.RGB_565\n    })\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "inJustDecodeBounds = true asks BitmapFactory to read only the header.",
+                                "It returns null, having allocated nothing, but fills in outWidth and outHeight.",
+                                "Those dimensions are compared against the size actually needed on screen.",
+                                "inSampleSize is doubled until the halved dimensions fit — each doubling quarters the memory.",
+                                "inJustDecodeBounds is set back to false and the image is decoded for real, at the reduced size.",
+                                "A 4000x3000 photo at sampleSize 4 becomes 1000x750: 48MB of ARGB_8888 pixels becomes 3MB.",
+                                "Decoding it at full size into a 300dp ImageView would have allocated all 48MB to draw a fraction of it."
+                            ],
+                            "explain": "<p>Steps 1 and 2 are the trick: the header is read first so the decode can be sized correctly, and reading it costs nothing.</p><p>Step 7 is why this is the classic OutOfMemoryError on Android. A bitmap's memory is width times height times four bytes and has nothing to do with the JPEG's file size — a 2MB photo is 48MB in memory.</p><p><code>inSampleSize</code> must be a power of two; other values are rounded down. In practice Glide and Coil do all of this, and the question is asked to check that you know what they are doing.</p>"
+                        }
                 }
             ],
             "subsection": "working-with-multimedia-content"
@@ -2507,7 +2932,20 @@ const androidData = {
                 {
                     "language": "kotlin",
                     "title": "Reading and writing with Preferences DataStore",
-                    "code": "val Context.dataStore by preferencesDataStore(name = \"settings\")\n\nval USERNAME_KEY = stringPreferencesKey(\"username\")\n\nclass UserPrefsRepository(private val context: Context) {\n\n    val username: Flow<String> = context.dataStore.data\n        .map { prefs -> prefs[USERNAME_KEY] ?: \"guest\" }\n\n    suspend fun setUsername(name: String) {\n        context.dataStore.edit { prefs ->\n            prefs[USERNAME_KEY] = name\n        }\n    }\n}"
+                    "code": "val Context.dataStore by preferencesDataStore(name = \"settings\")\n\nval USERNAME_KEY = stringPreferencesKey(\"username\")\n\nclass UserPrefsRepository(private val context: Context) {\n\n    val username: Flow<String> = context.dataStore.data\n        .map { prefs -> prefs[USERNAME_KEY] ?: \"guest\" }\n\n    suspend fun setUsername(name: String) {\n        context.dataStore.edit { prefs ->\n            prefs[USERNAME_KEY] = name\n        }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "preferencesDataStore creates a single instance per file, tied to the Context.",
+                                "Reading exposes a Flow, so the value arrives asynchronously and updates whenever it changes.",
+                                "The read happens on Dispatchers.IO inside DataStore — it never touches the main thread.",
+                                "edit is a suspending function that takes a transactional block.",
+                                "The whole block is applied atomically, so two concurrent edits cannot interleave.",
+                                "Every collector of the flow receives the new value.",
+                                "SharedPreferences by contrast returns values synchronously, which means the first read blocks on disk I/O."
+                            ],
+                            "explain": "<p>Step 7 is the reason DataStore exists. <code>SharedPreferences.getString</code> looks free and is a blocking disk read on first access, plus <code>apply()</code> writes can block on <code>onPause</code> — both are real sources of ANRs that no API shape warns you about.</p><p>Steps 2 and 5 are the other two fixes: an observable API instead of a change listener, and transactional updates instead of last-write-wins.</p><p>Proto DataStore is the typed variant; Preferences DataStore keeps the untyped key-value shape, which makes it the easy migration.</p>"
+                        }
                 }
             ],
             "subsection": "data-saving"
@@ -2560,8 +2998,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Minimal Room entity, DAO and database",
-                    "code": "@Entity(tableName = \"users\")\ndata class UserEntity(\n    @PrimaryKey val id: Long,\n    val name: String,\n    val email: String\n)\n\n@Dao\ninterface UserDao {\n    @Query(\"SELECT * FROM users WHERE id = :id\")\n    fun observeUser(id: Long): Flow<UserEntity?>\n\n    @Insert(onConflict = OnConflictStrategy.REPLACE)\n    suspend fun upsert(user: UserEntity)\n}\n\n@Database(entities = [UserEntity::class], version = 1)\nabstract class AppDatabase : RoomDatabase() {\n    abstract fun userDao(): UserDao\n}"
+                    "title": "What Room generates for you",
+                    "code": "@Entity(tableName = \"users\")\ndata class UserEntity(\n    @PrimaryKey val id: Long,\n    val name: String,\n    val email: String\n)\n\n@Dao\ninterface UserDao {\n    @Query(\"SELECT * FROM users WHERE id = :id\")\n    fun observeUser(id: Long): Flow<UserEntity?>\n\n    @Insert(onConflict = OnConflictStrategy.REPLACE)\n    suspend fun upsert(user: UserEntity)\n}\n\n@Database(entities = [UserEntity::class], version = 1)\nabstract class AppDatabase : RoomDatabase() {\n    abstract fun userDao(): UserDao\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "@Entity declares the table; Room generates the CREATE TABLE from the data class fields.",
+                                "Each @Query is parsed and checked against that schema at COMPILE time — a wrong column name fails the build.",
+                                "@Dao is implemented by generated code, so there is no reflection and no hand-written cursor handling.",
+                                "@Database ties them together and Room generates the RoomDatabase subclass.",
+                                "At runtime the generated DAO opens a SQLite statement, binds the parameters and maps the cursor rows into objects.",
+                                "A suspend DAO method is dispatched off the main thread automatically.",
+                                "A DAO returning Flow registers an invalidation tracker, so any write to that table re-runs the query."
+                            ],
+                            "explain": "<p>Step 2 is the reason Room is worth an annotation processor: raw SQLite gets its errors at runtime, on the screen that used the query, and Room gets them at compile time.</p><p>Step 7 is what makes it fit the rest of a modern app — the database becomes the source of truth and the UI follows it without any refresh call.</p><p>The part not shown, and the usual source of production crashes: a schema change needs a <code>Migration</code>, or <code>fallbackToDestructiveMigration</code>, which silently deletes the user's data.</p>"
+                        }
                 }
             ],
             "subsection": "data-saving"
@@ -2590,8 +3041,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "ViewModel with SavedStateHandle surviving process death",
-                    "code": "class SearchViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {\n\n    val query: StateFlow<String> =\n        savedStateHandle.getStateFlow(\"query\", \"\")\n\n    fun onQueryChanged(newQuery: String) {\n        savedStateHandle[\"query\"] = newQuery\n    }\n}"
+                    "title": "SavedStateHandle across rotation and process death",
+                    "code": "class SearchViewModel(private val savedStateHandle: SavedStateHandle) : ViewModel() {\n\n    val query: StateFlow<String> =\n        savedStateHandle.getStateFlow(\"query\", \"\")\n\n    fun onQueryChanged(newQuery: String) {\n        savedStateHandle[\"query\"] = newQuery\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The ViewModel is created with a SavedStateHandle supplied by the framework.",
+                                "getStateFlow returns a flow backed by that handle, with a default for the first launch.",
+                                "A query change writes into the handle, which both updates the flow and records the value.",
+                                "The device rotates. The ViewModel SURVIVES, so the state is still in memory and nothing is restored.",
+                                "Later the app is backgrounded and the process is killed to reclaim memory.",
+                                "The ViewModel is gone. But the handle's contents were written into the saved instance state Bundle.",
+                                "On return the process restarts, a new ViewModel is created, and the handle restores the query from that Bundle."
+                            ],
+                            "explain": "<p>Steps 4 and 7 are the two different survival mechanisms, and the reason both are needed. A ViewModel handles rotation because it outlives the Activity; it does nothing for process death, because the process is what it lived in.</p><p><code>SavedStateHandle</code> bridges the gap by writing through to the same Bundle the system persists — so the ViewModel covers the cheap case in memory and the Bundle covers the expensive one on disk.</p><p>The Bundle limit still applies: store the query or the selected id, and refetch the rest.</p>"
+                        }
                 }
             ],
             "subsection": "data-saving"
@@ -2644,8 +3108,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Querying MediaStore for images under Scoped Storage",
-                    "code": "val projection = arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME)\nval sortOrder = MediaStore.Images.Media.DATE_ADDED + \" DESC\"\ncontext.contentResolver.query(\n    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,\n    projection,\n    null,\n    null,\n    sortOrder\n)?.use { cursor ->\n    val idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)\n    while (cursor.moveToNext()) {\n        val id = cursor.getLong(idCol)\n        val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)\n    }\n}"
+                    "title": "Querying MediaStore under Scoped Storage",
+                    "code": "val projection = arrayOf(MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME)\nval sortOrder = MediaStore.Images.Media.DATE_ADDED + \" DESC\"\ncontext.contentResolver.query(\n    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,\n    projection,\n    null,\n    null,\n    sortOrder\n)?.use { cursor ->\n    val idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)\n    while (cursor.moveToNext()) {\n        val id = cursor.getLong(idCol)\n        val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "Before Android 10 an app with READ_EXTERNAL_STORAGE could read the whole shared volume by file path.",
+                                "Scoped Storage removed that: an app now has unrestricted access only to its own directory.",
+                                "Shared media is reached through MediaStore instead, which is a ContentProvider rather than a file tree.",
+                                "The query names a collection, a projection of columns and a sort order.",
+                                "The provider returns a Cursor of rows the app is allowed to see — its own media without any permission, and others' with READ_MEDIA_IMAGES.",
+                                "Each row yields an id, from which a content:// URI is built. There is no usable file path.",
+                                "Opening that URI goes back through the provider, which enforces access on every open."
+                            ],
+                            "explain": "<p>Step 6 is what breaks old code. Anything holding a <code>String</code> path and calling <code>new File(path)</code> stops working, and the fix is not a permission — it is a different API.</p><p>Step 5 is the permission model that replaced blanket storage access, and it has kept narrowing: Android 13 split it into <code>READ_MEDIA_IMAGES</code>, <code>_VIDEO</code> and <code>_AUDIO</code>, and Android 14 added partial selection where the user grants access to specific items.</p><p>For simply letting the user pick a file, the Photo Picker and <code>ACTION_OPEN_DOCUMENT</code> need no permission at all — which is usually the right answer.</p>"
+                        }
                 }
             ],
             "subsection": "data-saving"
@@ -2678,8 +3155,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "EncryptedSharedPreferences backed by Android Keystore",
-                    "code": "val masterKey = MasterKey.Builder(context)\n    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)\n    .build()\n\nval encryptedPrefs = EncryptedSharedPreferences.create(\n    context,\n    \"secure_prefs\",\n    masterKey,\n    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,\n    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM\n)\n\nencryptedPrefs.edit().putString(\"auth_token\", token).apply()"
+                    "title": "EncryptedSharedPreferences and the Keystore",
+                    "code": "val masterKey = MasterKey.Builder(context)\n    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)\n    .build()\n\nval encryptedPrefs = EncryptedSharedPreferences.create(\n    context,\n    \"secure_prefs\",\n    masterKey,\n    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,\n    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM\n)\n\nencryptedPrefs.edit().putString(\"auth_token\", token).apply()",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "MasterKey.Builder creates or retrieves a key in the Android Keystore.",
+                                "That key never leaves the Keystore. On most devices it is held in hardware — a TEE or a secure element.",
+                                "EncryptedSharedPreferences wraps a normal SharedPreferences file with that key.",
+                                "Writing a value encrypts the KEY deterministically and the VALUE with AES-256-GCM before either touches disk.",
+                                "The file on disk is unreadable: neither the preference names nor their contents are visible.",
+                                "Reading decrypts transparently, so the API is the ordinary SharedPreferences one.",
+                                "On a device without the app's Keystore entry — another device, or after a reinstall — the data cannot be decrypted at all."
+                            ],
+                            "explain": "<p>Step 2 is what makes this stronger than encrypting by hand: a key stored in the app cannot be protected from someone holding the APK, and a Keystore key is not extractable even from a rooted device.</p><p>Step 7 is the operational consequence people meet in production. Backups, restores and Keystore invalidation all leave an encrypted file with no key, and the read throws. Anything stored here must be re-derivable — a token that can be refetched, not the only copy of user data.</p>"
+                        }
                 }
             ],
             "subsection": "data-saving"
@@ -2708,8 +3198,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "commit() vs apply()",
-                    "code": "val prefs = context.getSharedPreferences(\"app\", Context.MODE_PRIVATE)\n\n// Blocks until write completes; returns success\nval ok: Boolean = prefs.edit().putBoolean(\"onboarded\", true).commit()\n\n// Returns immediately; write happens on a background thread\nprefs.edit().putBoolean(\"onboarded\", true).apply()"
+                    "title": "commit() against apply()",
+                    "code": "val prefs = context.getSharedPreferences(\"app\", Context.MODE_PRIVATE)\n\n// Blocks until write completes; returns success\nval ok: Boolean = prefs.edit().putBoolean(\"onboarded\", true).commit()\n\n// Returns immediately; write happens on a background thread\nprefs.edit().putBoolean(\"onboarded\", true).apply()",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "Both write into an in-memory map immediately, so a read straight after either one sees the new value.",
+                                "commit() then writes to disk on the CALLING thread and blocks until it finishes.",
+                                "It returns a Boolean, so failure is observable.",
+                                "apply() returns void and immediately, handing the disk write to a background thread.",
+                                "Failure is therefore silent, and there is nothing to check.",
+                                "apply() is not entirely free: pending writes are FLUSHED SYNCHRONOUSLY during onPause and service lifecycle transitions.",
+                                "So a large apply() on the main thread can still block, just somewhere else and harder to attribute."
+                            ],
+                            "explain": "<p>Steps 4 and 6 are the honest summary: <code>apply()</code> is the right default, and it does not make the disk write free — it moves it, and the framework still waits for it at lifecycle boundaries. A pile of pending writes at <code>onPause</code> is a real ANR source with a confusing stack trace.</p><p><code>commit()</code> is only justified when the result genuinely must be on disk before continuing, which is rare, and never on the main thread.</p><p>DataStore exists because both options here have a blocking edge no API shape warns about.</p>"
+                        }
                 }
             ],
             "subsection": "data-saving"
@@ -2737,8 +3240,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Building styled text with SpannableStringBuilder",
-                    "code": "val builder = SpannableStringBuilder(\"Terms and Conditions\")\nbuilder.setSpan(\n    ForegroundColorSpan(Color.BLUE),\n    0, 5,\n    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE\n)\nbuilder.setSpan(\n    StyleSpan(Typeface.BOLD),\n    10, 21,\n    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE\n)\ntextView.text = builder"
+                    "title": "Styling ranges with spans",
+                    "code": "val builder = SpannableStringBuilder(\"Terms and Conditions\")\nbuilder.setSpan(\n    ForegroundColorSpan(Color.BLUE),\n    0, 5,\n    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE\n)\nbuilder.setSpan(\n    StyleSpan(Typeface.BOLD),\n    10, 21,\n    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE\n)\ntextView.text = builder",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "SpannableStringBuilder wraps mutable text that also carries formatting.",
+                                "setSpan applies a span object over a character range — here a colour over the first five characters.",
+                                "The flag decides what happens to the span when text is inserted at its edges.",
+                                "SPAN_EXCLUSIVE_EXCLUSIVE means text typed at either boundary is NOT drawn with the span.",
+                                "SPAN_INCLUSIVE_INCLUSIVE would extend the styling to cover it.",
+                                "The TextView reads the spans when it lays the text out and applies them per character range.",
+                                "A ClickableSpan additionally needs setMovementMethod on the TextView, or its clicks are never delivered."
+                            ],
+                            "explain": "<p>Steps 3 to 5 are the part that is easy to skip and produces the \"why is the new text blue\" bug — the flag is not decoration, it defines the span's behaviour under editing.</p><p>Step 7 is the classic one-line omission: a <code>ClickableSpan</code> that renders correctly and does nothing on tap, because the <code>TextView</code> has no <code>LinkMovementMethod</code>.</p><p>In Compose this whole API is replaced by <code>AnnotatedString</code>, which is the same idea with the ranges declared inline.</p>"
+                        }
                 }
             ],
             "subsection": "look-and-feel"
@@ -2814,8 +3330,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Toggling night mode at runtime",
-                    "code": "fun applyTheme(mode: NightModePref) {\n    val nightMode = when (mode) {\n        NightModePref.LIGHT -> AppCompatDelegate.MODE_NIGHT_NO\n        NightModePref.DARK -> AppCompatDelegate.MODE_NIGHT_YES\n        NightModePref.SYSTEM -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM\n    }\n    AppCompatDelegate.setDefaultNightMode(nightMode)\n}"
+                    "title": "Switching night mode at runtime",
+                    "code": "fun applyTheme(mode: NightModePref) {\n    val nightMode = when (mode) {\n        NightModePref.LIGHT -> AppCompatDelegate.MODE_NIGHT_NO\n        NightModePref.DARK -> AppCompatDelegate.MODE_NIGHT_YES\n        NightModePref.SYSTEM -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM\n    }\n    AppCompatDelegate.setDefaultNightMode(nightMode)\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The user picks a theme, and setDefaultNightMode is called with the corresponding constant.",
+                                "AppCompat records the preference and applies it process-wide, not just to the current screen.",
+                                "Every Activity is RECREATED, because the theme is resolved during inflation.",
+                                "On recreation, resource qualifiers do the work: values-night/colors.xml wins in dark mode.",
+                                "MODE_NIGHT_FOLLOW_SYSTEM instead defers to the system setting and tracks changes to it.",
+                                "The choice must be persisted and reapplied in Application.onCreate, or it is lost on next launch.",
+                                "Anything reading a colour as a literal rather than from the theme stays the same in both modes."
+                            ],
+                            "explain": "<p>Step 3 is the cost that separates the View system from Compose here: changing the theme means recreating every Activity, so any state not saved is lost at exactly the moment the user is fiddling with settings.</p><p>Step 7 is the discipline the mechanism depends on. Dark mode works by resource resolution, so a hardcoded <code>Color.WHITE</code> or a <code>@color/white</code> reference used as a background is invisible in one of the two modes.</p><p>The Compose equivalent is a recomposition rather than a recreation, which is why it feels instant.</p>"
+                        }
                 }
             ],
             "subsection": "look-and-feel"
@@ -2868,7 +3397,20 @@ const androidData = {
                 {
                     "language": "kotlin",
                     "title": "Responding to memory pressure",
-                    "code": "class ImageCacheHolder : Application(), ComponentCallbacks2 {\n    override fun onTrimMemory(level: Int) {\n        super.onTrimMemory(level)\n        when {\n            level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE ->\n                imageCache.evictAll()\n            level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE ->\n                imageCache.trimToSize(imageCache.maxSize() / 2)\n        }\n    }\n}"
+                    "code": "class ImageCacheHolder : Application(), ComponentCallbacks2 {\n    override fun onTrimMemory(level: Int) {\n        super.onTrimMemory(level)\n        when {\n            level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE ->\n                imageCache.evictAll()\n            level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE ->\n                imageCache.trimToSize(imageCache.maxSize() / 2)\n        }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The system is running low on memory and looks for processes to trim before killing any.",
+                                "onTrimMemory is called with a level describing how bad things are and where this app sits.",
+                                "TRIM_MEMORY_UI_HIDDEN means the app is no longer visible — a good moment to drop UI-only caches.",
+                                "TRIM_MEMORY_RUNNING_LOW means the app is in the foreground and the device is under pressure.",
+                                "TRIM_MEMORY_COMPLETE means this process is near the front of the kill list.",
+                                "The app evicts its image cache in response, releasing memory it can rebuild.",
+                                "Freeing memory here makes the process less likely to be chosen for termination."
+                            ],
+                            "explain": "<p>Step 7 is the incentive. Background process death is not a failure the app can prevent, but a smaller process survives longer, and surviving means the user returns to their screen instead of a cold start.</p><p>The judgement is which caches are <em>rebuildable</em>. Dropping decoded bitmaps is cheap to recover from; dropping unsaved user input is not, and belongs in saved state rather than in a cache at all.</p><p><code>onLowMemory</code> is the older, coarser callback; <code>onTrimMemory</code> replaced it because the level is what makes a sensible response possible.</p>"
+                        }
                 }
             ],
             "subsection": "memory-optimizations"
@@ -2925,8 +3467,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "LeakCanary setup (debug build only)",
-                    "code": "// build.gradle.kts (debugImplementation only — no-op in release)\n// debugImplementation(\"com.squareup.leakcanary:leakcanary-android:2.14\")\n\n// Fixing a classic Handler leak:\nclass SafeHandler(activity: MainActivity) : Handler(Looper.getMainLooper()) {\n    private val activityRef = WeakReference(activity)\n\n    override fun handleMessage(msg: Message) {\n        activityRef.get()?.let { activity ->\n            activity.updateUi(msg)\n        }\n    }\n}"
+                    "title": "How LeakCanary catches a leak",
+                    "code": "// build.gradle.kts (debugImplementation only — no-op in release)\n// debugImplementation(\"com.squareup.leakcanary:leakcanary-android:2.14\")\n\n// Fixing a classic Handler leak:\nclass SafeHandler(activity: MainActivity) : Handler(Looper.getMainLooper()) {\n    private val activityRef = WeakReference(activity)\n\n    override fun handleMessage(msg: Message) {\n        activityRef.get()?.let { activity ->\n            activity.updateUi(msg)\n        }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "LeakCanary is added as a debugImplementation dependency, so it is entirely absent from release builds.",
+                                "It installs itself automatically and watches every destroyed Activity, Fragment and ViewModel.",
+                                "A destroyed object is held in a WeakReference and given a few seconds plus a forced GC to disappear.",
+                                "If it is still reachable, LeakCanary dumps the heap.",
+                                "It computes the shortest strong reference path from a GC root to the leaked object.",
+                                "That path is the answer: the Handler holds a message, the message holds the Runnable, the Runnable holds the Activity.",
+                                "Wrapping the Activity in a WeakReference breaks the path, and removing pending callbacks in onDestroy prevents it entirely."
+                            ],
+                            "explain": "<p>Step 5 is why the tool is worth more than a heap dump on its own. Knowing an Activity leaked is nearly useless; knowing the exact chain of references keeping it alive is the fix.</p><p>The <code>Handler</code> case in step 6 is the canonical Android leak: a non-static inner class implicitly holds its outer instance, and a delayed message keeps that reference alive for the whole delay.</p><p>Step 7 shows the pair of fixes — a weak reference is the defensive one, and <code>removeCallbacksAndMessages(null)</code> in <code>onDestroy</code> is the direct one.</p>"
+                        }
                 }
             ],
             "subsection": "memory-optimizations"
@@ -2979,8 +3534,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Battery-friendly deferrable work with constraints",
-                    "code": "val constraints = Constraints.Builder()\n    .setRequiredNetworkType(NetworkType.UNMETERED)\n    .setRequiresCharging(true)\n    .setRequiresBatteryNotLow(true)\n    .build()\n\nval syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(6, TimeUnit.HOURS)\n    .setConstraints(constraints)\n    .build()\n\nWorkManager.getInstance(context)\n    .enqueueUniquePeriodicWork(\"sync\", ExistingPeriodicWorkPolicy.KEEP, syncRequest)"
+                    "title": "Constraints as a battery feature",
+                    "code": "val constraints = Constraints.Builder()\n    .setRequiredNetworkType(NetworkType.UNMETERED)\n    .setRequiresCharging(true)\n    .setRequiresBatteryNotLow(true)\n    .build()\n\nval syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(6, TimeUnit.HOURS)\n    .setConstraints(constraints)\n    .build()\n\nWorkManager.getInstance(context)\n    .enqueueUniquePeriodicWork(\"sync\", ExistingPeriodicWorkPolicy.KEEP, syncRequest)",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The work is enqueued with constraints rather than run immediately.",
+                                "requiresCharging defers it until the device is plugged in, so it costs the user nothing.",
+                                "UNMETERED network defers it to Wi-Fi, avoiding both mobile data and the far higher energy cost of the cellular radio.",
+                                "requiresBatteryNotLow keeps it from running when the user most needs what is left.",
+                                "WorkManager holds it until all of those hold at once.",
+                                "It then batches this work with other pending jobs, so the radio wakes once instead of several times.",
+                                "Doze on an idle device defers everything to periodic maintenance windows regardless."
+                            ],
+                            "explain": "<p>Step 6 is the mechanism doing most of the work, and it is not obvious: the expensive part of a network request is <strong>waking the radio</strong>, not transferring the bytes. Ten separate syncs cost roughly ten radio wake-ups; ten batched ones cost one.</p><p>Step 3 is the same insight applied to the choice of network — cellular is dramatically more expensive per byte in energy terms than Wi-Fi.</p><p>The trade is timing, which is the whole point: deferrable work should be deferred, and anything that genuinely cannot be is a foreground service or an alarm, both of which the user can see.</p>"
+                        }
                 }
             ],
             "subsection": "battery-life-optimizations"
@@ -3094,8 +3662,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "xml",
-                    "title": "Declaring a custom signature-level permission",
-                    "code": "<permission\n    android:name=\"com.example.app.permission.SYNC_DATA\"\n    android:protectionLevel=\"signature\" />\n\n<uses-permission android:name=\"com.example.app.permission.SYNC_DATA\" />"
+                    "title": "A signature-level custom permission",
+                    "code": "<permission\n    android:name=\"com.example.app.permission.SYNC_DATA\"\n    android:protectionLevel=\"signature\" />\n\n<uses-permission android:name=\"com.example.app.permission.SYNC_DATA\" />",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The app declares a permission of its own with protectionLevel=\"signature\".",
+                                "It also requests that permission, so its own components may use it.",
+                                "A component protected by it is now unreachable by any other app by default.",
+                                "Another app requesting the permission is granted it ONLY if it is signed with the same certificate.",
+                                "The user is never prompted; signature permissions are granted or refused silently at install time.",
+                                "A different developer's app therefore cannot obtain it at all, whatever it declares.",
+                                "protectionLevel=\"normal\" would be granted automatically to everyone, and \"dangerous\" would prompt the user at runtime."
+                            ],
+                            "explain": "<p>Step 4 is what makes this useful: it is a way for a suite of apps by one publisher to expose components to each other and to nobody else, with the signing key as the credential.</p><p>Step 7 is the classification worth having straight. <strong>normal</strong> is install-time and automatic; <strong>dangerous</strong> is runtime and user-facing; <strong>signature</strong> is install-time and certificate-matched.</p><p>The historical trap is that a custom permission belongs to whichever app is installed first, so an attacker installing a same-named permission ahead of yours could define its protection level — which is why Android 12 tightened custom permission handling.</p>"
+                        }
                 }
             ],
             "subsection": "permissions"
@@ -3124,8 +3705,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Declaring and loading a JNI native method",
-                    "code": "class NativeLib {\n    companion object {\n        init {\n            System.loadLibrary(\"nativelib\")\n        }\n    }\n\n    external fun stringFromJNI(): String\n}\n\n// Usage:\nval message = NativeLib().stringFromJNI()"
+                    "title": "Loading and calling a native method",
+                    "code": "class NativeLib {\n    companion object {\n        init {\n            System.loadLibrary(\"nativelib\")\n        }\n    }\n\n    external fun stringFromJNI(): String\n}\n\n// Usage:\nval message = NativeLib().stringFromJNI()",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "System.loadLibrary(\"nativelib\") is called in a static initialiser, so it runs once when the class is first touched.",
+                                "The JVM looks for libnativelib.so in the APK's lib directory for the device's ABI.",
+                                "An external fun declares the method with no body; the implementation lives in C or C++.",
+                                "Calling it triggers JNI resolution, which matches the method by its MANGLED NAME: Java_package_Class_method.",
+                                "A mismatch throws UnsatisfiedLinkError at call time, not at load time.",
+                                "The native code runs outside the JVM heap, so its allocations are not garbage collected.",
+                                "It also runs outside the JVM's safety net: a bad pointer crashes the whole process with a SIGSEGV, not an exception."
+                            ],
+                            "explain": "<p>Step 4 is why obfuscation and the NDK interact badly. The native symbol encodes the Java package and class name, so renaming the class under R8 breaks the link — which is what the <code>-keepclasseswithmembers class * { native &lt;methods&gt;; }</code> ProGuard rule is for.</p><p>Step 7 is the honest cost. A native crash produces a tombstone rather than a stack trace, cannot be caught, and needs symbol files uploaded to be readable in Crashlytics.</p><p>Worth it for codecs, cryptography and existing C libraries; not worth it for anything Kotlin can already do.</p>"
+                        }
                 }
             ],
             "subsection": "native-programming"
@@ -3290,8 +3884,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Generating a Baseline Profile with Macrobenchmark",
-                    "code": "@RunWith(AndroidJUnit4::class)\nclass BaselineProfileGenerator {\n    @get:Rule\n    val rule = BaselineProfileRule()\n\n    @Test\n    fun generate() = rule.collect(\n        packageName = \"com.example.app\"\n    ) {\n        pressHome()\n        startActivityAndWait()\n        // Simulate the critical user journey\n        device.findObject(By.text(\"Feed\")).click()\n    }\n}"
+                    "title": "What a Baseline Profile changes at startup",
+                    "code": "@RunWith(AndroidJUnit4::class)\nclass BaselineProfileGenerator {\n    @get:Rule\n    val rule = BaselineProfileRule()\n\n    @Test\n    fun generate() = rule.collect(\n        packageName = \"com.example.app\"\n    ) {\n        pressHome()\n        startActivityAndWait()\n        // Simulate the critical user journey\n        device.findObject(By.text(\"Feed\")).click()\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "Without one, an app's code is interpreted on first run and JIT-compiled only once it proves hot.",
+                                "So the first launch after install or update is the slowest one the user ever sees.",
+                                "A Macrobenchmark test drives the critical journey — cold start, scroll the feed — on a real device.",
+                                "The BaselineProfileRule records which classes and methods were actually executed.",
+                                "That list is written into the APK as a profile.",
+                                "At install time, the Play Store ahead-of-time compiles exactly those methods.",
+                                "The first launch therefore runs compiled code on the startup path, typically 20-30% faster to first frame."
+                            ],
+                            "explain": "<p>Step 2 is the problem this solves, and it is the launch that matters most: the first one after an update, which is when a user is most likely to judge the app.</p><p>Step 4 is why the profile has to be generated rather than written: it is a measured list of what actually ran, so it stays honest as the code changes and is regenerated in CI.</p><p>Compose apps benefit disproportionately, because a lot of framework code runs on the startup path — which is why the Compose libraries ship profiles of their own.</p>"
+                        }
                 }
             ],
             "subsection": "android-system-internal"
@@ -3343,8 +3950,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Legacy Multidex application (minSdk < 21)",
-                    "code": "class MyApplication : MultiDexApplication() {\n    override fun onCreate() {\n        super.onCreate()\n    }\n}\n\n// build.gradle.kts\n// android { defaultConfig { multiDexEnabled = true } }\n// dependencies { implementation(\"androidx.multidex:multidex:2.0.1\") }"
+                    "title": "Why multidex existed",
+                    "code": "class MyApplication : MultiDexApplication() {\n    override fun onCreate() {\n        super.onCreate()\n    }\n}\n\n// build.gradle.kts\n// android { defaultConfig { multiDexEnabled = true } }\n// dependencies { implementation(\"androidx.multidex:multidex:2.0.1\") }",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "A single DEX file addresses methods with a 16-bit index, so it holds at most 65,536 method references.",
+                                "An app with a few large libraries passes that, and the build fails with the \"too many methods\" error.",
+                                "Multidex splits the output into classes.dex, classes2.dex and so on.",
+                                "On API 21 and above, ART loads all of them natively and nothing else is needed.",
+                                "Below API 21, Dalvik loads only the first, so MultiDexApplication installs the rest at startup.",
+                                "That installation happens before onCreate and measurably slows cold start on exactly the slowest devices.",
+                                "With minSdk 21 or higher — which is now every app — multidex is enabled automatically and this class is unnecessary."
+                            ],
+                            "explain": "<p>Step 7 is the answer worth giving when this comes up: it is a solved problem, and <code>MultiDexApplication</code> in a modern codebase is dead code from a lower <code>minSdk</code>.</p><p>The limit itself is still real, and R8 is what keeps most apps under it — shrinking removes unused methods, so the count that matters is what survives, not what the dependencies contain.</p>"
+                        }
                 }
             ],
             "subsection": "android-system-internal"
@@ -3479,8 +4099,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "A basic ViewModel with StateFlow",
-                    "code": "class ProfileViewModel(private val repo: UserRepository) : ViewModel() {\n\n    private val _uiState = MutableStateFlow(ProfileUiState.Loading)\n    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()\n\n    init {\n        viewModelScope.launch {\n            _uiState.value = ProfileUiState.Success(repo.getUser())\n        }\n    }\n\n    override fun onCleared() {\n        super.onCleared()\n        // viewModelScope is cancelled automatically here\n    }\n}"
+                    "title": "A ViewModel with StateFlow",
+                    "code": "class ProfileViewModel(private val repo: UserRepository) : ViewModel() {\n\n    private val _uiState = MutableStateFlow(ProfileUiState.Loading)\n    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()\n\n    init {\n        viewModelScope.launch {\n            _uiState.value = ProfileUiState.Success(repo.getUser())\n        }\n    }\n\n    override fun onCleared() {\n        super.onCleared()\n        // viewModelScope is cancelled automatically here\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The ViewModel is created on first request and stored in the host's ViewModelStore.",
+                                "init starts loading, and the state begins as Loading.",
+                                "The screen collects uiState and draws a spinner.",
+                                "The load finishes and the ViewModel publishes a new state.",
+                                "The screen recomposes or re-renders from that state.",
+                                "The device rotates. The Activity is destroyed and recreated, and asks for the ViewModel again.",
+                                "The SAME instance is returned, with its state intact — so no reload happens and no spinner reappears."
+                            ],
+                            "explain": "<p>Step 7 is the property that justifies the whole class. The pre-ViewModel version reloaded on every rotation, or saved and restored the result by hand, and both were worse.</p><p>The exposure pattern matters as much: <code>MutableStateFlow</code> private and <code>StateFlow</code> public means the UI can read state and only the ViewModel can change it, so every change goes through a named function.</p><p>The rule that follows from step 1: a ViewModel must never hold a <code>Context</code>, a <code>View</code> or an Activity reference — it outlives them, so holding one is a leak by construction.</p>"
+                        }
                 }
             ],
             "subsection": "android-jetpack"
@@ -3509,7 +4142,20 @@ const androidData = {
                 {
                     "language": "kotlin",
                     "title": "Sharing a ViewModel between Fragments",
-                    "code": "class ListFragment : Fragment() {\n    private val sharedViewModel: SelectionViewModel by activityViewModels()\n\n    fun onItemClicked(item: Item) {\n        sharedViewModel.select(item)\n    }\n}\n\nclass DetailFragment : Fragment() {\n    private val sharedViewModel: SelectionViewModel by activityViewModels()\n\n    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {\n        viewLifecycleOwner.lifecycleScope.launch {\n            sharedViewModel.selected.collect { item -> render(item) }\n        }\n    }\n}"
+                    "code": "class ListFragment : Fragment() {\n    private val sharedViewModel: SelectionViewModel by activityViewModels()\n\n    fun onItemClicked(item: Item) {\n        sharedViewModel.select(item)\n    }\n}\n\nclass DetailFragment : Fragment() {\n    private val sharedViewModel: SelectionViewModel by activityViewModels()\n\n    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {\n        viewLifecycleOwner.lifecycleScope.launch {\n            sharedViewModel.selected.collect { item -> render(item) }\n        }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "by activityViewModels() resolves the ViewModel against the ACTIVITY's ViewModelStore.",
+                                "The first Fragment to ask causes it to be created.",
+                                "The second Fragment asks for the same class from the same store and receives the same instance.",
+                                "One Fragment calls select(item), writing the shared state.",
+                                "The other is collecting that state and updates, with no reference between them.",
+                                "Both Fragments can be destroyed and recreated, and the ViewModel outlives both.",
+                                "It is cleared only when the ACTIVITY finishes for good."
+                            ],
+                            "explain": "<p>Step 1 is the entire mechanism, and getting it wrong is the usual bug: <code>by viewModels()</code> uses the Fragment's own store, so each Fragment gets a private instance and neither sees the other's changes — with no error to indicate why.</p><p>Step 7 is the cost. An Activity-scoped ViewModel lives as long as the Activity, so state set on one screen is still there when an unrelated screen is opened later. Scoping to a navigation graph rather than the whole Activity is the usual refinement.</p>"
+                        }
                 }
             ],
             "subsection": "android-jetpack"
@@ -3631,8 +4277,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "setValue vs postValue",
-                    "code": "class CounterViewModel : ViewModel() {\n    private val _count = MutableLiveData(0)\n    val count: LiveData<Int> = _count\n\n    fun incrementFromUi() {\n        _count.value = (_count.value ?: 0) + 1 // main thread: setValue\n    }\n\n    fun incrementFromBackground() {\n        Thread {\n            _count.postValue((_count.value ?: 0) + 1) // background thread\n        }.start()\n    }\n}"
+                    "title": "setValue against postValue",
+                    "code": "class CounterViewModel : ViewModel() {\n    private val _count = MutableLiveData(0)\n    val count: LiveData<Int> = _count\n\n    fun incrementFromUi() {\n        _count.value = (_count.value ?: 0) + 1 // main thread: setValue\n    }\n\n    fun incrementFromBackground() {\n        Thread {\n            _count.postValue((_count.value ?: 0) + 1) // background thread\n        }.start()\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "setValue writes the value and notifies observers SYNCHRONOUSLY, on the main thread.",
+                                "Calling it from any other thread throws IllegalStateException immediately.",
+                                "postValue can be called from any thread. It schedules the write onto the main thread.",
+                                "A read of .value straight after postValue therefore still returns the OLD value.",
+                                "Two postValue calls in quick succession before the main thread runs are conflated: only the LAST value is delivered.",
+                                "setValue in the same situation would have delivered both.",
+                                "So postValue can silently drop intermediate values, which matters when they are events rather than state."
+                            ],
+                            "explain": "<p>Steps 4 and 5 are the two surprises, and both come from the same fact: <code>postValue</code> is asynchronous. Reading back immediately gets a stale value, and a burst of updates arrives as one.</p><p>The conflation is harmless for state — nobody needs to see the intermediate counts — and wrong for anything where each value must be handled.</p><p>The rule: <code>setValue</code> when you know you are on the main thread, <code>postValue</code> when you are not or cannot tell. <code>StateFlow</code> replaces both, and conflates too.</p>"
+                        }
                 }
             ],
             "subsection": "android-jetpack"
@@ -3683,8 +4342,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Chained one-time work with constraints",
-                    "code": "class CompressWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {\n    override suspend fun doWork(): Result {\n        return try {\n            compressPendingImages()\n            Result.success()\n        } catch (e: IOException) {\n            Result.retry()\n        }\n    }\n}\n\nval compress = OneTimeWorkRequestBuilder<CompressWorker>().build()\nval upload = OneTimeWorkRequestBuilder<UploadWorker>()\n    .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())\n    .build()\n\nWorkManager.getInstance(context).beginWith(compress).then(upload).enqueue()"
+                    "title": "A CoroutineWorker and its Result",
+                    "code": "class CompressWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {\n    override suspend fun doWork(): Result {\n        return try {\n            compressPendingImages()\n            Result.success()\n        } catch (e: IOException) {\n            Result.retry()\n        }\n    }\n}\n\nval compress = OneTimeWorkRequestBuilder<CompressWorker>().build()\nval upload = OneTimeWorkRequestBuilder<UploadWorker>()\n    .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())\n    .build()\n\nWorkManager.getInstance(context).beginWith(compress).then(upload).enqueue()",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The work is enqueued and persisted to WorkManager's database.",
+                                "When the constraints are met, WorkManager creates the Worker and calls doWork.",
+                                "CoroutineWorker runs doWork as a suspending function on Dispatchers.Default, off the main thread.",
+                                "The work succeeds and returns Result.success(), optionally with output Data for the next worker in a chain.",
+                                "On a recoverable failure — an IOException — Result.retry() schedules another attempt with backoff.",
+                                "On an unrecoverable one, Result.failure() stops it and cancels any work chained after it.",
+                                "If the process dies mid-work, WorkManager reruns it from the start when conditions allow."
+                            ],
+                            "explain": "<p>Step 7 is the requirement it places on the Worker: <strong>doWork must be idempotent</strong>. It can and will run again after an interrupted attempt, so anything with a side effect needs to tolerate being repeated.</p><p>Step 5 against step 6 is the judgement call that decides behaviour. Retrying a genuine failure burns battery on something that will never succeed; failing on a transient network error loses work that would have completed a minute later.</p><p><code>CoroutineWorker</code> over <code>Worker</code> also gives cancellation for free — a cancelled work request cancels the coroutine at its next suspension point.</p>"
+                        }
                 }
             ],
             "subsection": "android-jetpack"
@@ -3712,8 +4384,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Minimum-interval periodic work",
-                    "code": "val periodicSync = PeriodicWorkRequestBuilder<SyncWorker>(\n    15, TimeUnit.MINUTES // minimum allowed repeat interval\n).build()\n\nWorkManager.getInstance(context)\n    .enqueueUniquePeriodicWork(\"periodic_sync\", ExistingPeriodicWorkPolicy.UPDATE, periodicSync)"
+                    "title": "The fifteen-minute floor on periodic work",
+                    "code": "val periodicSync = PeriodicWorkRequestBuilder<SyncWorker>(\n    15, TimeUnit.MINUTES // minimum allowed repeat interval\n).build()\n\nWorkManager.getInstance(context)\n    .enqueueUniquePeriodicWork(\"periodic_sync\", ExistingPeriodicWorkPolicy.UPDATE, periodicSync)",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "PeriodicWorkRequest is built with a repeat interval of fifteen minutes.",
+                                "Fifteen minutes is the platform MINIMUM. A smaller value is silently raised to it.",
+                                "enqueueUniquePeriodicWork with a name means re-enqueuing does not create a second schedule.",
+                                "The interval defines a window, not an alarm — the work runs once somewhere inside each period.",
+                                "Doze, app standby and batching can push it later still, sometimes by hours on an idle device.",
+                                "A flex interval can narrow the part of the period in which it is allowed to run.",
+                                "Periodic work cannot be chained, and it has no initial delay in the sense one-time work does."
+                            ],
+                            "explain": "<p>Steps 2 and 5 together are the answer to \"why is my periodic work not running on time\". It was never going to: WorkManager guarantees <strong>eventual</strong> execution, and the platform deliberately batches these to protect battery.</p><p>Anything needing a real time belongs in <code>AlarmManager</code> with an exact alarm — which needs a permission and a justification, because it is exactly what the batching exists to prevent.</p><p><code>ExistingPeriodicWorkPolicy.UPDATE</code> is the right default: it changes the schedule of existing work rather than cancelling and restarting it, which would reset the period.</p>"
+                        }
                 }
             ],
             "subsection": "android-jetpack"
@@ -3877,8 +4562,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Parcelable via @Parcelize",
-                    "code": "@Parcelize\ndata class UserProfile(\n    val id: Long,\n    val name: String,\n    val avatarUrl: String?\n) : Parcelable\n\n// Passing it:\nintent.putExtra(\"profile\", userProfile)\nval profile = intent.getParcelableExtra<UserProfile>(\"profile\")"
+                    "title": "@Parcelize against Serializable",
+                    "code": "@Parcelize\ndata class UserProfile(\n    val id: Long,\n    val name: String,\n    val avatarUrl: String?\n) : Parcelable\n\n// Passing it:\nintent.putExtra(\"profile\", userProfile)\nval profile = intent.getParcelableExtra<UserProfile>(\"profile\")",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "Serializable is a marker interface. The JVM writes the object graph using REFLECTION, discovering fields at runtime.",
+                                "That reflection is slow, and it allocates heavily — which on Android means garbage collection pressure.",
+                                "Parcelable instead requires explicit code: describe the contents, write each field, read it back in order.",
+                                "Hand-written that is verbose and easy to get wrong, because the write and read order must match exactly.",
+                                "@Parcelize generates it from the constructor properties at compile time.",
+                                "The generated writeToParcel and CREATOR are typically several times faster than serialization, with no reflection.",
+                                "A Parcel is for IPC and is not a storage format — it is explicitly not stable across versions and must never be written to disk."
+                            ],
+                            "explain": "<p>Step 7 is worth stating clearly because it is a real mistake: <code>Parcel</code> is a transport for Binder transactions, and its layout can change between Android versions. Persisting one and reading it back after an OS update is undefined.</p><p>Step 5 is why the historical objection to Parcelable no longer applies — the boilerplate that made people reach for <code>Serializable</code> is now one annotation.</p><p>The size limit applies either way: a Binder transaction caps at roughly 1MB, so the answer to a large object is an id, not a faster serialiser.</p>"
+                        }
                 }
             ],
             "subsection": "others"
@@ -3993,8 +4691,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Handling an FCM message and posting a notification",
-                    "code": "class MyFirebaseService : FirebaseMessagingService() {\n    override fun onMessageReceived(message: RemoteMessage) {\n        val title = message.notification?.title ?: return\n        val body = message.notification?.body.orEmpty()\n\n        val notification = NotificationCompat.Builder(this, \"default_channel\")\n            .setContentTitle(title)\n            .setContentText(body)\n            .setSmallIcon(R.drawable.ic_notification)\n            .build()\n\n        NotificationManagerCompat.from(this).notify(1, notification)\n    }\n}"
+                    "title": "Posting a notification from an FCM message",
+                    "code": "class MyFirebaseService : FirebaseMessagingService() {\n    override fun onMessageReceived(message: RemoteMessage) {\n        val title = message.notification?.title ?: return\n        val body = message.notification?.body.orEmpty()\n\n        val notification = NotificationCompat.Builder(this, \"default_channel\")\n            .setContentTitle(title)\n            .setContentText(body)\n            .setSmallIcon(R.drawable.ic_notification)\n            .build()\n\n        NotificationManagerCompat.from(this).notify(1, notification)\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "onMessageReceived fires for a data payload, or for a notification payload while the app is in the foreground.",
+                                "A notification is built against a channel id — mandatory since Android 8.",
+                                "If that channel was never created, the notification is dropped SILENTLY with no error.",
+                                "notify() posts it, keyed on an id.",
+                                "Posting again with the same id replaces the existing notification rather than adding one.",
+                                "From Android 13 the runtime POST_NOTIFICATIONS permission is required, and without it notify() silently does nothing.",
+                                "A tap fires the PendingIntent attached to the notification."
+                            ],
+                            "explain": "<p>Steps 3 and 6 are the two silent failures, and between them they account for most \"notifications do not work\" reports. Neither logs an error and neither throws — a missing channel or an ungranted permission simply produces nothing.</p><p>Step 5 is the useful behaviour: reusing an id updates a notification in place, which is how a download progress bar works. Using a fixed id by accident is also why several messages can collapse into one.</p><p>Channels are user-facing: the user can mute a channel individually, which is the point of them and something the app cannot override.</p>"
+                        }
                 }
             ],
             "subsection": "others"
@@ -4074,8 +4785,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "SparseArray avoiding Integer boxing",
-                    "code": "val viewCache = SparseArray<View>()\n\nfun bindView(viewType: Int, view: View) {\n    viewCache.put(viewType, view) // int key, no autoboxing to Integer\n}\n\nval cached: View? = viewCache.get(viewType)"
+                    "title": "SparseArray against HashMap for int keys",
+                    "code": "val viewCache = SparseArray<View>()\n\nfun bindView(viewType: Int, view: View) {\n    viewCache.put(viewType, view) // int key, no autoboxing to Integer\n}\n\nval cached: View? = viewCache.get(viewType)",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "A HashMap<Integer, View> must BOX every key, allocating an Integer object per entry.",
+                                "It also allocates a Map.Entry node per entry, and an array of buckets sized for the load factor.",
+                                "For a few dozen entries that is a lot of objects for a little data.",
+                                "SparseArray holds two parallel arrays: an int[] of keys and an Object[] of values.",
+                                "No boxing, no entry objects, and no bucket array — far less memory and less GC pressure.",
+                                "Lookup is a BINARY SEARCH over the sorted key array, so it is O(log n) rather than O(1).",
+                                "For small collections that is faster in practice anyway, because there is no hashing and far better cache locality."
+                            ],
+                            "explain": "<p>Step 6 is the trade being made, and it is the reason this is a small-collection tool: at a few thousand entries the O(log n) search and the array shifting on insert lose to a hash map.</p><p>The Android-specific point is that <strong>allocation is the cost that matters</strong>, not asymptotic complexity. On a phone, avoiding thousands of short-lived boxed <code>Integer</code>s is worth more than a theoretically better lookup.</p><p><code>ArrayMap</code> is the same idea for object keys, and <code>SparseIntArray</code> and <code>SparseBooleanArray</code> avoid boxing on both sides.</p>"
+                        }
                 }
             ],
             "subsection": "others"
@@ -4154,8 +4878,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Defining and applying a custom annotation",
-                    "code": "@Target(AnnotationTarget.FUNCTION)\n@Retention(AnnotationRetention.RUNTIME)\nannotation class Loggable(val tag: String = \"App\")\n\nclass AnalyticsService {\n    @Loggable(tag = \"Analytics\")\n    fun trackEvent(name: String) {\n        // ...\n    }\n}"
+                    "title": "A custom annotation and how it is read",
+                    "code": "@Target(AnnotationTarget.FUNCTION)\n@Retention(AnnotationRetention.RUNTIME)\nannotation class Loggable(val tag: String = \"App\")\n\nclass AnalyticsService {\n    @Loggable(tag = \"Analytics\")\n    fun trackEvent(name: String) {\n        // ...\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "@Target(FUNCTION) restricts where the annotation may be written; applying it elsewhere is a compile error.",
+                                "@Retention(RUNTIME) decides how long it survives — this one is kept in the class file AND readable by reflection.",
+                                "The annotation is applied to a method, with a value for its parameter.",
+                                "At runtime, reflection finds the method and reads the annotation instance.",
+                                "The tag value is read from it and used — to route a log, in this case.",
+                                "With Retention.SOURCE it would be discarded by the compiler and invisible at runtime, but still usable by an annotation processor or lint.",
+                                "With Retention.BINARY it would be in the class file and not readable reflectively."
+                            ],
+                            "explain": "<p>Step 2 is the decision that determines what an annotation is <em>for</em>. <code>SOURCE</code> annotations are instructions to tooling — <code>@StringRes</code>, <code>@Nullable</code>, and anything KSP reads. <code>RUNTIME</code> annotations are read by reflection, which is how Retrofit, Gson and JUnit work.</p><p>The cost of <code>RUNTIME</code> is that reading it requires reflection, which is slow and needs a ProGuard keep rule — <code>-keepattributes *Annotation*</code> — or R8 strips the very thing you meant to read.</p><p>Which is why the modern Android answer is usually a compile-time processor rather than runtime reflection.</p>"
+                        }
                 }
             ],
             "subsection": "others"
@@ -4206,8 +4943,21 @@ const androidData = {
             "codeSnippets": [
                 {
                     "language": "xml",
-                    "title": "Two-way data binding in a layout",
-                    "code": "<layout xmlns:android=\"http://schemas.android.com/apk/res/android\">\n    <data>\n        <variable name=\"viewModel\" type=\"com.example.LoginViewModel\" />\n    </data>\n    <EditText\n        android:layout_width=\"match_parent\"\n        android:layout_height=\"wrap_content\"\n        android:text=\"@={viewModel.username}\" />\n</layout>"
+                    "title": "Two-way data binding",
+                    "code": "<layout xmlns:android=\"http://schemas.android.com/apk/res/android\">\n    <data>\n        <variable name=\"viewModel\" type=\"com.example.LoginViewModel\" />\n    </data>\n    <EditText\n        android:layout_width=\"match_parent\"\n        android:layout_height=\"wrap_content\"\n        android:text=\"@={viewModel.username}\" />\n</layout>",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The layout root is <layout>, which tells the build to generate a Binding class for this file.",
+                                "The <data> block declares a viewModel variable, giving the layout a typed reference.",
+                                "The generated class is compiled, so a wrong property name in the XML is a BUILD error rather than a runtime one.",
+                                "@={viewModel.username} is two-way: the @= is what distinguishes it from a one-way @{}.",
+                                "When the observable field changes, the binding updates the EditText.",
+                                "When the user types, the binding writes back into the field — no TextWatcher is written.",
+                                "The binding must be given a lifecycle owner, or it will not observe LiveData and the UI will never update."
+                            ],
+                            "explain": "<p>Step 6 is the appeal: two-way binding removes the <code>TextWatcher</code> boilerplate that every form screen used to carry.</p><p>Step 7 is the omission that produces a screen where nothing updates and nothing errors — <code>binding.lifecycleOwner = viewLifecycleOwner</code> is not optional.</p><p>The wider caveat is that data binding puts logic into XML, where it cannot be debugged or stepped through, and it slows the build with an annotation processor. Google now recommends view binding for the <code>findViewById</code> problem and Compose for the rest, which makes this largely a maintenance topic.</p>"
+                        }
                 }
             ],
             "subsection": "others"
