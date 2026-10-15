@@ -74,12 +74,36 @@ const jetpackComposeData = {
                 {
                     "language": "xml",
                     "title": "Classic View system layout",
-                    "code": "<TextView\n    android:id=\"@+id/greeting\"\n    android:layout_width=\"wrap_content\"\n    android:layout_height=\"wrap_content\" />\n\n<!-- In the Activity/Fragment -->\n<!--\nval greeting = findViewById<TextView>(R.id.greeting)\ngreeting.text = \"Hello, $name\"\n-->"
+                    "code": "<TextView\n    android:id=\"@+id/greeting\"\n    android:layout_width=\"wrap_content\"\n    android:layout_height=\"wrap_content\" />\n\n<!-- In the Activity/Fragment -->\n<!--\nval greeting = findViewById<TextView>(R.id.greeting)\ngreeting.text = \"Hello, $name\"\n-->",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The XML is inflated into a real TextView object in a view hierarchy.",
+                                "findViewById walks that hierarchy at runtime looking for the id — a lookup that can fail and only fails when it runs.",
+                                "The code holds a reference to the view and mutates it: greeting.text = \"Hello, Aditya\".",
+                                "When the name changes, something must remember to run that assignment again.",
+                                "If two code paths can change the name, both must update the view, and a missed one leaves the UI showing stale text.",
+                                "The view is the source of truth for what is on screen, and the state lives in whatever code last wrote to it."
+                            ],
+                            "explain": "<p>Steps 4 and 5 are the whole cost of the imperative model. The UI is correct only if every path that changes data also remembers to update every view showing it, and nothing checks that. The bug is always the transition nobody thought of — an error state that does not clear, a spinner that stays after a retry.</p><p>Step 6 is the deeper problem: with the view holding the truth, \"what is on screen right now\" can only be answered by reading the views.</p>"
+                        }
                 },
                 {
                     "language": "kotlin",
-                    "title": "Equivalent in Compose",
-                    "code": "@Composable\nfun Greeting(name: String) {\n    Text(text = \"Hello, $name\")\n}\n\n// No findViewById, no manual mutation.\n// Calling Greeting(\"Aditya\") again with a new name\n// automatically updates the UI via recomposition."
+                    "title": "The same thing in Compose",
+                    "code": "@Composable\nfun Greeting(name: String) {\n    Text(text = \"Hello, $name\")\n}\n\n// No findViewById, no manual mutation.\n// Calling Greeting(\"Aditya\") again with a new name\n// automatically updates the UI via recomposition.",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "Greeting(name) is called during composition and describes what should be on screen for that name.",
+                                "Compose builds the UI from that description. No object is looked up and no id exists.",
+                                "The name changes.",
+                                "Compose calls Greeting again with the new value — this is recomposition.",
+                                "It compares the new description against the previous one and updates only the text that actually differs.",
+                                "There is no code path that can forget to update, because there is no update code to forget."
+                            ],
+                            "explain": "<p>Step 6 is the difference in one sentence. In the View system the developer writes the transition; in Compose the developer writes the destination and the framework works out the transition.</p><p>The state is now the source of truth and the UI is a function of it, which is why the same <code>Greeting</code> can be previewed, screenshot-tested and reused without an Activity anywhere near it.</p><p>The cost is that anything not expressed as state is invisible to recomposition — which is what the whole <code>remember</code>, <code>mutableStateOf</code> and stability machinery exists to manage.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -108,7 +132,20 @@ const jetpackComposeData = {
                 {
                     "language": "kotlin",
                     "title": "UI = f(state)",
-                    "code": "@Composable\nfun Counter() {\n    var count by remember { mutableStateOf(0) }\n\n    // Describes what the UI looks like for the CURRENT count.\n    // No manual view updates -- Compose re-runs this on state change.\n    Column {\n        Text(text = \"Count: $count\")\n        Button(onClick = { count++ }) {\n            Text(\"Increment\")\n        }\n    }\n}"
+                    "code": "@Composable\nfun Counter() {\n    var count by remember { mutableStateOf(0) }\n\n    // Describes what the UI looks like for the CURRENT count.\n    // No manual view updates -- Compose re-runs this on state change.\n    Column {\n        Text(text = \"Count: $count\")\n        Button(onClick = { count++ }) {\n            Text(\"Increment\")\n        }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "Counter() is composed for the first time. remember stores a MutableState holding 0.",
+                                "Text reads count. Compose records that this composable READ that state object.",
+                                "The button is clicked and count++ writes 1 into the state.",
+                                "The write invalidates every composable recorded as a reader — here, the Column's content.",
+                                "On the next frame Compose re-runs the invalidated code with count now 1.",
+                                "It diffs the result and updates only the text that changed; the Button is not rebuilt.",
+                                "Nothing in the code says \"update the label\" — the label is simply described in terms of count."
+                            ],
+                            "explain": "<p>Step 2 is the mechanism the whole model rests on: Compose tracks state <strong>reads</strong>, so it knows which code depends on which value. Writing to state is not a command to redraw; it is an invalidation of everything that read it.</p><p>Step 7 is the practical consequence. There is no <code>setText</code>, so there is no path where the data changed and the UI did not. A screen can only be wrong if the state is wrong.</p><p><code>remember</code> is what keeps the value across recompositions — without it, <code>mutableStateOf(0)</code> would be re-created on every pass and the count would never leave zero.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -159,8 +196,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "A well-formed composable",
-                    "code": "@Composable\nfun UserCard(\n    name: String,\n    onClick: () -> Unit,\n    modifier: Modifier = Modifier\n) {\n    Row(\n        modifier = modifier\n            .fillMaxWidth()\n            .clickable(onClick = onClick)\n            .padding(16.dp)\n    ) {\n        Text(text = name, style = MaterialTheme.typography.titleMedium)\n    }\n}"
+                    "title": "What makes a composable well formed",
+                    "code": "@Composable\nfun UserCard(\n    name: String,\n    onClick: () -> Unit,\n    modifier: Modifier = Modifier\n) {\n    Row(\n        modifier = modifier\n            .fillMaxWidth()\n            .clickable(onClick = onClick)\n            .padding(16.dp)\n    ) {\n        Text(text = name, style = MaterialTheme.typography.titleMedium)\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The function is annotated @Composable, so it may only be called from another composable.",
+                                "It takes its data as parameters and returns Unit — it describes UI rather than producing a value.",
+                                "It holds no state of its own, so calling it twice with the same arguments produces the same UI.",
+                                "The modifier parameter is last and defaults to Modifier, which is the convention every caller relies on.",
+                                "Because the caller supplies the modifier, the caller controls size, padding and click behaviour from outside.",
+                                "onClick is a lambda parameter, so the component reports the event upward instead of deciding what it means.",
+                                "Compose may call this function on any frame, in any order, on any thread, or skip it entirely."
+                            ],
+                            "explain": "<p>Step 7 is the constraint that produces all the others. A composable can be re-run at any time, so it must be a <strong>pure description</strong>: no side effects in the body, no assumptions about how often it runs, nothing that would break if it ran twice.</p><p>Step 4 is the convention worth following exactly. A component with no <code>modifier</code> parameter cannot be positioned or sized by its caller, which makes it unusable in a layout it was not designed for.</p><p>Steps 5 and 6 together are what makes a component reusable: the caller decides how it looks in context and what its events mean.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -189,8 +239,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Only the reading composable recomposes",
-                    "code": "@Composable\nfun Screen() {\n    var count by remember { mutableStateOf(0) }\n\n    Column {\n        Header() // does NOT read `count` -> never recomposes here\n        CounterText(count) // reads `count` -> recomposes on change\n        Button(onClick = { count++ }) { Text(\"+1\") }\n    }\n}\n\n@Composable\nfun CounterText(count: Int) {\n    Text(\"Count: $count\")\n}"
+                    "title": "Which composables actually re-run",
+                    "code": "@Composable\nfun Screen() {\n    var count by remember { mutableStateOf(0) }\n\n    Column {\n        Header() // does NOT read `count` -> never recomposes here\n        CounterText(count) // reads `count` -> recomposes on change\n        Button(onClick = { count++ }) { Text(\"+1\") }\n    }\n}\n\n@Composable\nfun CounterText(count: Int) {\n    Text(\"Count: $count\")\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "Screen() composes. remember creates the count state; Header, CounterText and Button are all called once.",
+                                "CounterText(count) reads the value, so Compose records it as a reader of that state.",
+                                "Header reads nothing and takes no parameters that change.",
+                                "The button writes count = 1.",
+                                "Compose invalidates the scope that read count. That scope is Screen's Column content, because the read happens when count is passed as an argument.",
+                                "On recomposition, CounterText re-runs because its argument changed.",
+                                "Header is called with the same (absent) arguments, so Compose SKIPS it entirely — its previous result is reused."
+                            ],
+                            "explain": "<p>Step 7 is the payoff and the thing to be able to say: Compose does not re-run everything on a state change, it re-runs the smallest scope that read the state and <strong>skips</strong> any child whose inputs are unchanged.</p><p>Skipping requires the parameters to be <em>stable</em> — types Compose can compare and be sure about. A <code>List&lt;User&gt;</code> parameter is unstable, so a composable taking one is re-run every time even when the contents are identical, which is the usual explanation for a Compose screen that is slower than it looks.</p><p>Hoisting <code>count</code> further down, so only <code>CounterText</code> reads it, would narrow the invalidated scope further.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -241,8 +304,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "MutableState delegate syntax",
-                    "code": "@Composable\nfun NameInput() {\n    // `by` delegates .value access to a plain `var`\n    var name by remember { mutableStateOf(\"\") }\n\n    OutlinedTextField(\n        value = name,\n        onValueChange = { name = it },\n        label = { Text(\"Name\") }\n    )\n}"
+                    "title": "The by delegate on MutableState",
+                    "code": "@Composable\nfun NameInput() {\n    // `by` delegates .value access to a plain `var`\n    var name by remember { mutableStateOf(\"\") }\n\n    OutlinedTextField(\n        value = name,\n        onValueChange = { name = it },\n        label = { Text(\"Name\") }\n    )\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "mutableStateOf(\"\") creates a MutableState<String> — an observable holder, not a plain variable.",
+                                "remember keeps that holder across recompositions, so the text survives redraws.",
+                                "Without by, every use would be name.value — reading and writing through the holder.",
+                                "by delegates the property to it, so name reads like an ordinary var while still going through .value.",
+                                "The TextField reads name, which registers this composable as a reader of the state.",
+                                "onValueChange writes name = it, which sets .value and invalidates the readers.",
+                                "The composable re-runs, TextField receives the new value, and the field shows what was typed."
+                            ],
+                            "explain": "<p>Steps 5 to 7 are the loop that makes a Compose text field work, and it is worth noticing that it is a <strong>loop</strong>. <code>TextField</code> does not hold the text — it displays the value it is given and reports edits upward. Nothing appears on screen until the state is updated and the composable re-runs.</p><p>That is why an <code>onValueChange</code> that does not write to state gives a field you cannot type in — a bug with no error and no obvious cause.</p><p>The three declarations are easy to confuse: <code>val x = mutableStateOf(0)</code> (holder), <code>var x by remember { mutableStateOf(0) }</code> (delegated, the usual form), and <code>var x = 0</code> (an ordinary variable Compose knows nothing about).</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -270,8 +346,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "ViewModel-backed screen state",
-                    "code": "class ProfileViewModel : ViewModel() {\n    private val _uiState = MutableStateFlow(ProfileUiState())\n    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()\n\n    fun onNameChanged(name: String) {\n        _uiState.update { it.copy(name = name) }\n    }\n}\n\n@Composable\nfun ProfileScreen(viewModel: ProfileViewModel = viewModel()) {\n    val uiState by viewModel.uiState.collectAsStateWithLifecycle()\n    ProfileContent(uiState = uiState, onNameChanged = viewModel::onNameChanged)\n}"
+                    "title": "Screen state owned by a ViewModel",
+                    "code": "class ProfileViewModel : ViewModel() {\n    private val _uiState = MutableStateFlow(ProfileUiState())\n    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()\n\n    fun onNameChanged(name: String) {\n        _uiState.update { it.copy(name = name) }\n    }\n}\n\n@Composable\nfun ProfileScreen(viewModel: ProfileViewModel = viewModel()) {\n    val uiState by viewModel.uiState.collectAsStateWithLifecycle()\n    ProfileContent(uiState = uiState, onNameChanged = viewModel::onNameChanged)\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "viewModel() obtains a ViewModel scoped to the host Activity or navigation entry, and returns the same one on recomposition.",
+                                "The ViewModel holds the state in a MutableStateFlow and exposes a read-only StateFlow.",
+                                "The composable collects that flow, which registers it as a reader.",
+                                "A text change calls viewModel.onNameChanged — the event travels UP.",
+                                "The ViewModel updates its state with copy, producing a new immutable state object.",
+                                "The new state travels DOWN to the composable, which recomposes.",
+                                "On rotation the ViewModel survives, so the same state is delivered immediately and nothing is refetched."
+                            ],
+                            "explain": "<p>Step 7 is the reason state that matters lives here rather than in <code>remember</code>. <code>remember</code> is scoped to the composition and dies with it; a ViewModel outlives configuration changes.</p><p>Step 5 is the discipline that keeps recomposition correct. Replacing the state with a copy is what Compose can compare; mutating a field inside the existing object changes nothing it can observe, and the screen does not update.</p><p>The asymmetric exposure — <code>MutableStateFlow</code> private, <code>StateFlow</code> public — is what stops the UI writing state directly and keeps every change going through a named function on the ViewModel.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -299,8 +388,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Stateful wrapper around a stateless component",
-                    "code": "// Stateless: fully controlled by the caller\n@Composable\nfun SearchBar(query: String, onQueryChange: (String) -> Unit) {\n    TextField(value = query, onValueChange = onQueryChange)\n}\n\n// Stateful: owns the state, delegates rendering\n@Composable\nfun StatefulSearchBar() {\n    var query by remember { mutableStateOf(\"\") }\n    SearchBar(query = query, onQueryChange = { query = it })\n}"
+                    "title": "A stateful wrapper around a stateless component",
+                    "code": "// Stateless: fully controlled by the caller\n@Composable\nfun SearchBar(query: String, onQueryChange: (String) -> Unit) {\n    TextField(value = query, onValueChange = onQueryChange)\n}\n\n// Stateful: owns the state, delegates rendering\n@Composable\nfun StatefulSearchBar() {\n    var query by remember { mutableStateOf(\"\") }\n    SearchBar(query = query, onQueryChange = { query = it })\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "SearchBar takes query and onQueryChange. It owns nothing and remembers nothing.",
+                                "It can therefore be previewed with any value, screenshot-tested, and driven entirely from a test.",
+                                "StatefulSearchBar owns a query with remember and passes it down.",
+                                "A keystroke calls onQueryChange, which writes the state in the wrapper.",
+                                "The wrapper recomposes and passes the new query back down.",
+                                "SearchBar renders whatever it was given — it is never the source of truth.",
+                                "A screen needing the query for a network call uses SearchBar directly and hoists the state to its ViewModel instead."
+                            ],
+                            "explain": "<p>Step 7 is why the pair exists. A component that owns its state is convenient and unusable the moment anyone else needs that value; a stateless one is slightly more verbose at the call site and works everywhere.</p><p>The guidance follows: make components <strong>stateless by default</strong>, and add a stateful wrapper only as a convenience for callers who genuinely do not care.</p><p>This is state hoisting from the other direction, and the stateless half is the same shape as a controlled component in React.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -356,13 +458,39 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "LaunchedEffect for a one-shot suspend call",
-                    "code": "@Composable\nfun UserScreen(userId: String, viewModel: UserViewModel = viewModel()) {\n    LaunchedEffect(userId) {\n        viewModel.loadUser(userId) // suspend call, cancelled if userId changes\n    }\n}"
+                    "title": "LaunchedEffect for a one-shot suspending call",
+                    "code": "@Composable\nfun UserScreen(userId: String, viewModel: UserViewModel = viewModel()) {\n    LaunchedEffect(userId) {\n        viewModel.loadUser(userId) // suspend call, cancelled if userId changes\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "UserScreen enters the composition. LaunchedEffect starts a coroutine in the composition's scope.",
+                                "loadUser runs. Recomposition for unrelated reasons does NOT restart it, because the key has not changed.",
+                                "The user navigates to a different user, so userId changes.",
+                                "LaunchedEffect cancels the running coroutine and starts a new one with the new id.",
+                                "The previous request stops mid-flight; its result can never arrive and overwrite the new one.",
+                                "The screen leaves the composition, and the coroutine is cancelled with it.",
+                                "Nothing here registers or unregisters anything, so no cleanup block is needed."
+                            ],
+                            "explain": "<p>Step 4 is the key parameter doing its job, and it is the whole reason not to use <code>LaunchedEffect(Unit)</code> here. With a constant key the effect would run once and never re-run, so navigating to a second user would show the first user's data.</p><p>Step 5 is the safety this buys for free: cancel-and-restart means an in-flight response for the old id cannot land after the new one.</p><p>Step 2 matters because composables re-run constantly. An effect that restarted on every recomposition would fire a request per frame; keys are how Compose distinguishes \"the inputs changed\" from \"we redrew\".</p>"
+                        }
                 },
                 {
                     "language": "kotlin",
-                    "title": "DisposableEffect for listener cleanup",
-                    "code": "@Composable\nfun WindowFocusObserver(onFocusChanged: (Boolean) -> Unit) {\n    val view = LocalView.current\n    DisposableEffect(view) {\n        val listener = ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->\n            onFocusChanged(hasFocus)\n        }\n        view.viewTreeObserver.addOnWindowFocusChangeListener(listener)\n        onDispose {\n            view.viewTreeObserver.removeOnWindowFocusChangeListener(listener)\n        }\n    }\n}"
+                    "title": "DisposableEffect for something that must be cleaned up",
+                    "code": "@Composable\nfun WindowFocusObserver(onFocusChanged: (Boolean) -> Unit) {\n    val view = LocalView.current\n    DisposableEffect(view) {\n        val listener = ViewTreeObserver.OnWindowFocusChangeListener { hasFocus ->\n            onFocusChanged(hasFocus)\n        }\n        view.viewTreeObserver.addOnWindowFocusChangeListener(listener)\n        onDispose {\n            view.viewTreeObserver.removeOnWindowFocusChangeListener(listener)\n        }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The composable enters the composition and DisposableEffect runs its block.",
+                                "A listener is created and registered with the ViewTreeObserver.",
+                                "The block returns an onDispose lambda, which is required — the effect does not compile without it.",
+                                "Focus changes are delivered to the listener for as long as the composable is in the composition.",
+                                "The key — view — changes, or the composable leaves the composition.",
+                                "onDispose runs first and unregisters the listener.",
+                                "If the key changed rather than the composable leaving, the block then runs again and registers with the new view."
+                            ],
+                            "explain": "<p>Step 3 is enforced by the API, and step 6 is why. <code>DisposableEffect</code> is for anything with a registration that must be undone — listeners, observers, broadcast receivers, callbacks — and forgetting the cleanup is the leak the type system prevents here.</p><p>The division from <code>LaunchedEffect</code> is simple: use <code>LaunchedEffect</code> for suspending work, which cancellation cleans up on its own, and <code>DisposableEffect</code> for non-suspending resources, which it does not.</p><p>Step 7 is worth noticing — on a key change the cleanup runs <em>before</em> the new registration, so the two never overlap.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -391,7 +519,19 @@ const jetpackComposeData = {
                 {
                     "language": "kotlin",
                     "title": "Launching a coroutine from a click handler",
-                    "code": "@Composable\nfun ScrollToTopButton(listState: LazyListState) {\n    val scope = rememberCoroutineScope()\n\n    Button(onClick = {\n        scope.launch {\n            listState.animateScrollToItem(0)\n        }\n    }) {\n        Text(\"Back to top\")\n    }\n}"
+                    "code": "@Composable\nfun ScrollToTopButton(listState: LazyListState) {\n    val scope = rememberCoroutineScope()\n\n    Button(onClick = {\n        scope.launch {\n            listState.animateScrollToItem(0)\n        }\n    }) {\n        Text(\"Back to top\")\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "rememberCoroutineScope returns a scope bound to this point in the composition.",
+                                "Nothing is launched during composition — the scope just sits there.",
+                                "The user taps the button and onClick runs. onClick is not a composable, so it cannot call LaunchedEffect.",
+                                "scope.launch starts the animated scroll from that ordinary callback.",
+                                "The animation suspends and completes without blocking anything.",
+                                "The composable leaves the composition and the scope is cancelled, taking any running animation with it."
+                            ],
+                            "explain": "<p>Step 3 is the entire reason this API exists. <code>LaunchedEffect</code> starts work when a composable <em>enters</em> or a key changes; a click is neither. Event handlers need a scope they can launch into, and <code>rememberCoroutineScope</code> is one whose lifetime matches the composition.</p><p>The rule to remember: <strong>effects for lifecycle, this for events.</strong> Using <code>LaunchedEffect</code> for a click means inventing a state flag to trigger it, which is a worse version of the same thing.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -420,8 +560,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Observing StateFlow safely",
-                    "code": "@Composable\nfun WeatherScreen(viewModel: WeatherViewModel = viewModel()) {\n    val uiState by viewModel.weatherState.collectAsStateWithLifecycle()\n\n    when (uiState) {\n        is WeatherUiState.Loading -> LoadingSpinner()\n        is WeatherUiState.Success -> WeatherContent(uiState.data)\n        is WeatherUiState.Error -> ErrorMessage(uiState.message)\n    }\n}"
+                    "title": "Collecting a StateFlow safely",
+                    "code": "@Composable\nfun WeatherScreen(viewModel: WeatherViewModel = viewModel()) {\n    val uiState by viewModel.weatherState.collectAsStateWithLifecycle()\n\n    when (uiState) {\n        is WeatherUiState.Loading -> LoadingSpinner()\n        is WeatherUiState.Success -> WeatherContent(uiState.data)\n        is WeatherUiState.Error -> ErrorMessage(uiState.message)\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "collectAsStateWithLifecycle subscribes to the flow and returns a State the composable reads.",
+                                "The subscription is tied to the lifecycle owner, starting at STARTED.",
+                                "Each emission updates the State, which invalidates readers and recomposes the when.",
+                                "The app is backgrounded. The lifecycle drops below STARTED and the collection is CANCELLED.",
+                                "Upstream work stops too — if the flow is a stateIn with WhileSubscribed, its source shuts down as well.",
+                                "Returning to the foreground restarts the collection and delivers the current value immediately.",
+                                "With plain collectAsState, step 4 would not happen: collection would continue while the app is in the background."
+                            ],
+                            "explain": "<p>Step 7 is the difference and the reason to prefer the lifecycle-aware version. <code>collectAsState</code> keeps collecting while the screen is not visible, so a location or database observer keeps running and updating a UI nobody is looking at — battery spent on frames that are never drawn.</p><p>It needs the <code>lifecycle-runtime-compose</code> artifact, which is the only reason the shorter one still gets used.</p><p>Step 3 shows why a sealed state type pairs so well with this: the <code>when</code> is exhaustive, so adding a state breaks compilation until the screen handles it.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -450,8 +603,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Async load on screen entry",
-                    "code": "@Composable\nfun ArticleScreen(articleId: String, viewModel: ArticleViewModel = viewModel()) {\n    LaunchedEffect(articleId) {\n        viewModel.loadArticle(articleId)\n    }\n    val state by viewModel.uiState.collectAsStateWithLifecycle()\n    ArticleContent(state)\n}"
+                    "title": "Loading on entry, rendering from state",
+                    "code": "@Composable\nfun ArticleScreen(articleId: String, viewModel: ArticleViewModel = viewModel()) {\n    LaunchedEffect(articleId) {\n        viewModel.loadArticle(articleId)\n    }\n    val state by viewModel.uiState.collectAsStateWithLifecycle()\n    ArticleContent(state)\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "ArticleScreen enters with an articleId. LaunchedEffect starts the load, keyed on that id.",
+                                "The ViewModel sets its state to Loading, and the collected state updates.",
+                                "The composable recomposes and ArticleContent draws a spinner.",
+                                "The request completes and the ViewModel publishes Success.",
+                                "The composable recomposes again and draws the article.",
+                                "Navigating to a different article changes the key, so the effect cancels and restarts.",
+                                "The composable itself performs no async work — it triggers it and renders whatever state comes back."
+                            ],
+                            "explain": "<p>Step 7 is the division of labour that makes this testable. The composable is still a pure function of state; the only thing it does beyond describing UI is start an effect keyed on its input.</p><p>Compose has no async primitives of its own beyond the effect handlers — this is <code>LaunchedEffect</code> and a flow, and there is nothing else to learn. The mistake it prevents is calling a suspending function directly in the composable body, which would fire on every recomposition.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -479,8 +645,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Wrapping a callback API with produceState",
-                    "code": "@Composable\nfun rememberLocation(locationClient: LocationClient): State<Location?> {\n    return produceState<Location?>(initialValue = null) {\n        val callback = LocationCallback { location -> value = location }\n        locationClient.register(callback)\n        awaitDispose { locationClient.unregister(callback) }\n    }\n}"
+                    "title": "produceState around a callback API",
+                    "code": "@Composable\nfun rememberLocation(locationClient: LocationClient): State<Location?> {\n    return produceState<Location?>(initialValue = null) {\n        val callback = LocationCallback { location -> value = location }\n        locationClient.register(callback)\n        awaitDispose { locationClient.unregister(callback) }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The composable enters and produceState immediately returns a State holding the initial value, null.",
+                                "It launches a coroutine that runs the block.",
+                                "The block registers a callback with the location client.",
+                                "The first location arrives and the callback assigns value = location.",
+                                "That write updates the State, so every composable reading it recomposes with the new location.",
+                                "awaitDispose suspends, holding the effect open, exactly as awaitClose does in callbackFlow.",
+                                "When the composable leaves, awaitDispose runs its body and unregisters the callback."
+                            ],
+                            "explain": "<p>Step 1 is what makes this convenient: there is a value to render from the very first frame, so no separate loading flag is needed for \"nothing has arrived yet\".</p><p><code>produceState</code> is <code>LaunchedEffect</code> and <code>remember { mutableStateOf() }</code> combined — the coroutine and the state it feeds, declared together. Step 6 is the part that is easy to leave out and the reason it is a compile-enforced suspension: a callback registered by an effect that has returned is a leak.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -508,8 +687,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Classic derivedStateOf use case",
-                    "code": "@Composable\nfun ScrollToTopFab(listState: LazyListState) {\n    val showButton by remember {\n        derivedStateOf { listState.firstVisibleItemIndex > 0 }\n    }\n\n    if (showButton) {\n        FloatingActionButton(onClick = { /* scroll up */ }) {\n            Icon(Icons.Default.ArrowUpward, contentDescription = \"Scroll to top\")\n        }\n    }\n}"
+                    "title": "derivedStateOf, and the recompositions it prevents",
+                    "code": "@Composable\nfun ScrollToTopFab(listState: LazyListState) {\n    val showButton by remember {\n        derivedStateOf { listState.firstVisibleItemIndex > 0 }\n    }\n\n    if (showButton) {\n        FloatingActionButton(onClick = { /* scroll up */ }) {\n            Icon(Icons.Default.ArrowUpward, contentDescription = \"Scroll to top\")\n        }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "listState.firstVisibleItemIndex changes on every scrolled item — many times per second.",
+                                "Reading it directly in a composable would invalidate that composable on every one of those changes.",
+                                "derivedStateOf wraps the calculation and produces a new State holding a Boolean.",
+                                "The comparison runs on every change, because it must.",
+                                "But the derived State only reports a change when its RESULT changes — false to true, or back.",
+                                "Scrolling from item 5 to item 40 changes the index 35 times and the Boolean zero times.",
+                                "So the FAB recomposes twice in a whole session: once when scrolling starts, once when it returns to the top."
+                            ],
+                            "explain": "<p>Step 6 against step 7 is the whole value, and it is the canonical example for a reason: a high-frequency input producing a low-frequency output. Without <code>derivedStateOf</code> this is a composable re-running on every frame of every scroll, to draw the same thing.</p><p>It is also frequently misapplied. If the derived value changes about as often as its input — mapping a name to an uppercase name, say — there is nothing to filter and <code>derivedStateOf</code> only adds overhead. The test is whether the output changes <em>less often</em> than the input.</p><p><code>remember</code> around it is required; without it the derived state is recreated every recomposition and remembers nothing.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -537,8 +729,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Avoiding a stale closure",
-                    "code": "@Composable\nfun SplashScreen(onTimeout: () -> Unit) {\n    val currentOnTimeout by rememberUpdatedState(onTimeout)\n\n    LaunchedEffect(true) {\n        delay(3000)\n        currentOnTimeout() // always calls the LATEST lambda\n    }\n}"
+                    "title": "rememberUpdatedState and the stale closure",
+                    "code": "@Composable\nfun SplashScreen(onTimeout: () -> Unit) {\n    val currentOnTimeout by rememberUpdatedState(onTimeout)\n\n    LaunchedEffect(true) {\n        delay(3000)\n        currentOnTimeout() // always calls the LATEST lambda\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "SplashScreen composes with an onTimeout lambda and starts a LaunchedEffect keyed on true.",
+                                "The effect suspends for three seconds.",
+                                "Meanwhile the parent recomposes and passes a NEW onTimeout lambda — a different object, capturing different values.",
+                                "The key has not changed, so the effect is NOT restarted. It is still the coroutine that started at step 1.",
+                                "That coroutine captured the ORIGINAL lambda when it began.",
+                                "rememberUpdatedState holds a State whose value is replaced on every recomposition.",
+                                "The coroutine reads currentOnTimeout at call time, so it invokes the latest lambda rather than the captured one."
+                            ],
+                            "explain": "<p>Steps 4 and 5 are the bug this exists to fix, and it is genuinely hard to see by reading. A long-running effect closes over whatever it captured when it started, and anything passed later never reaches it.</p><p>The obvious alternative — adding <code>onTimeout</code> to the key — is wrong for a different reason: a new lambda instance is created on most recompositions, so the effect would restart constantly and the three seconds would never elapse.</p><p><code>rememberUpdatedState</code> is the way to say \"do not restart, but do use the newest value\", and it is needed exactly when an effect outlives the values it uses.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -567,8 +772,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "remember vs rememberSaveable",
-                    "code": "@Composable\nfun SurveyForm() {\n    // Lost on rotation\n    var isExpanded by remember { mutableStateOf(false) }\n\n    // Survives rotation and process death\n    var answer by rememberSaveable { mutableStateOf(\"\") }\n\n    Column {\n        TextField(value = answer, onValueChange = { answer = it })\n    }\n}"
+                    "title": "remember against rememberSaveable",
+                    "code": "@Composable\nfun SurveyForm() {\n    // Lost on rotation\n    var isExpanded by remember { mutableStateOf(false) }\n\n    // Survives rotation and process death\n    var answer by rememberSaveable { mutableStateOf(\"\") }\n\n    Column {\n        TextField(value = answer, onValueChange = { answer = it })\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "Both store a value across recompositions, which is what remember means.",
+                                "The device rotates. The Activity is destroyed and recreated, and the composition is thrown away.",
+                                "isExpanded was stored with remember, so it is gone and resets to false.",
+                                "answer was stored with rememberSaveable, so it was written into the saved instance state Bundle.",
+                                "On recreation rememberSaveable restores it and the field still holds what was typed.",
+                                "The process is killed in the background and the user returns. The Bundle is restored from disk, and answer survives that too.",
+                                "rememberSaveable can only store what fits in a Bundle, unless a custom Saver is supplied."
+                            ],
+                            "explain": "<p>The rule follows from steps 3 and 6: <strong>use <code>rememberSaveable</code> for anything the user produced</strong> — typed text, a scroll position, a selection — and plain <code>remember</code> for things that are cheap to rebuild, like whether a section is expanded.</p><p>Step 7 is the practical limit. A custom type needs a <code>Saver</code>, and reaching for one is often a sign the state belongs in a ViewModel instead — which survives rotation without a Bundle, though not process death.</p><p>The two are complementary rather than alternatives: a ViewModel handles rotation and large state, <code>rememberSaveable</code> handles process death for small values.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -626,8 +844,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Observing Activity lifecycle events from Compose",
-                    "code": "@Composable\nfun CameraPreviewScreen(analytics: Analytics) {\n    val lifecycleOwner = LocalLifecycleOwner.current\n\n    DisposableEffect(lifecycleOwner) {\n        val observer = LifecycleEventObserver { _, event ->\n            when (event) {\n                Lifecycle.Event.ON_START -> analytics.startSession()\n                Lifecycle.Event.ON_STOP -> analytics.endSession()\n                else -> Unit\n            }\n        }\n        lifecycleOwner.lifecycle.addObserver(observer)\n        onDispose {\n            lifecycleOwner.lifecycle.removeObserver(observer)\n        }\n    }\n}"
+                    "title": "Observing Activity lifecycle events from a composable",
+                    "code": "@Composable\nfun CameraPreviewScreen(analytics: Analytics) {\n    val lifecycleOwner = LocalLifecycleOwner.current\n\n    DisposableEffect(lifecycleOwner) {\n        val observer = LifecycleEventObserver { _, event ->\n            when (event) {\n                Lifecycle.Event.ON_START -> analytics.startSession()\n                Lifecycle.Event.ON_STOP -> analytics.endSession()\n                else -> Unit\n            }\n        }\n        lifecycleOwner.lifecycle.addObserver(observer)\n        onDispose {\n            lifecycleOwner.lifecycle.removeObserver(observer)\n        }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "LocalLifecycleOwner.current gives the composable the hosting lifecycle owner.",
+                                "DisposableEffect keyed on that owner registers a LifecycleEventObserver.",
+                                "The user backgrounds the app. ON_PAUSE and ON_STOP fire and the observer receives them.",
+                                "The camera preview is released in response — something composition alone would never tell you about.",
+                                "Returning to the foreground fires ON_START and ON_RESUME, and the preview is restarted.",
+                                "The composable leaves the composition, and onDispose removes the observer.",
+                                "Without that removal the observer would outlive the screen and keep receiving events."
+                            ],
+                            "explain": "<p>The reason this is needed at all: <strong>composition lifetime and Activity lifecycle are not the same thing</strong>. A composable can remain composed while the app is backgrounded, so entering and leaving the composition does not tell you about pause and resume.</p><p>That matters for anything holding a hardware resource — a camera, a sensor, a media player — where the platform expects release on pause. Most screens need none of this, and reaching for it when a <code>LaunchedEffect</code> would do is a sign the state is in the wrong place.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -660,8 +891,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Stable data class + list keys",
-                    "code": "@Immutable\ndata class UserUi(val id: String, val name: String)\n\n@Composable\nfun UserList(users: List<UserUi>) {\n    LazyColumn {\n        items(items = users, key = { it.id }) { user ->\n            UserRow(user) // skippable: UserUi is @Immutable\n        }\n    }\n}"
+                    "title": "Stability and keys in a LazyColumn",
+                    "code": "@Immutable\ndata class UserUi(val id: String, val name: String)\n\n@Composable\nfun UserList(users: List<UserUi>) {\n    LazyColumn {\n        items(items = users, key = { it.id }) { user ->\n            UserRow(user) // skippable: UserUi is @Immutable\n        }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "UserList recomposes because its list parameter changed.",
+                                "LazyColumn composes only the items currently visible, plus a small buffer.",
+                                "key = { it.id } gives each item a stable identity across recompositions.",
+                                "An item inserted at the top therefore does not shift every other item's identity — the rest keep their state and are not rebuilt.",
+                                "Without a key, position is the identity, so inserting at the top invalidates everything below it.",
+                                "@Immutable tells the compiler UserUi never changes, so Compose may compare instances and skip.",
+                                "UserRow is therefore skipped for every item whose UserUi is unchanged, and only genuinely new rows recompose."
+                            ],
+                            "explain": "<p>Steps 4 and 5 are the same bug that <code>DiffUtil</code> and stable ids solve in <code>RecyclerView</code>, and it has the same symptom: scroll position jumping and per-item state resetting when the list changes.</p><p>Step 6 is the stability contract, and it is where most Compose performance work actually lives. Compose can only skip a composable when it can prove the arguments are unchanged, and an unstable type — a <code>List</code>, a class from a module without the Compose compiler — can never be proven unchanged. <code>@Immutable</code> is a promise the compiler takes at face value, so it is a lie with consequences if the class is in fact mutable.</p><p>Layout Inspector's recomposition counts are how to find these rather than guess.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -691,7 +935,20 @@ const jetpackComposeData = {
                 {
                     "language": "kotlin",
                     "title": "Hosting a legacy View inside Compose",
-                    "code": "@Composable\nfun MapScreen() {\n    AndroidView(\n        factory = { context -> MapView(context).apply { onCreate(null) } },\n        update = { mapView -> mapView.getMapAsync { /* configure map */ } },\n        modifier = Modifier.fillMaxSize()\n    )\n}"
+                    "code": "@Composable\nfun MapScreen() {\n    AndroidView(\n        factory = { context -> MapView(context).apply { onCreate(null) } },\n        update = { mapView -> mapView.getMapAsync { /* configure map */ } },\n        modifier = Modifier.fillMaxSize()\n    )\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "AndroidView composes and calls factory exactly once, creating the real MapView.",
+                                "That View is inserted into the underlying Android view hierarchy that Compose is drawing into.",
+                                "update runs after factory, and again on every recomposition where its captured state changed.",
+                                "So factory is for construction, and update is for applying current state to the existing View.",
+                                "The modifier positions and sizes the View exactly as it would any composable.",
+                                "When the composable leaves the composition, the View is removed and released.",
+                                "A View with its own lifecycle — MapView, VideoView — still needs its lifecycle methods called, which AndroidView does not do."
+                            ],
+                            "explain": "<p>Step 7 is the gap that causes real bugs. <code>MapView</code> expects <code>onCreate</code>, <code>onResume</code>, <code>onPause</code> and <code>onDestroy</code>, and <code>AndroidView</code> knows nothing about any of them — the usual fix is a <code>DisposableEffect</code> on <code>LocalLifecycleOwner</code> forwarding the events.</p><p>Steps 3 and 4 are the division that keeps this efficient: expensive construction happens once, and cheap state application happens per recomposition. Putting configuration in <code>factory</code> means it never updates; putting construction in <code>update</code> means rebuilding the map on every frame.</p><p>The reverse direction is <code>ComposeView</code>, for putting Compose inside an existing XML layout — which is how most incremental migrations actually start.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -719,8 +976,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Hoisting state out of a checkbox row",
-                    "code": "@Composable\nfun TermsCheckbox(\n    checked: Boolean,\n    onCheckedChange: (Boolean) -> Unit\n) {\n    Row(verticalAlignment = Alignment.CenterVertically) {\n        Checkbox(checked = checked, onCheckedChange = onCheckedChange)\n        Text(\"I agree to the terms\")\n    }\n}\n\n// Caller owns and hoists the state:\n// var accepted by remember { mutableStateOf(false) }\n// TermsCheckbox(checked = accepted, onCheckedChange = { accepted = it })"
+                    "title": "Hoisting state out of a component",
+                    "code": "@Composable\nfun TermsCheckbox(\n    checked: Boolean,\n    onCheckedChange: (Boolean) -> Unit\n) {\n    Row(verticalAlignment = Alignment.CenterVertically) {\n        Checkbox(checked = checked, onCheckedChange = onCheckedChange)\n        Text(\"I agree to the terms\")\n    }\n}\n\n// Caller owns and hoists the state:\n// var accepted by remember { mutableStateOf(false) }\n// TermsCheckbox(checked = accepted, onCheckedChange = { accepted = it })",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "TermsCheckbox holds no state. It takes checked and reports changes through onCheckedChange.",
+                                "Tapping the checkbox does not change anything by itself — it calls the lambda.",
+                                "The caller updates whatever holds the truth: a remember, a ViewModel, a form state object.",
+                                "That change flows back down as a new checked value.",
+                                "The component recomposes and draws the new state.",
+                                "Because the caller owns the value, a Continue button elsewhere can read the same value to enable itself.",
+                                "And a test can render the component in either state directly, with no interaction at all."
+                            ],
+                            "explain": "<p>Steps 6 and 7 are why hoisting is the default advice. A checkbox that owns its state cannot tell anyone else what it is, so a form that needs to enable a button has to reach into it or duplicate the value — and duplicated state goes out of sync.</p><p>The pattern is a value parameter plus an <code>on&lt;Value&gt;Change</code> callback, and it is a one-way loop: state down, events up. There is no path where the component and its owner disagree, because only one of them holds anything.</p><p>Hoist to the <strong>lowest common ancestor</strong> of everything that needs the value. Hoisting further than that makes components harder to reuse for no benefit.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -748,8 +1018,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Defining and providing a CompositionLocal",
-                    "code": "val LocalSpacing = compositionLocalOf { 8.dp }\n\n@Composable\nfun ScreenWithCustomSpacing() {\n    CompositionLocalProvider(LocalSpacing provides 16.dp) {\n        SpacedColumn() // reads LocalSpacing.current internally\n    }\n}\n\n@Composable\nfun SpacedColumn() {\n    Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current)) {\n        Text(\"A\"); Text(\"B\")\n    }\n}"
+                    "title": "Providing and reading a CompositionLocal",
+                    "code": "val LocalSpacing = compositionLocalOf { 8.dp }\n\n@Composable\nfun ScreenWithCustomSpacing() {\n    CompositionLocalProvider(LocalSpacing provides 16.dp) {\n        SpacedColumn() // reads LocalSpacing.current internally\n    }\n}\n\n@Composable\nfun SpacedColumn() {\n    Column(verticalArrangement = Arrangement.spacedBy(LocalSpacing.current)) {\n        Text(\"A\"); Text(\"B\")\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "compositionLocalOf { 8.dp } declares a key with a default value.",
+                                "CompositionLocalProvider binds 16.dp to that key for the composables inside its block.",
+                                "SpacedColumn is called without being passed anything about spacing.",
+                                "Deep inside, some composable reads LocalSpacing.current.",
+                                "Compose walks up the composition to the nearest provider and returns 16.dp.",
+                                "A composable outside any provider reads the default, 8.dp, rather than failing.",
+                                "Changing the provided value recomposes only the composables that actually READ it."
+                            ],
+                            "explain": "<p>Step 3 is the appeal and step 3 is also the objection: the dependency is invisible at the call site. A composable's parameters no longer tell you everything it needs, which makes it harder to reason about and easier to break by moving.</p><p>So this is for values that are genuinely ambient and read by many things at many depths — theme colours, typography, density, the current lifecycle owner. Passing a ViewModel or screen data this way is the common misuse.</p><p>Step 7 is what keeps it efficient: reading is tracked like any other state read, so a changed value does not invalidate the whole subtree.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -829,8 +1112,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Order changes the result",
-                    "code": "// Background OUTSIDE the padding (gray border visible)\nBox(\n    modifier = Modifier\n        .padding(16.dp)\n        .background(Color.Gray)\n        .size(100.dp)\n)\n\n// Background INSIDE, fills the padded space too\nBox(\n    modifier = Modifier\n        .background(Color.Gray)\n        .padding(16.dp)\n        .size(100.dp)\n)"
+                    "title": "Modifier order changes the result",
+                    "code": "// Background OUTSIDE the padding (gray border visible)\nBox(\n    modifier = Modifier\n        .padding(16.dp)\n        .background(Color.Gray)\n        .size(100.dp)\n)\n\n// Background INSIDE, fills the padded space too\nBox(\n    modifier = Modifier\n        .background(Color.Gray)\n        .padding(16.dp)\n        .size(100.dp)\n)",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "A Modifier chain is an ordered list, applied outermost first.",
+                                "In the first case padding comes before background, so the padding is applied outside the drawn area.",
+                                "The background then fills only what is left inside that padding, leaving a visible unpainted border.",
+                                "In the second case background comes first, so it fills the full area.",
+                                "The padding is then applied inside it, and the background shows through the padded region.",
+                                "The same two modifiers in two orders give two visibly different results, with no error either way.",
+                                "clickable follows the same rule: placed before padding the padded area is not tappable, placed after it is."
+                            ],
+                            "explain": "<p>Step 6 is what makes this an interview question. Both orders compile and both look plausible; only one matches the intent, and the difference is a few pixels of unpainted space or a tap target that is smaller than it looks.</p><p>Step 7 is the version that reaches users. A <code>clickable</code> placed before <code>padding</code> produces a button whose touch area excludes its own padding — which fails accessibility guidance on minimum target size and feels unresponsive at the edges.</p><p>The mental model: read the chain top to bottom as moving from the outside inward.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -858,8 +1154,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Adding accessibility semantics",
-                    "code": "@Composable\nfun FavoriteIcon(isFavorite: Boolean, onToggle: () -> Unit) {\n    Icon(\n        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,\n        contentDescription = if (isFavorite) \"Remove from favorites\" else \"Add to favorites\",\n        modifier = Modifier\n            .clickable(onClick = onToggle)\n            .testTag(\"favorite_icon\")\n    )\n}"
+                    "title": "Semantics for accessibility and for tests",
+                    "code": "@Composable\nfun FavoriteIcon(isFavorite: Boolean, onToggle: () -> Unit) {\n    Icon(\n        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,\n        contentDescription = if (isFavorite) \"Remove from favorites\" else \"Add to favorites\",\n        modifier = Modifier\n            .clickable(onClick = onToggle)\n            .testTag(\"favorite_icon\")\n    )\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "Compose builds a semantics tree alongside the UI tree, describing meaning rather than pixels.",
+                                "contentDescription on the Icon supplies the label TalkBack reads aloud.",
+                                "It changes with isFavorite, so the announcement is \"Remove from favorites\" or \"Add to favorites\" — the current state, not just the control.",
+                                "clickable adds a click action to the semantics node, so TalkBack announces the element as actionable.",
+                                "testTag adds an identifier that assistive technology ignores and tests can find.",
+                                "A UI test locates the node by that tag, or by the content description, without knowing anything about layout.",
+                                "A decorative image would take contentDescription = null, which removes it from the tree so screen readers skip it."
+                            ],
+                            "explain": "<p>Step 3 is the difference between a label that helps and one that does not. A static \"favorite\" tells a screen-reader user what the control is and not what tapping it will do; the state-dependent version tells them both.</p><p>Step 7 is equally important and often missed — <code>null</code> is the correct value for decoration, and it is not the same as an empty string. An icon that adds no information should not be announced at all.</p><p>Step 6 is why this pays off even for teams not yet thinking about accessibility: the same tree is what UI tests query, so semantics and testability are the same work.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -888,8 +1197,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Click, text input and drag in one screen",
-                    "code": "@Composable\nfun InputDemo() {\n    var text by remember { mutableStateOf(\"\") }\n    var offsetX by remember { mutableStateOf(0f) }\n\n    Column {\n        TextField(value = text, onValueChange = { text = it })\n        Box(\n            modifier = Modifier\n                .size(80.dp)\n                .offset { IntOffset(offsetX.roundToInt(), 0) }\n                .pointerInput(Unit) {\n                    detectDragGestures { change, dragAmount ->\n                        change.consume()\n                        offsetX += dragAmount.x\n                    }\n                }\n                .background(Color.Blue)\n        )\n    }\n}"
+                    "title": "Click, text and drag, all through state",
+                    "code": "@Composable\nfun InputDemo() {\n    var text by remember { mutableStateOf(\"\") }\n    var offsetX by remember { mutableStateOf(0f) }\n\n    Column {\n        TextField(value = text, onValueChange = { text = it })\n        Box(\n            modifier = Modifier\n                .size(80.dp)\n                .offset { IntOffset(offsetX.roundToInt(), 0) }\n                .pointerInput(Unit) {\n                    detectDragGestures { change, dragAmount ->\n                        change.consume()\n                        offsetX += dragAmount.x\n                    }\n                }\n                .background(Color.Blue)\n        )\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The TextField reads text and reports edits through onValueChange, which writes the state.",
+                                "The composable recomposes and the field shows the new value — the field itself stores nothing.",
+                                "pointerInput installs a gesture detector on the Box.",
+                                "A drag produces a stream of deltas; each one is added to offsetX in state.",
+                                "offset reads offsetX, so the Box moves — again because the state changed, not because anything was told to move.",
+                                "clickable adds a click handler and, with it, ripple feedback and accessibility semantics.",
+                                "Every interaction follows the same loop: the gesture updates state, and the UI is redrawn from state."
+                            ],
+                            "explain": "<p>Step 7 is the reason there is no separate input API to learn. Input handling in Compose is not a set of listeners that mutate views; it is a set of modifiers that update state, and the UI follows because it always follows state.</p><p>Step 6 is worth choosing deliberately. <code>clickable</code> brings the ripple, the minimum touch target and the semantics; <code>pointerInput</code> with <code>detectTapGestures</code> brings none of them, and is the right choice only when you genuinely do not want them.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -917,8 +1239,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "Basic NavHost setup",
-                    "code": "@Composable\nfun AppNavGraph() {\n    val navController = rememberNavController()\n\n    NavHost(navController = navController, startDestination = \"home\") {\n        composable(\"home\") {\n            HomeScreen(onOpenDetail = { id -> navController.navigate(\"detail/$id\") })\n        }\n        composable(\n            route = \"detail/{itemId}\",\n            arguments = listOf(navArgument(\"itemId\") { type = NavType.StringType })\n        ) { backStackEntry ->\n            val itemId = backStackEntry.arguments?.getString(\"itemId\")\n            DetailScreen(itemId = itemId, onBack = { navController.popBackStack() })\n        }\n    }\n}"
+                    "title": "A NavHost and an argument",
+                    "code": "@Composable\nfun AppNavGraph() {\n    val navController = rememberNavController()\n\n    NavHost(navController = navController, startDestination = \"home\") {\n        composable(\"home\") {\n            HomeScreen(onOpenDetail = { id -> navController.navigate(\"detail/$id\") })\n        }\n        composable(\n            route = \"detail/{itemId}\",\n            arguments = listOf(navArgument(\"itemId\") { type = NavType.StringType })\n        ) { backStackEntry ->\n            val itemId = backStackEntry.arguments?.getString(\"itemId\")\n            DetailScreen(itemId = itemId, onBack = { navController.popBackStack() })\n        }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "rememberNavController creates the controller and remembers it across recompositions.",
+                                "NavHost declares the graph and composes the start destination, \"home\".",
+                                "HomeScreen receives a lambda rather than the controller itself, so it does not know navigation exists.",
+                                "A tap calls navController.navigate(\"detail/42\"). The route is a string, built by substitution.",
+                                "NavHost matches it against \"detail/{itemId}\", extracts the argument, and composes the detail destination.",
+                                "The back stack now holds home and detail; system back pops to home and recomposes it.",
+                                "Each destination gets its own ViewModel scope, so a ViewModel obtained there is cleared when it is popped."
+                            ],
+                            "explain": "<p>Step 3 is the design decision worth defending in an interview. Passing the <code>NavController</code> down makes every screen depend on navigation and impossible to preview or test in isolation; passing lambdas keeps screens ignorant of where the button leads.</p><p>Step 4 is the weakness of string routes — they are built by concatenation and checked at runtime, so a typo is a crash rather than a compile error. Type-safe navigation with serializable route classes exists precisely to remove that.</p><p>Step 7 is the useful consequence of destination-scoped ViewModels: state is cleaned up when the screen is popped, without any explicit teardown.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -998,8 +1333,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "UDF between ViewModel and UI",
-                    "code": "@Composable\nfun TodoScreen(viewModel: TodoViewModel = viewModel()) {\n    val uiState by viewModel.uiState.collectAsStateWithLifecycle()\n\n    TodoList(\n        items = uiState.items,           // state DOWN\n        onItemChecked = viewModel::onItemChecked // event UP\n    )\n}"
+                    "title": "State down, events up",
+                    "code": "@Composable\nfun TodoScreen(viewModel: TodoViewModel = viewModel()) {\n    val uiState by viewModel.uiState.collectAsStateWithLifecycle()\n\n    TodoList(\n        items = uiState.items,           // state DOWN\n        onItemChecked = viewModel::onItemChecked // event UP\n    )\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "The ViewModel owns the state and exposes it read-only.",
+                                "The screen collects it and passes plain values DOWN into TodoList.",
+                                "TodoList renders those values and holds none of its own.",
+                                "The user checks an item. TodoList does not change anything — it calls the lambda it was given.",
+                                "That event travels UP to viewModel::onItemChecked.",
+                                "The ViewModel produces a new state with the item toggled.",
+                                "The new state flows DOWN again, and the screen recomposes. The loop closes."
+                            ],
+                            "explain": "<p>Step 4 is what makes this one-directional rather than merely tidy. The component that displays the checkbox is not allowed to change it, so there is exactly one place where the truth can change and exactly one place to look when it is wrong.</p><p>The debugging property that follows is the real benefit: given a state object you can reproduce the screen exactly, and given a bug you can find the one function that produced that state.</p><p>The failure mode is a component keeping its own copy \"for responsiveness\" — two sources of truth that agree until they do not.</p>"
+                        }
                 }
             ],
             "subsection": null,
@@ -1027,8 +1375,21 @@ const jetpackComposeData = {
             "codeSnippets": [
                 {
                     "language": "kotlin",
-                    "title": "A simple custom vertical-stack layout",
-                    "code": "@Composable\nfun StackedLayout(\n    modifier: Modifier = Modifier,\n    overlapPx: Int = 40,\n    content: @Composable () -> Unit\n) {\n    Layout(content = content, modifier = modifier) { measurables, constraints ->\n        val placeables = measurables.map { it.measure(constraints) }\n        val width = placeables.maxOf { it.width }\n        val height = placeables.sumOf { it.height } - overlapPx * (placeables.size - 1)\n\n        layout(width, height.coerceAtLeast(0)) {\n            var y = 0\n            placeables.forEach { placeable ->\n                placeable.placeRelative(x = 0, y = y)\n                y += placeable.height - overlapPx\n            }\n        }\n    }\n}"
+                    "title": "Writing a custom Layout",
+                    "code": "@Composable\nfun StackedLayout(\n    modifier: Modifier = Modifier,\n    overlapPx: Int = 40,\n    content: @Composable () -> Unit\n) {\n    Layout(content = content, modifier = modifier) { measurables, constraints ->\n        val placeables = measurables.map { it.measure(constraints) }\n        val width = placeables.maxOf { it.width }\n        val height = placeables.sumOf { it.height } - overlapPx * (placeables.size - 1)\n\n        layout(width, height.coerceAtLeast(0)) {\n            var y = 0\n            placeables.forEach { placeable ->\n                placeable.placeRelative(x = 0, y = y)\n                y += placeable.height - overlapPx\n            }\n        }\n    }\n}",
+                        "output": {
+                            "kind": "trace",
+                            "lines": [
+                                "Layout takes the content and a measure block, replacing the built-in Column or Row.",
+                                "measurables are the children, not yet measured. Each is measured exactly once — measuring twice throws.",
+                                "Each child is measured against the incoming constraints and becomes a placeable with a fixed size.",
+                                "The parent computes its own size from those: the widest child, and the summed heights minus the overlap.",
+                                "layout(width, height) declares that size to the parent.",
+                                "Inside it, each placeable is positioned with placeRelative at a y that steps back by the overlap.",
+                                "placeRelative rather than place is what makes the layout mirror correctly in right-to-left locales."
+                            ],
+                            "explain": "<p>Step 2 is the constraint that makes Compose layout single-pass and therefore linear: <strong>measure once</strong>. The View system permits multiple measure passes, which is how a deep hierarchy of nested weights becomes exponentially slow. Compose forbids it outright.</p><p>Step 6 is the shape of every custom layout — measure children, decide your own size, place them — and it is the same three steps whether the layout is this simple or a full flow layout.</p><p>Step 7 is the detail worth knowing: <code>placeRelative</code> respects layout direction and <code>place</code> does not.</p>"
+                        }
                 }
             ],
             "subsection": null,
