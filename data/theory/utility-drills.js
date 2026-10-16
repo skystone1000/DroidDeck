@@ -444,7 +444,7 @@ class RateLimiter(
             docs: [
                 { title: 'Kotlin coroutines on Android', path: '/kotlin/coroutines', kind: 'guide' },
                 { title: 'Kotlin flows on Android', path: '/kotlin/flow', kind: 'guide' },
-                { title: 'Asynchronous Flow', url: 'https://kotlinlang.org/docs/flow.html', kind: 'guide' },
+                { title: 'Asynchronous Flow', url: 'https://kotlinlang.org/docs/coroutines-flow.html', kind: 'guide' },
                 { title: 'Shared mutable state and concurrency', url: 'https://kotlinlang.org/docs/shared-mutable-state-and-concurrency.html', kind: 'guide' }
             ],
             relatedQuestions: [

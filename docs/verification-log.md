@@ -210,3 +210,74 @@ Source: [Coroutine exceptions handling](https://kotlinlang.org/docs/exception-ha
 `github.com/square/retrofit` now 301s to `github.com/lysine-dev/retrofit`. The
 canonical URL is recorded, since `check-doc-links.js` treats a redirect as a
 failure by design.
+
+---
+
+## kotlin-flow-api — 2026-10-16
+
+Three questions: one `verify`, two `simplify`. Opening the source turned up a
+problem larger than the three, described at the end.
+
+### Settled — checked, correct, do not re-open
+
+**`flow-exception-handling` — `catch` and cancellation. The claim holds; the
+mechanism was described wrongly.** The triage note said this one gets stated
+incorrectly all over the internet, and the answer was one of the places doing
+it: it said `catch` "rethrows" a `CancellationException` rather than treating it
+as a normal error. The KDoc is narrower and more exact — `catch` *"is transparent
+to exceptions that occur in downstream flow and does not catch exceptions that
+are thrown to cancel the flow."* It never receives the exception, so there is
+nothing to rethrow. Outcome for the reader is the same; the sentence an
+interviewer is listening for is not.
+
+Three things from the same KDoc were added while it was open: `catch` can
+rethrow selectively (`if (e !is IOException) throw e`), an exception thrown from
+its own action continues downstream to the next `catch`, and `retryWhen` is the
+recommended way to retry — falling back with `emitAll` *"introduc[es an]
+ever-growing stack of suspending calls."*
+Source: [catch — kotlinx.coroutines API](https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/catch.html).
+
+**`flow-flowon` — accurate, and now uses the docs' own word.** Nothing was
+wrong. The rewrite drops the undefined "region" the triage flagged and quotes
+the guide instead: `flowOn` is *"context-preserving"* — it *"changes only the
+coroutine context of the upstream flow while keeping the downstream flow in the
+caller's context."* Added the reason the operator has to exist, which the answer
+never gave: a `flow { }` builder may not change its own context, so an `emit()`
+wrapped in `withContext` fails at runtime.
+Source: [Flows — change the coroutine context with flowOn](https://kotlinlang.org/docs/coroutines-flow.html#change-the-coroutine-context-of-a-cold-flow-with-flowon).
+
+**`flow-stateflow-sharedflow` — the question that prompted the plan. Accurate
+throughout.** No claim changed. It was rewritten to §3.8's worked example, which
+this plan drafted in advance: "StateFlow is a value you can observe. SharedFlow
+is an event stream you can replay." `conflated`, `replay`, `distinct-until-
+changed`, `extraBufferCapacity`, `DROP_OLDEST` all stay. "Dispatcher-aware",
+"composes with the rest of the Flow operator set" and "specialized for
+representing UI state" go, replaced by what they mean.
+
+### Found while verifying: sixteen links to a page that no longer exists
+
+`kotlinlang.org/docs/flow.html` is now a **stub that meta-refreshes** to
+`coroutines-flow.html`. It answers 200, so `check-doc-links.js` passed it
+happily — the checker follows HTTP redirects but cannot see an HTML one. Sixteen
+references across the corpus pointed at it, and every anchor among them was
+dead, because the Flow documentation was reorganised at the same time:
+
+| Old anchor | Now |
+|---|---|
+| `#flow-context` | `coroutines-flow.html#change-the-coroutine-context-of-a-cold-flow-with-flowon` |
+| `#exception-transparency` | `coroutines-flow.html#use-the-catch-operator-to-handle-upstream-exceptions` |
+| `#flows-are-cold` | `coroutines-flow.html#cold-flows` |
+| `#stateflow-and-sharedflow` | `coroutines-flow.html#hot-flows` |
+| `#terminal-flow-operators` | `coroutines-flow-operators.html#terminal-operators` |
+| `#debounce` | gone from the guide — now the `debounce` API reference |
+| `#flattening-flows` | gone from the guide — now the `flatMapLatest` API reference |
+
+All sixteen were rewritten in this commit rather than left for the topics that
+own them, because it is one root cause and a mechanical fix; splitting it across
+`kotlin`, `android-libraries` and the theory corpus would have left known-dead
+anchors sitting in the tree for no gain. `kotlin` in particular has no `words`
+flags at all, so its four would never have been reached.
+
+**This is a gap in `check-doc-links.js`, not a one-off.** A meta-refresh stub
+passes the check today. Worth closing, but not by guessing — recorded here so
+the decision is made deliberately.

@@ -81,7 +81,7 @@ viewModelScope.launch {
                 }
             ],
             docs: [
-                { title: 'Asynchronous Flow', url: 'https://kotlinlang.org/docs/flow.html', kind: 'guide' },
+                { title: 'Asynchronous Flow', url: 'https://kotlinlang.org/docs/coroutines-flow.html', kind: 'guide' },
                 { title: 'Kotlin flows on Android', path: '/kotlin/flow', kind: 'guide' }
             ],
             relatedQuestions: [
@@ -144,7 +144,7 @@ viewModelScope.launch {
                 }
             ],
             docs: [
-                { title: 'Asynchronous Flow', url: 'https://kotlinlang.org/docs/flow.html', kind: 'guide' },
+                { title: 'Asynchronous Flow', url: 'https://kotlinlang.org/docs/coroutines-flow.html', kind: 'guide' },
                 { title: 'callbackFlow', url: 'https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/callback-flow.html', kind: 'api' }
             ],
             relatedQuestions: [
@@ -224,7 +224,7 @@ viewModelScope.launch {
                 }
             ],
             docs: [
-                { title: 'Asynchronous Flow', url: 'https://kotlinlang.org/docs/flow.html', kind: 'guide' },
+                { title: 'Asynchronous Flow', url: 'https://kotlinlang.org/docs/coroutines-flow.html', kind: 'guide' },
                 { title: 'Kotlin flows on Android', path: '/kotlin/flow', kind: 'guide' }
             ],
             relatedQuestions: [
@@ -284,7 +284,7 @@ viewModelScope.launch {
                 }
             ],
             docs: [
-                { title: 'Asynchronous Flow', url: 'https://kotlinlang.org/docs/flow.html', kind: 'guide' },
+                { title: 'Asynchronous Flow', url: 'https://kotlinlang.org/docs/coroutines-flow.html', kind: 'guide' },
                 { title: 'catch', url: 'https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines.flow/catch.html', kind: 'api' }
             ],
             relatedQuestions: [
