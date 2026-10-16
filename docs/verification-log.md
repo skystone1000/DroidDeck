@@ -281,3 +281,71 @@ flags at all, so its four would never have been reached.
 **This is a gap in `check-doc-links.js`, not a one-off.** A meta-refresh stub
 passes the check today. Worth closing, but not by guessing — recorded here so
 the decision is made deliberately.
+
+---
+
+## java — 2026-10-16
+
+Four questions, all flagged `simplify` and none flagged `verify`. The triage
+file said so explicitly: *"Nothing flagged for verification. This is old,
+stable, well-documented material and the answers are careful with it."*
+
+Mostly true. But §3.8 rewrites are done with the source open, and two claims did
+not survive the reading — both in sentences the triage pass had no reason to
+doubt, because they are the kind of detail that was correct when written and
+quietly stopped being so.
+
+### Corrected
+
+**`garbage-collector` — ZGC does not have sub-millisecond pauses, per the guide
+this answer cites.** The answer said "`ZGC`/`Shenandoah` (very low pause,
+sub-millisecond, for huge heaps)". The Java 17 tuning guide says ZGC *"provides
+max pause times of a few milliseconds, but at the cost of some throughput"* —
+and the throughput trade-off, which the answer omitted, is the part an
+interviewer follows up on. Shenandoah is also not in that guide's list of
+collectors at all; it names four, Serial, Parallel, G1 and ZGC. Corrected to
+those four with the guide's own wording.
+Source: [Oracle: Available Collectors](https://docs.oracle.com/en/java/javase/17/gctuning/available-collectors.html).
+
+**`garbage-collector` — "G1, default since Java 9" is more absolute than the
+docs are.** They say G1 is *"selected by default on most hardware and operating
+system configurations"*, and, two paragraphs up, that the serial collector *"is
+selected by default on certain hardware and operating system configurations"*.
+Now quoted rather than rounded off.
+Source: [Oracle: Available Collectors](https://docs.oracle.com/en/java/javase/17/gctuning/available-collectors.html).
+
+**`atomic-operations` — `weakCompareAndSet` was deprecated, not renamed.** The
+answer's parenthetical read "(renamed `weakCompareAndSetPlain` in newer JDKs)".
+It was deprecated in Java 9 and still exists, and the javadoc gives a reason
+worth repeating: *"This method has plain memory effects but the method name
+implies volatile memory effects."* There are now four explicit variants —
+`Plain`, `Acquire`, `Release`, `Volatile` — which is the actual answer to
+"what happened to `weakCompareAndSet`".
+Source: [Oracle: AtomicInteger](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/atomic/AtomicInteger.html).
+
+**`atomic-operations` — `lazySet` is a release store, not an eventual one.** The
+answer said it "writes eventually, without the immediate cross-thread visibility
+guarantee or a full memory fence". The javadoc pins it exactly: `lazySet` has
+*"memory effects as specified by `VarHandle.setRelease`"*. Release ordering is a
+real guarantee — earlier writes cannot move after it — which "writes eventually"
+does not convey.
+Source: [Oracle: AtomicInteger](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/atomic/AtomicInteger.html).
+
+### Settled — checked, correct, do not re-open
+
+**`threadpoolexecutor` — the submission order is right, and the answer was
+missing its consequence.** The javadoc's three queuing rules match the answer
+step for step. What it did not say is the trap that follows from them:
+*"Using an unbounded queue... will cause new tasks to wait in the queue when all
+corePoolSize threads are busy. Thus, no more than corePoolSize threads will ever
+be created. (And the value of the maximumPoolSize therefore doesn't have any
+effect.)"* Added, because a pool configured 4-to-64 behind a `LinkedBlockingQueue`
+is a pool of 4, and that is the thing people get wrong.
+Source: [Oracle: ThreadPoolExecutor](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/ThreadPoolExecutor.html).
+
+**`abstract-classes-vs-interfaces` — accurate throughout, including the parts
+that date.** Instance fields, the implicit `public static final` on interface
+fields, `default` and `static` from Java 8, `private` helpers from Java 9, and
+"interfaces still cannot hold instance state" all hold. Rewritten for §3.8 only,
+with the diamond-problem bullet split so the modern half — resolving a `default`
+conflict with `Interface.super.method()` — is stated rather than alluded to.
