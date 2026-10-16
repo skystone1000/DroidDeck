@@ -349,3 +349,52 @@ fields, `default` and `static` from Java 8, `private` helpers from Java 9, and
 "interfaces still cannot hold instance state" all hold. Rewritten for §3.8 only,
 with the diamond-problem bullet split so the modern half — resolving a `default`
 conflict with `Interface.super.method()` — is stated rather than alluded to.
+
+---
+
+## android-unit-testing — 2026-10-16
+
+Two questions, both must-know, both flagged `simplify` and neither flagged
+`verify`. The triage file called them the hardest rewrites in the topic, on the
+grounds that every noun in them has to survive §3.8 rule 2. That was right, and
+the reading also turned up a gap between them.
+
+### Corrected
+
+**`unit-testing-viewmodel-coroutines-livedata` — the two `TestDispatcher`s were
+presented as interchangeable.** The answer said to install "`StandardTestDispatcher`
+or `UnconfinedTestDispatcher`" as if the choice did not matter. It is the whole
+difficulty of the topic. `runTest` uses a `StandardTestDispatcher` by default,
+and coroutines launched on it do not run until the test yields — the docs make
+the point with a worked example whose assertion is annotated `// ❌ Fails` until
+`advanceUntilIdle()` is added. An `UnconfinedTestDispatcher` starts them eagerly
+instead. The three yielding calls (`advanceUntilIdle`, `advanceTimeBy`,
+`runCurrent`) are now named.
+
+That gap was visible inside the corpus, not only against the source: this answer
+said `runTest` "auto-advances virtual time", while the *next* question's pitfall
+said you must advance manually. Both were describing real behaviour, and neither
+said which case it was in.
+Source: [Testing Kotlin coroutines on Android](https://developer.android.com/kotlin/coroutines/test).
+
+**Added: one scheduler per test.** Neither answer mentioned it, and it is stated
+as a rule: *"There should only be one scheduler instance used in a test, shared
+between all TestDispatchers."* Two schedulers means two clocks.
+Source: [Testing Kotlin coroutines on Android](https://developer.android.com/kotlin/coroutines/test).
+
+### Settled — checked, correct, do not re-open
+
+**`InstantTaskExecutorRule`, and why both it and `Dispatchers.setMain()` are
+needed.** Correct as written — they solve unrelated problems, `LiveData`'s
+`ArchTaskExecutor` and the Main dispatcher. Kept, and kept as the interview tip,
+because it is the discriminating question.
+
+**`SharingStarted.WhileSubscribed()` does not start the upstream until something
+subscribes.** Correct. Sharpened into the failure it actually causes: a test that
+only reads `.value` never subscribes, so it asserts against the initial value and
+**passes for the wrong reason** — worse than failing.
+
+**Turbine.** `github.com/cashapp/turbine` still resolves without redirecting;
+checked after the Retrofit move. The `awaitItem()` / `cancelAndIgnoreRemainingEvents()`
+usage is right, and the answer now says when to reach for it rather than
+presenting it as the default.
