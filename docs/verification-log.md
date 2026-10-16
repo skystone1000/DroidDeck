@@ -139,3 +139,74 @@ documents `onSaveInstanceState` at all. The View-based callbacks now live on
 `Activity` API reference. Both have been added to the affected questions'
 `referenceLinks`, because the page the answers already linked can no longer
 settle the claims they make.
+
+---
+
+## kotlin-coroutines — 2026-10-16
+
+Five questions, the two `verify` flags and the three `simplify` flags the triage
+file raised. The triage note said no answer in this topic had failed on
+accuracy and that two claims wanted sourcing. One of the two turned out to be
+backwards.
+
+### Corrected
+
+**`coroutines-launch-vs-async` — the root-`async` claim was inverted.** The
+answer said "a root-level `async` that's never awaited still crashes the app on
+failure, same as `launch` — the exception isn't silently swallowed." The guide
+says the exact opposite, and demonstrates it: `async` *"always catches all
+exceptions and represents them in the resulting `Deferred` object, so its
+`CoroutineExceptionHandler` has no effect either"*, and its sample throws from a
+`GlobalScope.async` under the comment *"Nothing is printed, relying on user to
+call await"*.
+
+The distinction the answer was reaching for is real, but it runs the other way.
+Builders "come in two flavors: propagating exceptions automatically (`launch`)
+or exposing them to users (`async` and `produce`)", and that split applies
+*"when these builders are used to create a root coroutine, that is not a child
+of another coroutine"*. So a **root** `async` swallows; a **non-root** `async`
+is a child, cancels its parent, and propagates like `launch`. Both halves are
+now stated, with "root" defined in the answer rather than assumed.
+Source: [Coroutine exceptions handling](https://kotlinlang.org/docs/exception-handling.html).
+
+**`coroutines-exception-handling` — the same error, one question over.** It said
+a `CoroutineExceptionHandler` does not catch `async` exceptions "unless the
+`async` is itself the root coroutine". Root is precisely the case where the
+handler has no effect. Rewritten against the same two sentences, and the
+handler's actual rule added: it is *"invoked only on uncaught exceptions —
+exceptions that were not handled in any other way"*, and children delegate
+upward, so a handler in a child's context is never used.
+Source: [Coroutine exceptions handling](https://kotlinlang.org/docs/exception-handling.html).
+
+### Settled — checked, correct, do not re-open
+
+**`coroutines-retrofit` — no `withContext(Dispatchers.IO)` needed. Confirmed,
+and now sourced.** This is one of the most argued-about claims in Android, and
+Retrofit's own changelog settles it for 2.6.0: *"Behind the scenes this behaves
+as if defined as `fun user(...): Call<User>` and then invoked with
+`Call.enqueue`."* `enqueue` runs on OkHttp's dispatcher, so the request and the
+response parsing are both off the main thread. The answer's wording was loose in
+one respect — it credited "Retrofit's coroutine adapter", but suspend functions
+do not go through a call adapter at all — so the mechanism is now named
+properly.
+Source: [Retrofit CHANGELOG, 2.6.0](https://github.com/lysine-dev/retrofit/blob/trunk/CHANGELOG.md).
+
+**`coroutines-what-are-they` and `coroutines-context` — accurate, only
+unspeakable.** Nothing in either needed correcting. Both were rewritten under
+§3.8 alone: CPS, `Continuation`, `CoroutineScope`, `CoroutineDispatcher` and
+structured concurrency all stay; "lightweight, cooperative units of
+concurrency", "indexed set of elements" and "immutable, persistent structure"
+go, replaced by what they do.
+
+**`CancellationException` is ignored by handlers.** Added to the exception
+answer while the source was open, because its absence was why the previous
+version read as if every exception reached a handler: *"Coroutines internally
+use `CancellationException` for cancellation, these exceptions are ignored by
+all handlers."*
+Source: [Coroutine exceptions handling](https://kotlinlang.org/docs/exception-handling.html).
+
+### Note on sources
+
+`github.com/square/retrofit` now 301s to `github.com/lysine-dev/retrofit`. The
+canonical URL is recorded, since `check-doc-links.js` treats a redirect as a
+failure by design.
