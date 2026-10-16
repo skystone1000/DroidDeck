@@ -540,6 +540,32 @@ rather than judgement.
 > This makes Phase 3 a content phase, not an annotation phase, and it is why the
 > phase proceeds a topic at a time.
 
+> **Phase 3 closed.** All 272 snippets carry output: **106 `stdout`, 166
+> `trace`**, and every `stdout` snippet is re-run and diffed by
+> `run-snippets.js` on demand. The split fell out of what the code is rather
+> than what was convenient — 106 is very close to the number of snippets in the
+> bank that are pure Kotlin or Java with no framework in them.
+>
+> Two things the phase changed about the plan's assumptions:
+>
+> - **The runner had to learn Java.** Triage found the highest-value output work
+>   in the bank was Java, and the runner compiled Kotlin only. `javac` was
+>   already in the same bundled JBR, so the cost was finding the entry class
+>   rather than a second toolchain.
+> - **Determinism is a content constraint, not just a verification one.**
+>   Several snippets had to be redesigned so their output is the same on every
+>   run: Fibonacci prints call counts rather than timings, the cancellation
+>   snippet waits on a signal rather than a clock, the unsynchronised counter
+>   asserts only that its total is *at most* the expected value, and the `Job`
+>   snippet records handler failures into a list instead of printing from the
+>   handler and racing its own `join`. A flaky verifier would have been worse
+>   than none.
+>
+> The trace pane earned its place more than expected. It was designed as the
+> honest fallback for code that cannot run; it turned out to be the *better*
+> format for Compose, for the build tooling and for the platform topic, because
+> those questions are about ordering and a numbered list is what ordering wants.
+
 **Phase 4 — verify and simplify (asks 1 and 3).** Work the `words` column,
 must-know tier first, topic by topic, one commit each. Both passes at once —
 reading a question against its primary source and rewriting it for the tongue are
