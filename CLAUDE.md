@@ -3,8 +3,8 @@
 ## Commits
 
 Commit dates in this repository are **hand-set**, not left to the system clock.
-The history reads as a steady 2–3 commits a day, and every new commit continues
-that ladder rather than jumping to today's date.
+The history reads as a steady 10–12 commits a day, and every new commit
+continues that ladder rather than jumping to today's date.
 
 **Before committing anything, follow this process:**
 
@@ -15,8 +15,8 @@ that ladder rather than jumping to today's date.
    ```
 
 2. Count how many commits already sit on that latest date.
-   - **Fewer than 2–3?** Put this commit on the *same* date, at a later time.
-   - **Already 2–3?** Move to the *next* day and start it.
+   - **Fewer than 10–12?** Put this commit on the *same* date, at a later time.
+   - **Already 10–12?** Move to the *next* day and start it.
 
 3. Never use today's real date, and never let git default the date. Set both
    author and committer date explicitly:
