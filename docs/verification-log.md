@@ -524,3 +524,36 @@ down to roughly 2100, with nothing dropped.
 The `local-notification-exact-time` snippet's existing trace and `explain` were
 re-read against the same source and hold, including the `AllowWhileIdle`
 rate-limit note and `FLAG_IMMUTABLE` being mandatory from Android 12.
+
+---
+
+## Phase 4 closed — 2026-10-17
+
+26 questions read against their primary sources across 8 topics. Fifteen claims
+corrected, thirteen checked and left alone, and sixteen links repointed at pages
+that had moved underneath them.
+
+**Validator check 3 is on.** Every must-know question must carry at least one
+`referenceLink`, mirroring the rule `validate-theory.js` has always applied to
+must-know chapters. It passed on its first run — all 143 already had one — so it
+went in as a ratchet rather than a clean-up. That is the part of this pass that
+keeps working: a dated log records what was true in October 2026, but the check
+is what stops a must-know answer from ever again asserting something nobody can
+go and look up.
+
+**What actually rots.** Every single correction in this file was a fact with a
+version or a date attached. `onSaveInstanceState` crossing `onStop` at API 28.
+`SCHEDULE_EXACT_ALARM` ceasing to be pre-granted at API 33. Scoped storage at 29,
+30 and 33. `weakCompareAndSet` deprecated at Java 9. ZGC's pause target. kapt
+entering maintenance mode. The 16 KB deadline. Not one timeless claim was wrong —
+the diamond problem, CAS retry loops, `LruCache` sizing, the Signal Protocol and
+STUN against TURN all came through untouched.
+
+So a cheaper future audit than reading everything has an obvious first move:
+**find the sentences with a version number in them.** They are where the errors
+live, and they are grep-able.
+
+**What the checker still cannot see.** A page that answers 200 and meta-refreshes
+elsewhere passes `check-doc-links.js`, which is how sixteen dead anchors survived
+every previous run. Worth closing deliberately, in its own commit, rather than
+during a content pass.

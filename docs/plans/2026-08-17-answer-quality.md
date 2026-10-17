@@ -573,6 +573,46 @@ the same read, and triage has already said which questions need it. Every
 correction lands in `docs/verification-log.md`. Validator check 3 turned on at the
 end of the phase, once every must-know question has a reference link.
 
+> **Done.** 26 questions across 8 topics, 8 commits, every correction in
+> `docs/verification-log.md`. Check 3 passed on its first run — all 143 must-know
+> questions already carried a reference link, so it went in as a ratchet rather
+> than a clean-up.
+>
+> **"Triage flags; Phase 4 acts" was too tidy.** §3.9 drew a clean line: flagging
+> is cheap, verifying is not, so triage only marks. The line held for the eight
+> claims triage sent here: seven were wrong and only `coroutines-retrofit`
+> survived intact. It did not hold in the other direction. **Six of the questions
+> corrected in the log were ones triage had sent for rewriting, not
+> verification** — `garbage-collector`'s ZGC pause times,
+> `atomic-operations`' `weakCompareAndSet`, the two `TestDispatcher`s, and the
+> rest. Reading a question closely enough to rewrite it *is* verification,
+> whatever the column says. That is an argument for the plan's own §8 mitigation
+> — one read, both passes — being more load-bearing than it looked, not for a
+> different triage.
+>
+> **The most expensive error was a link that was not broken.**
+> `kotlinlang.org/docs/flow.html` answers 200 and meta-refreshes to
+> `coroutines-flow.html`. Sixteen references pointed at it, every anchor among
+> them dead, and `check-doc-links.js` had been passing them all along. A checker
+> that follows HTTP redirects and calls a redirect a failure cannot see an HTML
+> one — recorded rather than patched, because changing the tool mid-corpus is how
+> a tooling change lands unreviewed.
+>
+> **§3.8's rules do not fit `android-system-design`.** They assume an answer that
+> is too dense; those four were too *long*, at one flat level of detail
+> throughout, with no connective prose to cut. The treatment that worked was
+> structural — lead with the two or three decisions that get discussed, demote
+> the rest — and it should be written down as a second mode rather than
+> rediscovered.
+>
+> **The claims that rot are dated ones.** Every correction here was a fact with a
+> version or a date attached: `onSaveInstanceState` moving across `onStop` at API
+> 28, `SCHEDULE_EXACT_ALARM` ceasing to be pre-granted at API 33, scoped storage
+> at 29 and 30 and 33, `weakCompareAndSet` deprecated at Java 9, ZGC's pause
+> target, kapt entering maintenance mode. Nothing timeless was wrong. If a later
+> phase wants a cheaper audit than reading everything, "find the sentences with a
+> version number in them" is where it would start.
+
 **Phase 5 — widen.** Phases 2–4 applied to should-know, then good-to-know,
 against the same triage records. This is the long tail and can run at whatever
 pace suits; the app is fully useful after Phase 4.

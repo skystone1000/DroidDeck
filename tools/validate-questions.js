@@ -13,9 +13,9 @@
 
    Exits 1 on any error. Warnings never fail the run.
 
-   Checks 3 and 4 from the plan describe fields that do not exist yet
-   (`images`). They are turned on by the phase that introduces each field; what
-   is here is everything that can be enforced against the corpus as it stands.
+   Check 4 from the plan describes a field that does not exist yet (`images`).
+   It is turned on by the phase that introduces it; what is here is everything
+   that can be enforced against the corpus as it stands.
    ========================================================================== */
 
 const { loadCorpus } = require('./load-corpus');
@@ -127,7 +127,16 @@ function checkQuestion(question, at, topic, declaredSubsections) {
         warn(at, 'has no subsection, in a topic that declares them — it renders under "More"');
     }
 
-    (question.referenceLinks || []).forEach((link, i) => {
+    // 3 — a must-know question carries a source. Mirrors the rule
+    // validate-theory.js applies to must-know chapters, and it is the ratchet
+    // Phase 4 leaves behind: the verification pass is a moment in time, but a
+    // must-know answer that cites nothing can never be re-checked by anyone.
+    const links = question.referenceLinks || [];
+    if (question.importance === 'must-know' && !links.length) {
+        error(at, 'is must-know but has no referenceLink');
+    }
+
+    links.forEach((link, i) => {
         const where = `${at} referenceLinks[${i}]`;
         if (!link || typeof link !== 'object') { error(where, 'is not an object'); return; }
         if (!link.title) error(where, 'has no title');
