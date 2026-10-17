@@ -440,3 +440,87 @@ sentence worth saying out loud, which none of them had.
 `design-image-loading-library` remains the longest answer in the bank at 2614.
 That is defensible for a whole-system design question, and cutting further would
 mean removing content rather than reordering it.
+
+---
+
+## android-tools-technologies and other-topics — 2026-10-17
+
+The last four flagged questions in the phase, taken together because the three
+`verify` flags among them are the same kind of claim: a platform rule with a
+date attached, of the sort that is correct when written and quietly stops being
+so. All three had moved.
+
+### Corrected
+
+**`local-notification-exact-time` — the exact-alarm permission changed twice and
+the answer knew about one of them.** The triage pass called this the most
+consequential thing in its topic, and it was right. The answer said only that
+"since Android 12 (API 31), scheduling exact alarms requires the
+`SCHEDULE_EXACT_ALARM` permission (Android 13+ it's user-toggleable in
+Settings)". Three things are missing, each of which ships a bug:
+
+- `SCHEDULE_EXACT_ALARM` *"is not pre-granted to fresh installs of apps targeting
+  Android 13 (API level 33) and higher."* A reader who believed the old answer
+  ships an app whose reminders never fire on any new install.
+- `USE_EXACT_ALARM` exists from Android 13 as the alternative: *"Granted
+  automatically. Cannot be revoked by the user. Subject to an upcoming Google
+  Play policy. Limited use cases"* — for alarm-clock and calendar apps.
+- Revocation is not passive. *"When the `SCHEDULE_EXACT_ALARM` permission is
+  revoked for your app, your app stops, and all future exact alarms are
+  canceled."* The `ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED`
+  broadcast is what tells you to reschedule, and the answer now says so.
+
+Source: [Schedule alarms](https://developer.android.com/develop/background-work/services/alarms).
+
+**`annotation-processing` — "commonly 2x" was not a claim anyone made.** The
+triage asked for the figure to be sourced or dropped. It could not be sourced
+from the cited page: the current KSP overview does not mention kapt or build
+speed at all. Android's own migration guide says *"up to 2x faster"* — a ceiling,
+not a typical case, which is a different claim. Corrected to the guide's wording
+and the guide added as a reference.
+
+The same page carries a fact the answer omitted entirely and which is now the
+headline: *"Kapt is now in maintenance mode, and we recommend that you migrate
+from kapt to KSP for all processors that support it."* Also added the trade KSP
+makes — its processors *"can't examine expressions or statements, and they can't
+modify the source code"* — because "KSP is faster" without that reads as a free
+lunch.
+Source: [Migrate from kapt to KSP](https://developer.android.com/build/migrate-to-ksp),
+[Kotlin Symbol Processing API](https://kotlinlang.org/docs/ksp-overview.html).
+
+**`16-kb-page-size` — the answer had no version, no scope and no date.** It said
+"newer devices/kernels support 16 KB pages" and left the rest to the reader. All
+three are stated on the guide: support begins with **Android 15**; the Play
+requirement covers *"all apps targeting Android 15 (API level 35) and higher...
+on 64-bit devices"*; and *"Starting February 1, 2027, if your app updates don't
+support 16 KB memory page sizes, you won't be able to release these updates."*
+
+The scope sentence was also softer than the source. The answer said pure-Kotlin
+apps are "generally unaffected"; the guide's condition is *"if your app uses any
+NDK libraries, either directly or indirectly through an SDK"*, and indirectly is
+where this catches people — one analytics SDK with a bundled `.so` puts a
+Kotlin-only app in scope. The concrete fix is now in the answer too, the two
+linker flags rather than "rebuild with a toolchain that supports it".
+Source: [Support 16 KB page sizes](https://developer.android.com/guide/practices/page-sizes).
+
+### The `firebase` decision
+
+The triage refused to trim this one and asked Phase 4 to choose: cut it to what
+Firebase *is* plus the three services that get asked about, or accept it as a
+reference entry and leave it, on the grounds that trimming a third would leave
+it neither.
+
+**Chosen: keep every service, change the shape.** The catalogue is now a
+two-column table rather than six bullets, which is the right form for a list of
+products and reads in a fraction of the time. That freed the prose to do the
+part worth reading — the cost side, which is where the interview actually goes.
+Reordered so the billing trap (*Firestore bills per document read, so an
+unbounded listener is a billing bug that looks like a performance one*) and the
+security-rules point come before the feature list's afterglow. 2516 characters
+down to roughly 2100, with nothing dropped.
+
+### Settled — checked, correct, do not re-open
+
+The `local-notification-exact-time` snippet's existing trace and `explain` were
+re-read against the same source and hold, including the `AllowWhileIdle`
+rate-limit note and `FLAG_IMMUTABLE` being mandatory from Android 12.
