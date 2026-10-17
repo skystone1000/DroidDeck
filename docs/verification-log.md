@@ -398,3 +398,45 @@ only reads `.value` never subscribes, so it asserts against the initial value an
 checked after the Retrofit move. The `awaitItem()` / `cancelAndIgnoreRemainingEvents()`
 usage is right, and the answer now says when to reach for it rather than
 presenting it as the default.
+
+---
+
+## android-system-design — 2026-10-16
+
+Four questions, all `simplify`, none `verify`. Nothing was wrong, so this entry
+is short on corrections and is mostly a record that the topic needed a different
+treatment from the rest of the phase.
+
+### Settled — checked, correct, do not re-open
+
+All four are accurate. `inSampleSize` downsampling, `LruCache` at an eighth of
+the heap, the Signal Protocol's Double Ratchet, Room-as-source-of-truth,
+`WorkManager` network constraints, STUN against TURN, SDP and ICE, Opus and
+VP8/VP9/H.264, SRTP over UDP, and the SFU/MCU distinction all hold. The seven
+reference links were re-checked for redirects after the Retrofit move; all seven
+resolve cleanly.
+
+### Note on method
+
+The triage file was right that §3.8's rules do not fit this topic. Its rules
+assume an answer that is too **dense**; these four were too **long**. Every one
+had the same shape — requirements, then components, then trade-offs, all as
+bullets at one flat level of detail — so there was no dense prose to cut and
+applying rule 2 alone would have achieved nothing.
+
+The treatment used instead: **lead with the two or three decisions that actually
+get discussed, and demote the rest to detail hanging off them.** Image loading
+opens on the two-level cache, downsampling before allocation, and cancelling on
+recycle. WhatsApp opens on local-first plus outbox, and everything else follows
+from it. Offline-first opens on the source-of-truth rule and why the UI never
+calls the network. Voice and video opens on the split between signalling, which
+you supply, and media, which WebRTC moves.
+
+Nothing technical was dropped, per §3.8 rule 5. Lengths fell from 2780, 1952,
+1904 and 1970 characters to 2614, 1822, 1713 and 1942 — a modest saving, and the
+wrong thing to measure. The improvement is that each answer now has a first
+sentence worth saying out loud, which none of them had.
+
+`design-image-loading-library` remains the longest answer in the bank at 2614.
+That is defensible for a whole-system design question, and cutting further would
+mean removing content rather than reordering it.
