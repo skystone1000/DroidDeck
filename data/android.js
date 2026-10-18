@@ -516,6 +516,15 @@ const androidData = {
                     "url": "https://developer.android.com/reference/android/app/Activity"
                 }
             ],
+            "images": [
+                {
+                    "src": "assets/img/activity-lifecycle.png",
+                    "alt": "The activity lifecycle as a state chart: Activity launched leads to onCreate, onStart, onResume and Activity running, with onPause, onStop and onDestroy on the way down, onRestart returning to onStart, and an App process killed branch from onPause and onStop back to onCreate",
+                    "caption": "Every transition at once — including the two the callback list cannot show you: <code>onRestart()</code> re-entering at <code>onStart()</code>, and the process being killed from either <code>onPause()</code> or <code>onStop()</code> straight back to <code>onCreate()</code>.",
+                    "sourceTitle": "The activity lifecycle",
+                    "sourceUrl": "https://developer.android.com/guide/components/activities/activity-lifecycle"
+                }
+            ],
             "tags": [
                 "activity",
                 "lifecycle",
@@ -694,6 +703,15 @@ const androidData = {
                 {
                     "title": "Fragment lifecycle",
                     "url": "https://developer.android.com/guide/fragments/lifecycle"
+                }
+            ],
+            "images": [
+                {
+                    "src": "assets/img/fragment-view-lifecycle.png",
+                    "alt": "Three parallel columns: the Fragment lifecycle state on the left, the callback in the middle, and the view lifecycle state on the right — showing the view reaching INITIALIZED at onCreateView and DESTROYED at onDestroyView while the Fragment itself is still only CREATED",
+                    "caption": "The two lifecycles side by side. The right-hand column is the point: the view reaches <code>DESTROYED</code> at <code>onDestroyView()</code> while the Fragment is still <code>CREATED</code>, which is exactly the window in which an observer registered against the Fragment outlives the view it updates.",
+                    "sourceTitle": "Fragment lifecycle",
+                    "sourceUrl": "https://developer.android.com/guide/fragments/lifecycle"
                 }
             ],
             "tags": [

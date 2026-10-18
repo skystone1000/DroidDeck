@@ -617,6 +617,42 @@ end of the phase, once every must-know question has a reference link.
 against the same triage records. This is the long tail and can run at whatever
 pace suits; the app is fully useful after Phase 4.
 
+> **This phase was mostly already done, and the plan could not have known.**
+> "Widen to should-know, then good-to-know" assumed Phases 3 and 4 would stop at
+> the must-know tier. Neither did, because neither had a reason to.
+>
+> Phase 3 gave **all 272 snippets** an output pane, every tier, because the
+> `output` column had already decided each one and skipping the should-know rows
+> would have meant a second pass over the same files. Phase 4 worked **all 22
+> `words` flags**, every tier, for the same reason — the flags were sparse enough
+> (22 questions in 465) that tiering them added nothing. So there is no
+> should-know tail for either.
+>
+> What is left of Phase 5 is **Phase 2 in full**: images, which never started,
+> because §3.5's attribution rule was written against Android's terms and three
+> other sources turned up during triage. That is the whole of the work below.
+>
+> **The licence question, settled.** `developer.android.com` is CC BY 2.5 for
+> site content and Apache 2.0 for documentation and samples. `firebase.google.com`
+> states CC BY 4.0 in its own page footer. `kotlinlang.org` is Apache 2.0 — one
+> root `LICENSE` in `JetBrains/kotlin-web-site`, with `docs/images/` under it. All
+> three are vendorable with attribution, which is what §3.5 already requires.
+>
+> **`docs.gradle.org` is not, and is dropped.** Gradle's User Manual is CC
+> BY-**NC-SA** 4.0. *NonCommercial* is a restriction a static site cannot warrant
+> it will keep — nobody controls how it gets redeployed — and *ShareAlike* would
+> reach the page the figure is embedded in. The one Gradle candidate loses
+> nothing: `gradle-build-lifecycle` already draws initialisation, configuration
+> and execution as a three-node flowchart, which is the whole content of the
+> official diagram.
+>
+> **§3.5's fourth criterion needs restating.** "Legible at card width" was
+> written as a warning about *dense multi-column* figures. The fragment
+> view-lifecycle diagram is three columns and 821px wide, was expected to fail,
+> and passed easily — because it is wide and *sparse*, with large type. Density
+> is the thing to judge, not column count or pixel width, and the only way to
+> judge it is to look at 375px.
+
 **Phase 6 — docs.** `ARCHITECTURE.md` gains the second validator and the assets
 directory; `FEATURES.md` gains tiers, the filter, images and output panes;
 `CODEBASE.md` gains the schema deltas. Written last, when the shape has stopped

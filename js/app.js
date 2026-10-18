@@ -343,6 +343,14 @@ function renderQuestionCard(question, number) {
     answer.innerHTML = question.answer || '';
     body.appendChild(answer);
 
+    // Figures sit above the snippets and above the drawn diagram. Where a
+    // question has both, §3.5 wants the official state chart first and the
+    // animated walkthrough after it — they answer different questions, and the
+    // one you want before you understand the shape is the shape.
+    (question.images || []).forEach((image) => {
+        body.appendChild(renderQuestionImage(image));
+    });
+
     (question.codeSnippets || []).forEach((snippet) => {
         body.appendChild(renderCodeBlock(snippet));
     });
@@ -394,6 +402,51 @@ function renderReferenceLinks(links) {
     });
 
     return wrapper;
+}
+
+/* A vendored documentation figure, with the attribution CC BY requires.
+
+   The image never comes from an answer string — `<img>` is deliberately outside
+   the authored-HTML allowlist, so this is the only path that can produce one,
+   and every field it uses has been through validator check 4. `alt` and `src`
+   are set as properties rather than interpolated into markup for the same
+   reason the rest of this file avoids innerHTML on untrusted values.
+
+   `loading="lazy"` matters more here than it looks: answer bodies are built for
+   every question in a topic at render time, collapsed, so without it opening
+   `android` would fetch a dozen PNGs nobody has asked to see. */
+function renderQuestionImage(image) {
+    const figure = document.createElement('figure');
+    figure.className = 'doc-figure';
+
+    const img = document.createElement('img');
+    img.className = 'doc-figure-image';
+    img.src = image.src;
+    img.alt = image.alt || '';
+    img.loading = 'lazy';
+    figure.appendChild(img);
+
+    const caption = document.createElement('figcaption');
+    caption.className = 'doc-figure-caption';
+
+    if (image.caption) {
+        const text = document.createElement('span');
+        text.className = 'doc-figure-text';
+        text.innerHTML = image.caption;
+        caption.appendChild(text);
+    }
+
+    // Not optional, and not decoration — this link is the licence condition.
+    const credit = document.createElement('a');
+    credit.className = 'doc-figure-credit';
+    credit.href = image.sourceUrl;
+    credit.target = '_blank';
+    credit.rel = 'noopener noreferrer';
+    credit.textContent = image.sourceTitle;
+    caption.appendChild(credit);
+
+    figure.appendChild(caption);
+    return figure;
 }
 
 function renderCodeBlock(snippet) {

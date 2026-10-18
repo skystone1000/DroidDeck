@@ -684,6 +684,64 @@
     margin-bottom: 0;
 }
 
+/* Vendored documentation figures
+   -----------------------------------------------------------------------
+   These are other people's diagrams, shown unmodified. The plate below is
+   why: every one is drawn for a light background, and inverting or
+   hue-rotating them under the dark theme mangles the coloured state boxes in
+   the fragment and permission diagrams. A white plate keeps the figure as its
+   author drew it and pays for that with a rectangle of light — the honest
+   trade, since editing a diagram while keeping its attribution would
+   misrepresent the source. */
+
+.doc-figure {
+    margin: 18px 0;
+    padding: 14px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.doc-figure-image {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    margin: 0 auto;
+    /* The plate. Light theme needs it too — several figures are transparent
+       PNGs that would otherwise sit on the card's tint. */
+    padding: 10px;
+    background: #ffffff;
+    border-radius: var(--radius-sm);
+}
+
+.doc-figure-caption {
+    margin-top: 10px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--text-muted);
+}
+
+.doc-figure-text {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.doc-figure-credit {
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--border-color);
+}
+
+.doc-figure-credit::before {
+    content: 'Source: ';
+    color: var(--text-muted);
+}
+
+.doc-figure-credit:hover {
+    color: var(--accent-color);
+    border-bottom-color: currentColor;
+}
+
 /* Syntax tokens */
 
 .keyword    { color: var(--keyword-color); font-weight: 500; }

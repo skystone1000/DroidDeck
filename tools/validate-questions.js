@@ -13,12 +13,12 @@
 
    Exits 1 on any error. Warnings never fail the run.
 
-   Check 4 from the plan describes a field that does not exist yet (`images`).
-   It is turned on by the phase that introduces it; what is here is everything
-   that can be enforced against the corpus as it stands.
+   All seven checks from §6 are on.
    ========================================================================== */
 
-const { loadCorpus } = require('./load-corpus');
+const fs = require('fs');
+const path = require('path');
+const { loadCorpus, ROOT } = require('./load-corpus');
 const {
     TIERS, LANGUAGES, DIAGRAM_TYPES, OUTPUT_KINDS, RUNNABLE_LANGUAGES, KEBAB, htmlIssues
 } = require('./schema');
@@ -149,6 +149,15 @@ function checkQuestion(question, at, topic, declaredSubsections) {
         error(at, 'tags must be an array');
     }
 
+    // 4 — vendored figures
+    if (question.images !== undefined) {
+        if (!Array.isArray(question.images)) {
+            error(at, 'images must be an array');
+        } else {
+            question.images.forEach((image, i) => checkImage(image, `${at} images[${i}]`));
+        }
+    }
+
     // 6 — snippet language is one the highlighter understands
     (question.codeSnippets || []).forEach((snippet, i) => {
         const where = `${at} codeSnippets[${i}]`;
@@ -161,6 +170,53 @@ function checkQuestion(question, at, topic, declaredSubsections) {
     });
 
     checkDiagram(question, at);
+}
+
+/* 4 — a vendored figure.
+
+   Two of these rules exist because the app redistributes someone else's work.
+   `sourceUrl` and `sourceTitle` are what turn a copied PNG into an attributed
+   one, and CC BY makes that a condition of use rather than a nicety — so a
+   figure without them is a licence problem, not a cosmetic one, and fails.
+
+   The rest are the reasons §3.5 kept images out of authored HTML. `src` is
+   checked against the disk because a hotlink defeats the point of vendoring and
+   a typo produces a silent broken image; `alt` is length-checked because
+   `alt="diagram"` is the same as no alt text to anyone using a screen reader,
+   and the whole argument for these figures is that they carry information the
+   prose cannot. Neither check is possible inside an HTML blob. */
+function checkImage(image, at) {
+    if (!image || typeof image !== 'object') { error(at, 'is not an object'); return; }
+
+    if (typeof image.src !== 'string' || !image.src) {
+        error(at, 'has no src');
+    } else if (/^(https?:)?\/\//.test(image.src) || image.src.startsWith('/')) {
+        error(at, `src ${JSON.stringify(image.src)} must be repo-relative — figures are vendored, not hotlinked`);
+    } else if (!fs.existsSync(path.join(ROOT, image.src))) {
+        error(at, `src ${JSON.stringify(image.src)} does not exist on disk`);
+    }
+
+    if (typeof image.alt !== 'string' || image.alt.trim().length <= 20) {
+        error(at, 'alt must describe the figure in more than 20 characters');
+    }
+
+    for (const field of ['sourceTitle', 'sourceUrl']) {
+        if (typeof image[field] !== 'string' || !image[field].trim()) {
+            error(at, `has no ${field} — a vendored figure must carry its attribution`);
+        }
+    }
+
+    if (typeof image.sourceUrl === 'string' && image.sourceUrl && !image.sourceUrl.startsWith('https://')) {
+        error(at, `sourceUrl ${JSON.stringify(image.sourceUrl)} must be an https URL`);
+    }
+
+    if (image.caption !== undefined) {
+        if (typeof image.caption !== 'string' || !image.caption.trim()) {
+            error(at, 'caption, when present, must be a non-empty string');
+        } else {
+            htmlIssues(image.caption).forEach((issue) => error(`${at} caption`, issue));
+        }
+    }
 }
 
 /* 5 — the output pane.
