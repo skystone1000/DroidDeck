@@ -662,6 +662,15 @@ const androidData = {
                     "url": "https://developer.android.com/reference/android/os/TransactionTooLargeException"
                 }
             ],
+            "images": [
+                {
+                    "src": "assets/img/stop-save-order.png",
+                    "alt": "Two columns comparing callback order. Before API 28: ON_STOP event, then onSaveInstanceState, then onStop, with the state-is-saved boundary above onSaveInstanceState. API 28 and later: ON_STOP event, then onStop, then onSaveInstanceState, with the boundary moved below onStop",
+                    "caption": "The correction this answer makes, drawn. The dashed line is where state starts being saved, and it moves — on API 28 and later <code>onStop()</code> happens first.",
+                    "sourceTitle": "Fragment lifecycle",
+                    "sourceUrl": "https://developer.android.com/guide/fragments/lifecycle"
+                }
+            ],
             "tags": [
                 "onsaveinstancestate",
                 "bundle",
@@ -774,6 +783,15 @@ const androidData = {
                 {
                     "title": "Tasks and the back stack",
                     "url": "https://developer.android.com/guide/components/activities/tasks-and-back-stack"
+                }
+            ],
+            "images": [
+                {
+                    "src": "assets/img/back-stack-singletask.png",
+                    "alt": "Four snapshots of the back stack. Activity Y, declared singleTask, sits in a separate background task with Activity X beneath it; starting Y brings that whole task forward so Y and X sit on top of the original stack, and navigating back pops them one at a time",
+                    "caption": "<code>singleTask</code> does not just reuse an instance — it brings the activity's <strong>whole task</strong> forward, X included. That is the part the prose has to say twice and the picture says once.",
+                    "sourceTitle": "Tasks and the back stack",
+                    "sourceUrl": "https://developer.android.com/guide/components/activities/tasks-and-back-stack"
                 }
             ],
             "tags": [
@@ -994,6 +1012,15 @@ const androidData = {
                 {
                     "title": "FragmentTransaction#addToBackStack",
                     "url": "https://developer.android.com/reference/androidx/fragment/app/FragmentTransaction#addToBackStack(java.lang.String)"
+                }
+            ],
+            "images": [
+                {
+                    "src": "assets/img/back-stack.png",
+                    "alt": "The back stack over time. Starting Activity 2 then Activity 3 pushes each onto the stack with the newest in the foreground; navigating back destroys Activity 3 and returns Activity 2 to the foreground",
+                    "caption": "Push on start, pop and destroy on back. The foreground band across the top is the only entry the user can see.",
+                    "sourceTitle": "Tasks and the back stack",
+                    "sourceUrl": "https://developer.android.com/guide/components/activities/tasks-and-back-stack"
                 }
             ],
             "tags": [
@@ -2133,6 +2160,15 @@ const androidData = {
                     "url": "https://developer.android.com/develop/background-work/services"
                 }
             ],
+            "images": [
+                {
+                    "src": "assets/img/service-lifecycle.png",
+                    "alt": "Two parallel service lifecycles. The started path runs startService, onCreate, onStartCommand, service running, onDestroy. The bound path runs bindService, onCreate, onBind, clients bound, onUnbind, onDestroy. A shaded active-lifetime band covers the middle of both",
+                    "caption": "The two entry points side by side. A started service ends when it or a client stops it; a bound one ends when the last client unbinds.",
+                    "sourceTitle": "Services overview",
+                    "sourceUrl": "https://developer.android.com/develop/background-work/services"
+                }
+            ],
             "tags": [
                 "service",
                 "lifecycle",
@@ -2436,6 +2472,15 @@ const androidData = {
                 {
                     "title": "Processes and application lifecycle",
                     "url": "https://developer.android.com/guide/components/activities/process-lifecycle"
+                }
+            ],
+            "images": [
+                {
+                    "src": "assets/img/multitasking.png",
+                    "alt": "Two tasks side by side, one in the foreground and one in the background, each holding its own stack of activities",
+                    "caption": "Two tasks, each with its own stack. Only one is in the foreground; the other keeps its state until the system reclaims it.",
+                    "sourceTitle": "Tasks and the back stack",
+                    "sourceUrl": "https://developer.android.com/guide/components/activities/tasks-and-back-stack"
                 }
             ],
             "tags": [
@@ -3809,6 +3854,15 @@ const androidData = {
                     "url": "https://source.android.com/docs/core/runtime"
                 }
             ],
+            "images": [
+                {
+                    "src": "assets/img/android-stack.png",
+                    "alt": "The Android platform as six stacked layers: System Apps at the top, then the Java API Framework, then Native C and C++ Libraries beside the Android Runtime, then the Hardware Abstraction Layer, and the Linux Kernel at the bottom",
+                    "caption": "Where ART actually sits: above the HAL and the kernel, beside the native libraries, underneath the Java API framework your code calls.",
+                    "sourceTitle": "Platform architecture",
+                    "sourceUrl": "https://developer.android.com/guide/platform"
+                }
+            ],
             "tags": [
                 "art",
                 "runtime",
@@ -4535,6 +4589,15 @@ const androidData = {
                 {
                     "title": "ViewModel overview",
                     "url": "https://developer.android.com/topic/libraries/architecture/viewmodel"
+                }
+            ],
+            "images": [
+                {
+                    "src": "assets/img/viewmodel-lifecycle.png",
+                    "alt": "An activity lifecycle running top to bottom beside a single tall ViewModel Scope bar. The activity is created, rotated and recreated, running onDestroy and onCreate again in the middle, while the ViewModel Scope continues unbroken until finish, where onCleared fires",
+                    "caption": "The whole answer in one column. The activity is destroyed and rebuilt by the rotation; the scope beside it never breaks, and <code>onCleared()</code> fires only at <code>finish()</code>.",
+                    "sourceTitle": "ViewModel overview",
+                    "sourceUrl": "https://developer.android.com/topic/libraries/architecture/viewmodel"
                 }
             ],
             "tags": [

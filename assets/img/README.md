@@ -58,15 +58,45 @@ a white plate behind them instead.
 |---|---|---|---|---|
 | `activity-lifecycle.png` | `android/android-activity-lifecycle` | [The activity lifecycle](https://developer.android.com/guide/components/activities/activity-lifecycle) | 2026-10-18 | CC BY 2.5 |
 | `fragment-view-lifecycle.png` | `android/android-fragment-lifecycle` | [Fragment lifecycle](https://developer.android.com/guide/fragments/lifecycle) | 2026-10-18 | CC BY 2.5 |
+| `stop-save-order.png` | `android/android-save-restore-instance-state` | [Fragment lifecycle](https://developer.android.com/guide/fragments/lifecycle) | 2026-10-18 | CC BY 2.5 |
+| `back-stack.png` | `android/android-addtobackstack` | [Tasks and the back stack](https://developer.android.com/guide/components/activities/tasks-and-back-stack) | 2026-10-18 | CC BY 2.5 |
+| `back-stack-singletask.png` | `android/android-launch-modes` | [Tasks and the back stack](https://developer.android.com/guide/components/activities/tasks-and-back-stack) | 2026-10-18 | CC BY 2.5 |
+| `multitasking.png` | `android/android-multiple-processes` | [Tasks and the back stack](https://developer.android.com/guide/components/activities/tasks-and-back-stack) | 2026-10-18 | CC BY 2.5 |
+| `service-lifecycle.png` | `android/android-service-lifecycle` | [Services overview](https://developer.android.com/develop/background-work/services) | 2026-10-18 | CC BY 2.5 |
+| `android-stack.png` | `android/android-runtime` | [Platform architecture](https://developer.android.com/guide/platform) | 2026-10-18 | CC BY 2.5 |
+| `viewmodel-lifecycle.png` | `android/android-viewmodel-internals` | [ViewModel overview](https://developer.android.com/topic/libraries/architecture/viewmodel) | 2026-10-18 | CC BY 2.5 |
 
 ## Judging a candidate
 
 §3.5 gives four criteria, and the fourth — legible at card width on a phone —
-can only be settled by looking. The method used here: 375px viewport, dark theme,
-card expanded, read the figure on screen. Both of the above passed.
+can only be settled by looking. The method: 375px viewport, card expanded, read
+the figure on screen. Rendered scale is the useful number, and it is *content*
+width over natural width — the box is 20px wider than the image because of the
+plate's padding.
 
-The three-column fragment diagram was expected to fail that check and did not.
-It is *wide* (821px natural, rendering at about 41%) but it is not *dense* — big
-type, generous gutters, three sparse columns — and §3.5's warning is about
-density, not width. Worth remembering when judging the rest: measure the type,
-not the pixel count.
+**Density, not pixel count.** Two results make the point, and both went against
+the guess:
+
+- The **fragment view-lifecycle** diagram is three columns and 821px wide, which
+  is exactly what §3.5 warns about. It renders at 36% and passes easily, because
+  it is wide and *sparse* — big type, generous gutters.
+- The **platform stack** is 1384×2038 and renders at 21%. Every layer title
+  reads, and so do most leaf boxes, for the same reason.
+
+**Two rejections.** Both were fetched, rendered, judged and deleted — a
+candidate that does not clear the bar is not vendored, so neither file is in
+this directory.
+
+- **`doze.png`** (1839×740, rendering at **14%**). Its labels — "screen off
+  stationary on battery", "maintenance window" — are not readable at that size,
+  and it fails §3.5's second criterion as well: `android-doze-app-standby`
+  already carries a drawn six-step flowchart that is legible, theme-aware and
+  says the same thing. The only thing the official figure adds is the *rhythm*
+  of widening maintenance windows, which is not worth an unreadable figure.
+- **`permissions-workflow.svg`** (2066×894). Being vector, it stays sharp at any
+  size, and it is still too small to read at card width — sharp and 5px is
+  unreadable in the same way blurry and 5px is. It also fails the *first*
+  criterion, which is the more interesting reason: it is a six-node flowchart
+  with yes/no branches, and §3.5 says in as many words that "a four-node
+  pipeline is a flowchart and should stay one". State machines, layered stacks
+  and timelines earn a figure; decision trees do not.
