@@ -652,6 +652,38 @@ pace suits; the app is fully useful after Phase 4.
 > and passed easily — because it is wide and *sparse*, with large type. Density
 > is the thing to judge, not column count or pixel width, and the only way to
 > judge it is to look at 375px.
+>
+> **Phase 5 closed.** 24 candidates fetched and judged, **15 vendored across 18
+> placements**, 9 rejected. Validator check 4 is on, so all seven checks from §6
+> are now live.
+>
+> **The bar did most of the work, and it should have been applied earlier.**
+> §3.9 was explicit that triage records candidates and Phase 2 decides, and that
+> split is sound — but nobody predicted the *rate*. Nine of 24 failed, and six of
+> those failed on **criterion 1 alone**: they are flowcharts, which §3.5 excludes
+> by name, and no amount of looking at 375px was going to change that.
+> Documentation sites publish a lot of flowcharts. A triage pass could cheaply
+> record the *shape* of a candidate alongside its URL — state machine, layered
+> stack, timeline, or flowchart — and Phase 2 would start from a list half the
+> size with nothing of value lost.
+>
+> **There is no legibility threshold.** The two architecture figures render at
+> **16%** and are the most readable in the whole set; `doze.png` was rejected at
+> **14%**. The number predicts nothing, because what matters is type size
+> relative to canvas. Every "measure it instead of looking" shortcut tried here
+> gave the wrong answer at least once.
+>
+> **`images[]` was right to be structured data.** Two figures serve two questions
+> each, which is only cheap because the src is a field rather than markup — one
+> file, two placements, one row in the licence record. Inside an HTML blob that
+> would have been a copy-paste and a second thing to keep in sync.
+>
+> **A hazard for any future codemod.** The data files agree on schema but not on
+> key order: `jetpack-compose.js` puts `id` at the *end* of some question
+> objects. An insertion anchored on "find the id, then the next `tags`" silently
+> wrote into the following question. It was caught by reading the corpus back
+> through `load-corpus.js` rather than by reading the diff, which is the habit to
+> keep — the diff looked entirely correct.
 
 **Phase 6 — docs.** `ARCHITECTURE.md` gains the second validator and the assets
 directory; `FEATURES.md` gains tiers, the filter, images and output panes;
