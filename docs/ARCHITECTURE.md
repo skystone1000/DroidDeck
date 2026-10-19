@@ -55,23 +55,62 @@ deep link puts the sidebar in theory mode with nothing to synchronise.
 
 ## Hand-written validation stands in for tests
 
-There is no test framework, and a hand-authored corpus of 179 chapters with
-~280 outbound documentation links would rot silently. Two Node scripts in
-`tools/` are the whole safety net, and they run before every commit that
-touches either corpus:
+There is no test framework, and a hand-authored corpus of 179 chapters and 465
+questions with 553 outbound documentation links would rot silently. Four Node
+scripts in `tools/` are the whole safety net. Two of them run before every
+commit that touches either corpus:
 
-- `validate-theory.js` enforces the schema — importance tiers, block shapes,
-  unique ids, prerequisites that resolve to *earlier* modules, and the HTML
-  subset authored content is allowed to use. Its most valuable check resolves
-  every `relatedQuestions` reference against the question corpus, so renaming
-  a question breaks the build rather than a link.
-- `check-doc-links.js` HEAD-probes every documentation URL and treats a
-  **redirect as a failure**, because a redirect today is a 404 next year.
+- `validate-theory.js` enforces the theory schema — importance tiers, block
+  shapes, unique ids, prerequisites that resolve to *earlier* modules, and the
+  HTML subset authored content is allowed to use. Its most valuable check
+  resolves every `relatedQuestions` reference against the question corpus, so
+  renaming a question breaks the build rather than a link.
+- `validate-questions.js` does the same for the question bank, which went
+  unchecked for far longer and shows it. Seven checks: every question carries
+  one of the three importance tiers; ids are unique within a topic and the one
+  known cross-topic collision is asserted as the only one; every must-know
+  question carries at least one `referenceLink`; vendored figures are
+  repo-relative, present on disk, and carry their attribution; snippet output
+  is `stdout` or `trace` and never claims `stdout` for a language the runner
+  cannot execute; snippet languages are ones the highlighter knows; and
+  authored HTML stays inside the allowed tag subset.
 
-Both read the data layer through `load-corpus.js`, which concatenates the data
-files in `index.html` order and evaluates them as one script in a `vm` context
-— the same way the browser sees them. That is what lets Node validate a corpus
-that has no module system.
+Two more are slower and run per phase rather than per commit:
+
+- `check-doc-links.js` HEAD-probes every documentation URL across both corpora
+  and treats a **redirect as a failure**, because a redirect today is a 404 next
+  year. It cannot see an HTML meta-refresh, which is how sixteen dead anchors
+  once survived it — recorded in `docs/verification-log.md` rather than papered
+  over.
+- `run-snippets.js` compiles and runs every snippet whose output is recorded as
+  `stdout` and diffs the real output against what the corpus claims, so an
+  "Output" pane is a re-checkable assertion rather than a guess.
+
+All four read the data layer through `load-corpus.js`, which concatenates the
+data files in `index.html` order and evaluates them as one script in a `vm`
+context — the same way the browser sees them. That is what lets Node validate a
+corpus that has no module system.
+
+## The one directory of binary assets
+
+`assets/img/` holds documentation figures **downloaded and committed**, never
+hotlinked. Hotlinking would break the `file://` deployment this document
+promises, and would make a page depend on a URL its owner has already moved
+once.
+
+Vendoring redistributes someone else's work, so the directory carries a
+`README.md` that is part of the mechanism rather than a courtesy: per file, the
+source page, the retrieval date and the licence, plus the licence check for
+every source the corpus draws on. Google's documentation is CC BY 2.5,
+Firebase's CC BY 4.0, kotlinlang.org's Apache 2.0 — all vendorable with
+attribution. Gradle's is CC BY-NC-SA, which is not, so no Gradle figure exists
+here.
+
+The app-side half of that bargain is enforced: `validate-questions.js` fails a
+figure with no `sourceUrl` or `sourceTitle`, and the renderer always emits the
+attribution link. Figures render **unmodified**, on a white plate under the dark
+theme rather than being inverted, because editing a diagram while keeping its
+attribution misrepresents its author.
 
 Every CDN dependency is optional. Three.js missing means no background canvas;
 GSAP missing means cards reveal via a CSS class instead of a stagger. Neither
@@ -159,9 +198,17 @@ from any code path, animates correctly.
 ## Security posture
 
 Answers and theory blocks are authored content injected with `innerHTML`, which
-is safe because the data files are part of the repository — and the validator
-restricts authored HTML to a fixed tag subset and rejects inline event handlers
+is safe because the data files are part of the repository — and both validators
+restrict authored HTML to a fixed tag subset and reject inline event handlers
 and `javascript:` URLs, so the assumption is enforced rather than trusted.
+
+`<img>` is deliberately **outside** that tag subset. Figures arrive as a
+structured `images[]` field and are built by `renderQuestionImage()`, which sets
+`src` and `alt` as properties rather than interpolating them into markup. That
+is what makes the checks in the previous section possible at all: a validator
+can assert that a path is repo-relative and exists on disk, and it cannot assert
+anything about an `<img>` buried in an HTML blob.
+
 Anything derived from user input is treated as hostile:
 
 - Search result text is HTML-escaped before `<mark>` wrapping.

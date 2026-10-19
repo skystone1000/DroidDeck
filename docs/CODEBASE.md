@@ -167,12 +167,21 @@ transition.
 ## Tools
 
 Node scripts, no dependencies, run by hand. These are the closest thing this
-project has to tests — run both before any commit touching `data/`.
+project has to tests — run **both validators** before any commit touching
+`data/`.
 
 ```bash
-node tools/validate-theory.js            # schema and cross-corpus integrity
+node tools/validate-theory.js            # theory schema and cross-corpus integrity
 node tools/validate-theory.js --coverage # plus every unmatched keyTopic
-node tools/check-doc-links.js            # every documentation URL
+node tools/validate-questions.js         # question schema, all seven checks
+```
+
+Two more are slower and belong to a phase rather than a commit:
+
+```bash
+node tools/check-doc-links.js --all      # every documentation URL, both corpora
+node tools/run-snippets.js               # compile and diff every stdout snippet
+node tools/run-snippets.js --selftest    # prove the runner itself still works
 ```
 
 ### `tools/load-corpus.js`
@@ -197,11 +206,57 @@ to be read. The ones that catch real mistakes:
   outside it is an error, a duplicate is an error, and anything unwritten is a
   warning. Adding a drill means adding its id there first.
 
+### `tools/schema.js`
+The vocabulary both validators share — `TIERS`, `LANGUAGES`, `DIAGRAM_TYPES`,
+`OUTPUT_KINDS`, `RUNNABLE_LANGUAGES`, the tag allowlist and `htmlIssues()`. It
+exists so the two cannot drift: a must-know question and a must-know chapter
+have to mean the same thing.
+
+### `tools/validate-questions.js`
+Seven checks over the question bank, which went unvalidated for far longer than
+theory did and showed it. Exits 1 on any error.
+
+- **Check 1** requires an `importance` from `TIERS`.
+- **Check 2** requires ids unique within a topic, and asserts the single known
+  cross-topic collision (`kotlin-multiplatform`) is the only one — a bare
+  uniqueness check would have to be switched off to tolerate it and would then
+  catch nothing.
+- **Check 3** requires every must-know question to carry a `referenceLink`,
+  mirroring the rule theory applies to must-know chapters. A question worth
+  revising the night before is worth being able to check.
+- **Check 4** validates `images[]`: `src` repo-relative and present on disk,
+  `alt` over 20 characters, and `sourceTitle`/`sourceUrl` present. The
+  attribution fields are a licence condition, so their absence is an error
+  rather than a warning.
+- **Check 5** validates `codeSnippets[].output` and refuses `kind: 'stdout'` on
+  any language `run-snippets.js` cannot execute — an unrun Output pane is a
+  guess wearing a costume.
+- **Check 6** restricts snippet `language` to the set the highlighter knows.
+- **Check 7** restricts authored HTML to the shared tag allowlist.
+
 ### `tools/check-doc-links.js`
-HEAD-probes every `docHub` and `docs[]` entry, caching results in
-`tools/.doc-link-cache.json` (gitignored). A **redirect counts as a failure**,
-because a redirect today is a 404 next year — but `sameDocument()` ignores a
-differing `hl=` locale parameter, which is a redirect that means nothing.
+HEAD-probes every `docHub` and `docs[]` entry, and with `--all` every question
+`referenceLinks` entry too, caching results in `tools/.doc-link-cache.json`
+(gitignored). A **redirect counts as a failure**, because a redirect today is a
+404 next year — but `sameDocument()` ignores a differing `hl=` locale parameter,
+which is a redirect that means nothing.
+
+**Known blind spot:** it follows HTTP redirects and cannot see an HTML
+meta-refresh. A stub page that answers 200 and refreshes elsewhere passes, which
+is how sixteen references to `kotlinlang.org/docs/flow.html` kept dead anchors
+through every run until Phase 4 read them by hand. See
+`docs/verification-log.md`.
+
+### `tools/run-snippets.js`
+Compiles and runs every snippet recorded as `kind: 'stdout'` and diffs the real
+output against `output.lines`. Kotlin and Java, both resolved from Android
+Studio's bundled toolchain — `kotlinc` from the Kotlin plugin, `javac` and
+`java` from the JBR. `--selftest` runs four fixtures, including a deliberate
+negative, to prove the runner still detects a mismatch.
+
+Finding a Java entry point is the fiddly part: it strips literals and comments,
+builds a brace-depth map, considers only depth-0 type declarations, and picks
+the class enclosing `void main(String`.
 
 ## Data
 
@@ -217,6 +272,61 @@ reading path.
 See ARCHITECTURE.md for the schema, `docs/plans/2026-08-15-theory-section.md`
 for the theory schema in full, and FEATURES.md for what the fields drive.
 
+### The question schema
+
+```js
+{
+    id: 'android-activity-lifecycle',
+    importance: 'must-know',          // required — must-know | should-know | good-to-know
+    question: '...',
+    answer: '<p>...</p>',             // allowed tag subset only, never <img>
+    referenceLinks: [{ title, url }], // at least one when importance is must-know
+    tags: ['activity', 'lifecycle'],
+    images: [{                        // optional — vendored figures
+        src: 'assets/img/activity-lifecycle.png',   // repo-relative, must exist
+        alt: '...',                                 // over 20 characters
+        caption: '<p>...</p>',                      // optional, allowed tags
+        sourceTitle: 'The activity lifecycle',      // required — attribution
+        sourceUrl: 'https://developer.android.com/...'
+    }],
+    hasDiagram: true,
+    diagramType: 'animation',
+    diagramConfig: { ... },
+    codeSnippets: [{
+        language: 'kotlin',
+        title: '...',
+        code: '...',
+        output: {                     // optional
+            kind: 'stdout',           // stdout | trace
+            lines: ['...'],           // non-empty
+            explain: '<p>...</p>'     // optional, allowed tags
+        }
+    }],
+    subsection: 'activity-and-fragment'
+}
+```
+
+Three fields carry rules worth restating, because each one exists to stop a
+specific bad outcome:
+
+- **`importance`** is stored on the question, not derived from the theory
+  chapters that link it. A computed tier could not be overridden, and 47
+  questions have no theory link at all and would silently get none.
+- **`images[]`** is structured data rather than `<img>` in the answer string.
+  That is the only reason a validator can check the path and the attribution,
+  and it lets one file serve two questions — as `mad-arch-overview-data.png`
+  and both Kotlin figures do.
+- **`output.kind`** separates a re-runnable claim from a description. `stdout`
+  is re-executed by `run-snippets.js`; `trace` is prose about behaviour and is
+  labelled as such in the UI. Conflating them is the one failure this feature
+  must not have.
+
+**A hazard for codemods.** These files agree on schema but *not* on key order —
+`data/jetpack-compose.js` puts `id` at the end of some question objects. A
+script that anchors on "find the id, then the next `tags`" will write into the
+following question, and the diff will look correct. Read the corpus back through
+`load-corpus.js` afterwards, not the diff.
+
 ## Adding a topic
 
 1. `data/<topic-id>.js` declaring `const <name>Data = { ... }`.
@@ -224,6 +334,7 @@ for the theory schema in full, and FEATURES.md for what the fields drive.
 3. The variable appended to the `topics` array in `data/index.js`.
 4. An emoji in `topicIcons` in `js/navigation.js` (missing entries fall back
    to 📄).
+5. `node tools/validate-questions.js && node tools/validate-theory.js`.
 
 ## Adding a theory module
 

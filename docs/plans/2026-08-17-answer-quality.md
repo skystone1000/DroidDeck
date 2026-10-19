@@ -797,3 +797,77 @@ pyramid, RecyclerView recycling, and processes and threads. Java and Kotlin
 questions were not surveyed — kotlinlang.org and the Oracle JVM guides are
 sparsely illustrated, and `java/garbage-collector` is the only strong candidate
 there.
+
+---
+
+## Where this plan turned out to be wrong
+
+Written at the close of Phase 6, following the house convention. The
+per-phase corrections are inline above; this is what is worth knowing without
+reading them.
+
+**The five asks were not five features, and the plan said so — but it still
+sized them as five.** §3.9's one-read-four-annotations argument was the best
+decision in the document. What it got wrong was believing the four columns would
+stay in their lanes. They did not, in both directions.
+
+- **Phase 3 and Phase 4 consumed their whole columns, not the must-know slice.**
+  The plan scheduled a Phase 5 to widen them to should-know and good-to-know.
+  There was nothing to widen: all 272 snippets got a pane and all 22 `words`
+  flags were worked, because the flags were sparse enough (22 in 465) that
+  tiering them would have meant a second pass over the same files for no gain.
+  Phase 5 turned out to be Phase 2 under another name.
+- **Phase 4 kept finding errors in questions triage had sent for rewriting.**
+  Seven of the eight `verify` flags were real, which is the system working. But
+  six *more* corrections came out of `simplify`-flagged questions, because
+  reading a sentence closely enough to rewrite it is verification whether or not
+  a column says so. §8's "do both passes in one read" mitigation was carrying
+  more weight than it was credited with.
+
+**The bar in §3.5 was the most valuable paragraph in the plan, and it was
+applied a phase too late.** Nine of 24 image candidates were rejected, six of
+them on criterion 1 alone — they were flowcharts, which the bar excludes by
+name. Triage recorded candidates by subject, as §3.9 intended, but a single
+extra word per row recording the *shape* would have halved the list at reading
+speed. The same argument applies to any future audit: record the property the
+bar tests, not just the artefact.
+
+**"Legible at card width" cannot be turned into a number.** The plan phrased
+criterion 4 as a warning about dense multi-column figures. Column count and
+pixel width both turned out to predict nothing: a three-column 821px figure
+passed, a 1384×2038 stack passed at 21%, two architecture figures passed at 16%,
+and a 1839px timeline failed at 14%. What matters is type size relative to
+canvas, which nobody has a number for. The rule is to look.
+
+**Two claims in §2's table were the wrong things to measure.** "Answer length:
+median 1223 chars" framed simplification as a length problem. For most topics it
+was a density problem, and the rewrites barely moved the character count while
+changing the answers completely. For `android-system-design` it genuinely *was*
+length, and §3.8's rules did not fit — those four needed a structural treatment
+(lead with the decisions, demote the rest) that the plan never described.
+
+**The implementation improved on §3.3 and the plan should not be read as the
+spec.** §3.3 designed a cumulative filter: `?tier=should` meaning must *and*
+should, on the reasoning that nobody wants should-know alone. What shipped is
+three independent toggles that combine freely, `?tier=must,should`, because
+should-know alone turns out to be exactly how you find the gaps you have been
+skipping. This was caught while writing `FEATURES.md` — the first draft
+documented the plan rather than the code, which is the standing hazard of
+writing docs last.
+
+**What the plan got right and should be reused.** Vendoring rather than
+hotlinking. Keeping `<img>` out of the tag allowlist so figures had to be
+structured data, which is the only reason a validator can check a path and an
+attribution. Refusing a `verified: true` field in favour of a dated log. And
+above all the `stdout`/`trace` split, which was correct for the reason given —
+a fabricated Output block is worse than none — and turned out to be correct for
+a reason not given: `trace` is a *better* format than stdout for Compose, Gradle
+and the platform topic, because those questions are about ordering and a
+numbered list is what ordering wants.
+
+**Two things left open, deliberately.** `check-doc-links.js` cannot see an HTML
+meta-refresh, which is how sixteen dead anchors survived every run until a human
+read them; it is recorded in `docs/verification-log.md` rather than patched
+mid-corpus. And `socket.io/docs/v4/` has been unreachable from this network
+throughout, reported as unproven rather than broken, which is the honest state
+to leave it in.
