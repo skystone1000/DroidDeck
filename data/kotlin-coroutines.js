@@ -10,6 +10,15 @@ const kotlinCoroutinesData = {
             question: "What are Coroutines in Kotlin?",
             answer: "<p><strong>🔑 A coroutine is work that can pause in the middle and let the thread go and do something else. Suspend, don't block.</strong></p><ul><li>A suspended coroutine holds no thread, so a handful of threads can run thousands of them. A thread costs about a megabyte of stack; a coroutine costs an object.</li><li>Every coroutine runs inside a <code>CoroutineScope</code> that owns its lifetime. There is no detached coroutine.</li><li>The compiler rewrites a <code>suspend</code> function into a state machine and passes a <code>Continuation</code> from one suspension point to the next — <strong>Continuation-Passing Style</strong>. That is why resuming can land on a different thread.</li><li>You start one with a builder — <code>launch</code>, <code>async</code>, <code>runBlocking</code> — and a <code>CoroutineDispatcher</code> decides which thread it runs on.</li><li><strong>Structured concurrency</strong> is the other half: cancel a scope and every child dies with it, so an Activity cannot leave background work running after it is destroyed.</li></ul><p><strong>🎯 Interview tip:</strong> The comparison that settles it — launch 100,000 coroutines and the app is fine. Start 100,000 threads and it is not.</p>",
             referenceLinks: [{ title: "Coroutines guide - Kotlin", url: "https://kotlinlang.org/docs/coroutines-guide.html" }, { title: "Coroutines on Android", url: "https://developer.android.com/kotlin/coroutines" }],
+            images: [
+                {
+                    src: "assets/img/coroutines-and-threads.svg",
+                    alt: "Six small boxes labelled Coroutine, each about ten kilobytes of heap memory, with lines running down into two much larger boxes labelled Thread, each with about two megabytes of allocated memory",
+                    caption: "The ratio, drawn. Six coroutines at roughly 10&nbsp;KB of heap each, running on two threads at roughly 2&nbsp;MB each — which is why the count that crashes is threads, not coroutines.",
+                    sourceTitle: "Coroutine basics",
+                    sourceUrl: "https://kotlinlang.org/docs/coroutines-basics.html"
+                }
+            ],
             tags: ["coroutines", "kotlin", "concurrency", "suspend", "async"],
             hasDiagram: true,
             diagramType: "flowchart",
@@ -356,6 +365,15 @@ class UserRepository(private val api: ApiService) {
             question: "How do you make parallel multiple network calls with Coroutines?",
             answer: "<p><strong>⚡ Concept</strong></p><ul><li>Launch each call with <code>async</code> inside a <code>coroutineScope</code> so they run concurrently, then call <code>.await()</code> on each — total time is the max of the calls, not the sum.</li><li>Wrapping in <code>coroutineScope</code> (not <code>GlobalScope</code>) ensures that if one call fails, the others are cancelled and the exception propagates cleanly to the caller.</li></ul>",
             referenceLinks: [{ title: "Composing suspending functions - Kotlin", url: "https://kotlinlang.org/docs/composing-suspending-functions.html" }],
+            images: [
+                {
+                    src: "assets/img/parallelism-and-concurrency.svg",
+                    alt: "Three panels. Parallel shows three threads each running one unbroken task at the same time. Concurrent shows a single thread with several tasks interleaved as alternating coloured segments. Parallel and concurrent shows two threads each interleaving several tasks",
+                    caption: "Two calls at once is the left panel; two calls taking turns on one thread is the middle. <code>async</code> gives you the first only when there is a thread free to take it.",
+                    sourceTitle: "Coroutine basics",
+                    sourceUrl: "https://kotlinlang.org/docs/coroutines-basics.html"
+                }
+            ],
             tags: ["coroutines", "async", "parallel", "networking", "retrofit"],
             hasDiagram: false,
             diagramType: null,

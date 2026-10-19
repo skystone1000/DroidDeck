@@ -65,6 +65,16 @@ a white plate behind them instead.
 | `service-lifecycle.png` | `android/android-service-lifecycle` | [Services overview](https://developer.android.com/develop/background-work/services) | 2026-10-18 | CC BY 2.5 |
 | `android-stack.png` | `android/android-runtime` | [Platform architecture](https://developer.android.com/guide/platform) | 2026-10-18 | CC BY 2.5 |
 | `viewmodel-lifecycle.png` | `android/android-viewmodel-internals` | [ViewModel overview](https://developer.android.com/topic/libraries/architecture/viewmodel) | 2026-10-18 | CC BY 2.5 |
+| `mad-arch-overview-ui.png` | `android-architecture/arch-clean` | [UI layer](https://developer.android.com/topic/architecture/ui-layer) | 2026-10-19 | CC BY 2.5 |
+| `mad-arch-overview-data.png` | `android-architecture/arch-clean`, `design-pattern/design-pattern-repository` | [Data layer](https://developer.android.com/topic/architecture/data-layer) | 2026-10-19 | CC BY 2.5 |
+| `offline-data-layer.png` | `android-system-design/design-offline-first-app` | [Build an offline-first app](https://developer.android.com/topic/architecture/data-layer/offline-first) | 2026-10-19 | CC BY 2.5 |
+| `compose-lifecycle-composition.png` | `jetpack-compose/compose-lifecycle` | [Lifecycle of composables](https://developer.android.com/develop/ui/compose/lifecycle) | 2026-10-19 | CC BY 2.5 |
+| `coroutines-and-threads.svg` | `kotlin-coroutines/coroutines-what-are-they`, `kotlin/kotlin-coroutines-basics` | [Coroutine basics](https://kotlinlang.org/docs/coroutines-basics.html) | 2026-10-19 | Apache 2.0 |
+| `parallelism-and-concurrency.svg` | `kotlin-coroutines/coroutines-parallel-network-calls`, `kotlin/kotlin-suspending-vs-blocking` | [Coroutine basics](https://kotlinlang.org/docs/coroutines-basics.html) | 2026-10-19 | Apache 2.0 |
+
+**15 files, 18 placements.** Two figures serve two questions each — the same
+picture answers "what is the repository pattern" and "what does clean
+architecture look like", and there is no reason to vendor it twice.
 
 ## Judging a candidate
 
@@ -82,6 +92,12 @@ the guess:
   it is wide and *sparse* — big type, generous gutters.
 - The **platform stack** is 1384×2038 and renders at 21%. Every layer title
   reads, and so do most leaf boxes, for the same reason.
+- The two **architecture layer** figures render at **16%**, the smallest of
+  anything kept, and are the most legible figures in the set. Their type is
+  enormous relative to the canvas.
+
+Meanwhile `doze.png` at 14% is unreadable. Two percentage points apart, opposite
+verdicts — which is the whole argument for looking rather than measuring.
 
 **Two rejections.** Both were fetched, rendered, judged and deleted — a
 candidate that does not clear the bar is not vendored, so neither file is in
@@ -100,3 +116,24 @@ this directory.
   with yes/no branches, and §3.5 says in as many words that "a four-node
   pipeline is a flowchart and should stay one". State machines, layered stacks
   and timelines earn a figure; decision trees do not.
+
+**Seven more rejections, and the reason is the same one twice over.** Of the
+thirteen candidates triage listed for architecture, Compose, Flow and Firebase,
+six went out on criterion 1 or 2 and one on all three:
+
+| Rejected | Why |
+|---|---|
+| `mad-arch-overview.png` | Three boxes — UI, Domain, Data. The question's own three-node flowchart says exactly that, so it is not *materially* better (criterion 2). Its two expanded halves were kept instead, because those show nesting the flowchart cannot. |
+| `compose-phases.png` | A five-node linear pipeline: Data → Composition → Layout → Drawing → UI. Criterion 1 excludes it by name. |
+| `compose-unidirectional-flow.png` | Two boxes and two arrows, against a two-node drawn flowchart. Criterion 2. |
+| `flow-entities.png` | Producer → Intermediary → Consumer, which is what the drawn flowchart already shows, and the drawn one is theme-aware. Criterion 2. |
+| `offline-read-queue.png` | A five-step linear flowchart. Criterion 1. |
+| `offline-write-backoff.png` | A flowchart with a "Should retry?" decision node. Criterion 1. Its sibling `offline-data-layer.png` was kept: that one shows *structure*, a repository owning two sources, which is not a flowchart at all. |
+| `fcm-architecture.png` | 1920×1080 rendering at 15%, so unreadable; a four-stage pipeline, so criterion 1; and the question already has a theme-aware `sequence` diagram, so criterion 2. Triage predicted this one would lose, and it did. |
+
+The pattern is worth naming for whoever works the next batch. **Triage recorded
+candidates by subject, not by shape**, exactly as §3.9 said it would — it flags,
+Phase 2 decides. A large share of what a documentation site publishes is
+flowcharts, and §3.5 rules those out on purpose, so expect roughly half a
+candidate list to fail on criterion 1 alone before legibility is even
+considered.

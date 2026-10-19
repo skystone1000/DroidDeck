@@ -802,6 +802,15 @@ const jetpackComposeData = {
                     "url": "https://developer.android.com/develop/ui/compose/lifecycle"
                 }
             ],
+            "images": [
+                {
+                    "src": "assets/img/compose-lifecycle-composition.png",
+                    "alt": "A composable's lifecycle drawn as a horizontal line: it enters the Composition, recomposes zero or more times shown as a loop above the Composable box, then leaves the Composition",
+                    "caption": "Three events, and only three. Enter, recompose <strong>zero or more</strong> times, leave — the loop is the whole reason a composable must be safe to run again at any moment.",
+                    "sourceTitle": "Lifecycle of composables",
+                    "sourceUrl": "https://developer.android.com/develop/ui/compose/lifecycle"
+                }
+            ],
             "tags": [
                 "compose",
                 "lifecycle",

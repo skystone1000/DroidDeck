@@ -120,6 +120,15 @@ const designPatternData = {
             question: "What is the Repository pattern?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li><strong>Repository</strong> — a structural pattern that abstracts data access behind a single API, hiding whether data comes from network, local database, or cache from the rest of the app.</li></ul><p><strong>⚙️ How it works</strong></p><ul><li>Callers (typically ViewModels/use cases) depend on a repository <strong>interface</strong>, not on Retrofit/Room directly.</li><li>The implementation decides data source strategy — e.g. return cached Room data immediately, then refresh from network and update the cache (single source of truth pattern).</li><li>Multiple data sources (remote <code>ApiService</code>, local <code>Dao</code>) are composed inside the repository, invisible to consumers.</li></ul><p><strong>✅ Benefits</strong></p><ul><li>Swappable implementations for testing (fake repository with in-memory data, no real network/DB needed).</li><li>Single source of truth — UI always reads from one place (usually the local DB) which is kept in sync with remote data.</li></ul>",
             referenceLinks: [{ title: "Guide to app architecture — data layer", url: "https://developer.android.com/topic/architecture/data-layer" }],
+            images: [
+                {
+                    src: "assets/img/mad-arch-overview-data.png",
+                    alt: "The data layer opened up: repositories above data sources, both inside the Data Layer box, with the UI Layer and Domain Layer (optional) greyed out above it",
+                    caption: "The repository pattern in its Android form. Everything above the Data Layer reaches exactly one thing — the repository — and the data sources behind it can change without any of them noticing.",
+                    sourceTitle: "Data layer",
+                    sourceUrl: "https://developer.android.com/topic/architecture/data-layer"
+                }
+            ],
             tags: ["repository", "design-pattern", "architecture", "data-layer"],
             hasDiagram: true,
             diagramType: "flowchart",

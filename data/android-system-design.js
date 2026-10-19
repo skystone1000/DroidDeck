@@ -214,6 +214,15 @@ const androidSystemDesignData = {
             question: "How to build an offline-first app?",
             answer: "<p><strong>🔑 The local database is the single source of truth. The UI reads Room and never the network; the repository's only job is keeping Room fresh.</strong> Offline stops being a special case, because there is no code path that needed the network.</p><p><strong>⚙️ What follows from that</strong></p><ul><li><strong>Read path.</strong> The UI observes a Room <code>Flow</code> or <code>LiveData</code> query. The repository kicks off a background refresh into Room, but the screen has already rendered whatever was there — never blank, never a spinner over nothing.</li><li><strong>Write path.</strong> Write to Room first, marked <code>dirty</code> or <code>pending</code>, then let a <code>WorkManager</code> job push those rows up under <code>NetworkType.CONNECTED</code> with exponential backoff.</li><li><strong>Conflicts.</strong> Keep a version or <code>updatedAt</code> per row. <strong>Last-write-wins</strong> is fine for data nobody grieves over; anything where silently discarding a local edit is unacceptable needs a field-level merge or a server-authoritative rule.</li><li><strong>Connectivity.</strong> <code>ConnectivityManager.NetworkCallback</code>, or WorkManager's own network constraint, so a sync fires when the connection returns rather than on a timer.</li><li><strong>The cost of optimism.</strong> An optimistic write feels instant and needs a visible way back — a &quot;failed to send, tap to retry&quot; state — for when the server rejects it later.</li></ul><p><strong>🎯 Interview tip:</strong> Say &quot;single source of truth&quot; in those words, then say why the UI never calls the network. That second half is the part being graded; the phrase on its own is a slogan.</p>",
             referenceLinks: [{ title: "Guide to app architecture", url: "https://developer.android.com/topic/architecture" }, { title: "WorkManager guide", url: "https://developer.android.com/develop/background-work/background-tasks/persistent" }],
+            images: [
+                {
+                    src: "assets/img/offline-data-layer.png",
+                    alt: "Inside the Data Layer, an AuthorRepository sits above two data sources it owns, a LocalDataSource and a NetworkDataSource, with arrows fanning out to both",
+                    caption: "Why the UI never needs to know it is offline: the repository owns <em>both</em> sources, so swapping which one answered is its problem and nobody else's.",
+                    sourceTitle: "Build an offline-first app",
+                    sourceUrl: "https://developer.android.com/topic/architecture/data-layer/offline-first"
+                }
+            ],
             tags: ["system-design", "offline-first", "room", "repository", "sync", "conflict-resolution"],
             hasDiagram: true,
             diagramType: "flowchart",

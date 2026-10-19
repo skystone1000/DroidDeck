@@ -80,6 +80,22 @@ const androidArchitectureData = {
             question: "What is Clean Architecture?",
             answer: "<p><strong>🔑 Concept</strong></p><ul><li><strong>Clean Architecture</strong> (Robert C. Martin) — organizes code into concentric layers where <strong>dependencies point inward only</strong>: outer layers depend on inner layers, never the reverse, keeping business logic independent of frameworks, UI, and databases.</li></ul><p><strong>⚙️ Layers (outer to inner)</strong></p><ul><li><strong>Presentation</strong> — Activities/Fragments/Compose, ViewModels; depends on domain.</li><li><strong>Domain</strong> — use cases/interactors and business entities; the innermost, framework-free layer with <strong>zero Android imports</strong>, containing pure business rules.</li><li><strong>Data</strong> — repository implementations, remote/local data sources (Retrofit, Room); implements interfaces defined by the domain layer.</li></ul><p><strong>⚙️ The Dependency Inversion trick</strong></p><ul><li>The domain layer <strong>defines</strong> repository interfaces; the data layer <strong>implements</strong> them. This means domain doesn't depend on data — data depends on domain, inverting the naive dependency direction and keeping business rules pluggable/testable.</li></ul><p><strong>✅ Benefits</strong></p><ul><li>Domain logic is unit-testable with zero Android framework dependency, UI/data sources are swappable without touching business rules.</li></ul><p><strong>⚠️ Trade-offs</strong></p><ul><li>More files/indirection per feature — can be overkill for small apps or prototypes.</li></ul>",
             referenceLinks: [{ title: "Guide to app architecture", url: "https://developer.android.com/topic/architecture" }],
+            images: [
+                {
+                    src: "assets/img/mad-arch-overview-ui.png",
+                    alt: "The UI layer opened up: UI elements above state holders, both inside the UI Layer box, with the Domain Layer (optional) and Data Layer greyed out beneath it and arrows pointing down through them",
+                    caption: "The UI layer has an inside. <strong>UI elements</strong> read from <strong>state holders</strong>, and only the state holders talk downwards — which is the rule that keeps a screen testable.",
+                    sourceTitle: "UI layer",
+                    sourceUrl: "https://developer.android.com/topic/architecture/ui-layer"
+                },
+                {
+                    src: "assets/img/mad-arch-overview-data.png",
+                    alt: "The data layer opened up: repositories above data sources, both inside the Data Layer box, with the UI Layer and Domain Layer (optional) greyed out above it",
+                    caption: "And so does the data layer. <strong>Repositories</strong> are the only thing above the <strong>data sources</strong>, which is why nothing upstream ever names a database or an API.",
+                    sourceTitle: "Data layer",
+                    sourceUrl: "https://developer.android.com/topic/architecture/data-layer"
+                }
+            ],
             tags: ["clean-architecture", "layers", "domain", "use-case"],
             hasDiagram: true,
             diagramType: "flowchart",

@@ -718,6 +718,15 @@ const kotlinData = {
             question: "What is the difference between suspending and blocking in Kotlin Coroutines?",
             answer: "<p><strong>⚖️ Yielding a thread vs occupying it</strong></p><table><thead><tr><th>Aspect</th><th>Suspending</th><th>Blocking</th></tr></thead><tbody><tr><td>Thread behavior</td><td>Thread is <strong>freed</strong> to run other coroutines while waiting</td><td>Thread is <strong>held hostage</strong>, cannot do other work</td></tr><tr><td>Marker</td><td><code>suspend</code> function, e.g. <code>delay()</code></td><td>Regular function, e.g. <code>Thread.sleep()</code></td></tr><tr><td>Scalability</td><td>Thousands of coroutines can share few threads</td><td>Each blocked call ties up a whole OS thread</td></tr><tr><td>Cancellation</td><td>Cooperative — checks for cancellation at suspension points</td><td>Not cancellable by coroutine machinery</td></tr><tr><td>Caller requirement</td><td>Callable only from another <code>suspend</code> function or a coroutine builder</td><td>Callable from anywhere</td></tr></tbody></table><p><strong>🎯 Interview tip:</strong> calling a blocking function like <code>Thread.sleep()</code> inside a coroutine on a shared dispatcher (e.g. <code>Dispatchers.Main</code>) can starve every other coroutine on that thread — always prefer the suspending equivalent, or move blocking work to <code>Dispatchers.IO</code>.</p>",
             referenceLinks: [{ title: "Kotlin Coroutines basics", url: "https://kotlinlang.org/docs/coroutines-basics.html" }],
+            images: [
+                {
+                    src: "assets/img/parallelism-and-concurrency.svg",
+                    alt: "Three panels. Parallel shows three threads each running one unbroken task at the same time. Concurrent shows a single thread with several tasks interleaved as alternating coloured segments. Parallel and concurrent shows two threads each interleaving several tasks",
+                    caption: "Blocking holds a whole bar in the left panel. Suspending is the middle one — the thread keeps working, it just works on something else while you wait.",
+                    sourceTitle: "Coroutine basics",
+                    sourceUrl: "https://kotlinlang.org/docs/coroutines-basics.html"
+                }
+            ],
             tags: ["suspend", "blocking", "coroutines", "concurrency"],
             hasDiagram: false,
             diagramType: null,
@@ -1178,6 +1187,15 @@ const kotlinData = {
             question: "What are Coroutines in Kotlin?",
             answer: "<p><strong>🔑 Lightweight concurrency via suspendable computations</strong></p><ul><li><strong>Coroutines</strong> are Kotlin's concurrency primitive — units of work that can <strong>suspend</strong> execution at defined points and resume later, without blocking the underlying OS thread.</li><li><strong>Lightweight</strong> — thousands of coroutines can run on a small pool of threads because a suspended coroutine releases its thread instead of holding it, unlike a blocked thread.</li><li><strong>suspend functions</strong> mark where suspension can occur; they compile (via the Kotlin compiler's continuation-passing transform) into state machines that can pause and resume.</li><li><strong>Coroutine builders</strong> — <code>launch</code> (fire-and-forget, returns <code>Job</code>), <code>async</code> (returns a <code>Deferred&lt;T&gt;</code> result), and <code>runBlocking</code> (bridges blocking code) all start new coroutines within a <code>CoroutineScope</code>.</li><li><strong>Library</strong> — provided by <code>kotlinx.coroutines</code>, not the language core, though <code>suspend</code> itself is a language keyword.</li></ul>",
             referenceLinks: [{ title: "Kotlin Coroutines overview", url: "https://kotlinlang.org/docs/coroutines-overview.html" }, { title: "Android: Coroutines on Android", url: "https://developer.android.com/kotlin/coroutines" }],
+            images: [
+                {
+                    src: "assets/img/coroutines-and-threads.svg",
+                    alt: "Six small boxes labelled Coroutine, each about ten kilobytes of heap memory, with lines running down into two much larger boxes labelled Thread, each with about two megabytes of allocated memory",
+                    caption: "Many coroutines, few threads. The size difference in the boxes is the size difference in memory — roughly 10&nbsp;KB against 2&nbsp;MB.",
+                    sourceTitle: "Coroutine basics",
+                    sourceUrl: "https://kotlinlang.org/docs/coroutines-basics.html"
+                }
+            ],
             tags: ["coroutines", "suspend", "concurrency", "kotlinx-coroutines"],
             hasDiagram: false,
             diagramType: null,
