@@ -11,13 +11,14 @@
     position: relative;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 9px 12px;
-    font-size: 13.5px;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    min-height: 44px;
+    font-size: var(--text-small);
     font-weight: 500;
     color: var(--text-secondary);
     text-decoration: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-row);
     cursor: pointer;
     transition: background var(--transition-fast), color var(--transition-fast);
 }
@@ -45,11 +46,54 @@
     border-radius: 0 3px 3px 0;
 }
 
-.nav-icon {
+/* --------------------------------------------------------------------------
+   Category tiles
+
+   One shape, one size, ten hues. The hue is the category — it tints the tile,
+   the heading and the progress bar of the same track — so it is set once, on a
+   data attribute, rather than passed down as a colour.
+   -------------------------------------------------------------------------- */
+
+.cat-tile {
     flex: 0 0 auto;
-    font-size: 15px;
-    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    font-weight: 500;
+    letter-spacing: 0;
+    border-radius: 8px;
+    background: var(--hue-slate-bg);
+    color: var(--hue-slate-ink);
+    user-select: none;
 }
+
+[data-hue="violet"]  .cat-tile { background: var(--hue-violet-bg);  color: var(--hue-violet-ink); }
+[data-hue="sky"]     .cat-tile { background: var(--hue-sky-bg);     color: var(--hue-sky-ink); }
+[data-hue="teal"]    .cat-tile { background: var(--hue-teal-bg);    color: var(--hue-teal-ink); }
+[data-hue="lime"]    .cat-tile { background: var(--hue-lime-bg);    color: var(--hue-lime-ink); }
+[data-hue="pink"]    .cat-tile { background: var(--hue-pink-bg);    color: var(--hue-pink-ink); }
+[data-hue="amber"]   .cat-tile { background: var(--hue-amber-bg);   color: var(--hue-amber-ink); }
+[data-hue="indigo"]  .cat-tile { background: var(--hue-indigo-bg);  color: var(--hue-indigo-ink); }
+[data-hue="rose"]    .cat-tile { background: var(--hue-rose-bg);    color: var(--hue-rose-ink); }
+[data-hue="fuchsia"] .cat-tile { background: var(--hue-fuchsia-bg); color: var(--hue-fuchsia-ink); }
+[data-hue="slate"]   .cat-tile { background: var(--hue-slate-bg);   color: var(--hue-slate-ink); }
+
+/* The active row is marked in its own hue rather than in the accent, so the
+   sidebar reads as a set of tracks rather than a list with one violet item. */
+[data-hue="violet"].nav-item.active::before  { background: var(--hue-violet-ink); }
+[data-hue="sky"].nav-item.active::before     { background: var(--hue-sky-ink); }
+[data-hue="teal"].nav-item.active::before    { background: var(--hue-teal-ink); }
+[data-hue="lime"].nav-item.active::before    { background: var(--hue-lime-ink); }
+[data-hue="pink"].nav-item.active::before    { background: var(--hue-pink-ink); }
+[data-hue="amber"].nav-item.active::before   { background: var(--hue-amber-ink); }
+[data-hue="indigo"].nav-item.active::before  { background: var(--hue-indigo-ink); }
+[data-hue="rose"].nav-item.active::before    { background: var(--hue-rose-ink); }
+[data-hue="fuchsia"].nav-item.active::before { background: var(--hue-fuchsia-ink); }
+[data-hue="slate"].nav-item.active::before   { background: var(--hue-slate-ink); }
 
 .nav-label {
     flex: 1 1 auto;
@@ -61,7 +105,7 @@
 .nav-count {
     flex: 0 0 auto;
     font-family: var(--font-mono);
-    font-size: 10.5px;
+    font-size: var(--text-micro);
     color: var(--text-muted);
 }
 
@@ -104,13 +148,38 @@
 }
 
 .nav-subsection {
-    padding: 6px 10px;
-    font-size: 12.5px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 7px 10px;
+    font-size: var(--text-small);
     color: var(--text-muted);
     text-decoration: none;
-    border-radius: 6px;
+    border-radius: var(--radius-input);
     cursor: pointer;
-    transition: background var(--transition-fast), color var(--transition-fast);
+    transition: background var(--transition-hover), color var(--transition-hover);
+}
+
+.nav-subsection-label {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Monospaced and tabular so the counts form a column instead of a ragged
+   edge — the whole reason the sidebar can be scanned for a number at all. */
+.nav-subsection-count {
+    flex: 0 0 auto;
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    color: var(--text-muted);
+    opacity: 0.75;
+}
+
+.nav-subsection-count.is-complete {
+    color: var(--success-color);
+    opacity: 1;
 }
 
 .nav-subsection:hover {
@@ -254,8 +323,12 @@
 }
 
 .subsection-title {
-    font-size: 20px;
-    font-weight: 650;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-family: var(--font-display);
+    font-size: var(--text-h2);
+    font-weight: 600;
     letter-spacing: -0.02em;
     color: var(--text-primary);
     white-space: nowrap;

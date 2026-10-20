@@ -5,14 +5,61 @@
    `#topic-id` or `#topic-id/subsection-id`.
    ========================================================================== */
 
-const topicIcons = {
-    'kotlin-coroutines': '⚡', 'kotlin-flow-api': '🌊', 'kotlin': '🟣',
-    'android': '🤖', 'android-libraries': '📚', 'android-architecture': '🏗️',
-    'design-pattern': '🎨', 'android-system-design': '📐',
-    'android-unit-testing': '🧪', 'android-tools-technologies': '🔧',
-    'jetpack-compose': '🧩', 'java': '☕', 'other-topics': '📋',
-    'data-structures-algorithms': '🔢'
+/* Category marks.
+
+   Emoji rendered differently on every operating system, carried no meaning
+   relationship to each other, and could not be tinted, printed or shrunk. They
+   are replaced by monogram tiles: two letters, one shape, one hue.
+
+   Hue is the load-bearing part. There are nine of them and no tenth may be
+   introduced, so the fourteen question topics share by kinship rather than by
+   exhaustion — a topic takes the hue of the theory track its subject belongs
+   to. Java sits with Kotlin because both are Language Foundations; Design
+   Pattern sits with Architecture because that is where its theory module lives.
+   The monogram, not the hue, is what tells a shared pair apart. */
+const topicMarks = {
+    'kotlin-coroutines':          { monogram: 'Co', hue: 'sky' },
+    'kotlin-flow-api':            { monogram: 'Fl', hue: 'teal' },
+    'kotlin':                     { monogram: 'Kt', hue: 'violet' },
+    'android':                    { monogram: 'An', hue: 'lime' },
+    'android-libraries':          { monogram: 'Lb', hue: 'amber' },
+    'android-architecture':       { monogram: 'Ar', hue: 'indigo' },
+    'design-pattern':             { monogram: 'Dp', hue: 'indigo' },
+    'android-system-design':      { monogram: 'Sd', hue: 'fuchsia' },
+    'android-unit-testing':       { monogram: 'Ut', hue: 'rose' },
+    'android-tools-technologies': { monogram: 'Tt', hue: 'rose' },
+    'jetpack-compose':            { monogram: 'Jc', hue: 'pink' },
+    'java':                       { monogram: 'Jv', hue: 'violet' },
+    'other-topics':               { monogram: 'Ot', hue: 'slate' },
+    'data-structures-algorithms': { monogram: 'Ds', hue: 'fuchsia' }
 };
+
+/* The theory tracks are the set the design system names directly. */
+const trackMarks = {
+    language:     { monogram: 'Kt', hue: 'violet' },
+    async:        { monogram: 'Co', hue: 'sky' },
+    platform:     { monogram: 'An', hue: 'lime' },
+    ui:           { monogram: 'UI', hue: 'pink' },
+    data:         { monogram: 'Da', hue: 'amber' },
+    architecture: { monogram: 'Ar', hue: 'indigo' },
+    quality:      { monogram: 'Te', hue: 'rose' },
+    synthesis:    { monogram: 'Sy', hue: 'fuchsia' }
+};
+
+const GLOSSARY_MARK = { monogram: 'Gl', hue: 'slate' };
+
+/** 28px, radius 8, monogram in mono 11/500, fill at ~14% alpha of the hue.
+    Hidden from assistive tech: the label beside it already names the thing. */
+function markTile(mark) {
+    const { monogram, hue } = mark || GLOSSARY_MARK;
+    return `<span class="cat-tile" data-hue="${hue}" aria-hidden="true">${monogram}</span>`;
+}
+
+/** The hue a topic paints with, for anything outside the tile itself — the
+    track heading, the progress bar, the count that follows it. */
+function topicHue(topicId) {
+    return (topicMarks[topicId] || GLOSSARY_MARK).hue;
+}
 
 const CHEVRON_SVG =
     '<svg class="nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" ' +
@@ -94,15 +141,15 @@ function questionsInTiers(questions, keys) {
 
 function buildQuestionNav(nav) {
     sidebarTopics.forEach((topic) => {
-        const icon = topicIcons[topic.id] || '📄';
+        const mark = topicMarks[topic.id];
         // The count follows the filter, so the sidebar answers "how much is
         // left to revise" rather than "how much exists".
         const count = questionsInTiers(topic.questions || [], questionTiers).length;
 
         if (topic.subsections && topic.subsections.length) {
-            nav.appendChild(buildTopicGroup(topic, icon, count));
+            nav.appendChild(buildTopicGroup(topic, mark, count));
         } else {
-            nav.appendChild(buildTopicLink(topic, icon, count));
+            nav.appendChild(buildTopicLink(topic, mark, count));
         }
     });
 }
@@ -128,8 +175,9 @@ function buildTheoryNav(nav) {
     glossary.className = 'nav-item';
     glossary.href = generateTheoryHash(GLOSSARY_ROUTE);
     glossary.dataset.moduleId = GLOSSARY_ROUTE;
+    glossary.dataset.hue = GLOSSARY_MARK.hue;
     glossary.innerHTML =
-        '<span class="nav-icon">📖</span>' +
+        markTile(GLOSSARY_MARK) +
         '<span class="nav-label">Glossary</span>' +
         `<span class="nav-count">${collectGlossaryEntries().length}</span>`;
     glossary.addEventListener('click', closeMobileMenu);
@@ -146,8 +194,9 @@ function buildTrackGroup(track, modules) {
     parent.className = 'nav-item nav-item-parent';
     parent.dataset.trackId = track.id;
     parent.setAttribute('aria-expanded', 'false');
+    parent.dataset.hue = (trackMarks[track.id] || GLOSSARY_MARK).hue;
     parent.innerHTML =
-        `<span class="nav-icon">${track.icon}</span>` +
+        markTile(trackMarks[track.id]) +
         `<span class="nav-label">${escapeAttr(track.title)}</span>` +
         `<span class="nav-count">${modules.length}</span>` +
         CHEVRON_SVG;
@@ -207,20 +256,21 @@ function setActiveTheory(moduleId) {
     });
 }
 
-function buildTopicLink(topic, icon, count) {
+function buildTopicLink(topic, mark, count) {
     const link = document.createElement('a');
     link.className = 'nav-item';
     link.href = generateHash(topic.id);
     link.dataset.topicId = topic.id;
+    link.dataset.hue = topicHue(topic.id);
     link.innerHTML =
-        `<span class="nav-icon">${icon}</span>` +
+        markTile(mark) +
         `<span class="nav-label">${escapeAttr(topic.title)}</span>` +
         `<span class="nav-count">${count}</span>`;
     link.addEventListener('click', closeMobileMenu);
     return link;
 }
 
-function buildTopicGroup(topic, icon, count) {
+function buildTopicGroup(topic, mark, count) {
     const group = document.createElement('div');
     group.className = 'nav-item-group';
     group.dataset.topicId = topic.id;
@@ -229,9 +279,10 @@ function buildTopicGroup(topic, icon, count) {
     parent.type = 'button';
     parent.className = 'nav-item nav-item-parent';
     parent.dataset.topicId = topic.id;
+    parent.dataset.hue = topicHue(topic.id);
     parent.setAttribute('aria-expanded', 'false');
     parent.innerHTML =
-        `<span class="nav-icon">${icon}</span>` +
+        markTile(mark) +
         `<span class="nav-label">${escapeAttr(topic.title)}</span>` +
         `<span class="nav-count">${count}</span>` +
         CHEVRON_SVG;
@@ -256,7 +307,24 @@ function buildTopicGroup(topic, icon, count) {
         link.href = generateHash(topic.id, sub.id);
         link.dataset.topicId = topic.id;
         link.dataset.subsectionId = sub.id;
-        link.textContent = sub.title;
+
+        const label = document.createElement('span');
+        label.className = 'nav-subsection-label';
+        label.textContent = sub.title;
+
+        // Sub-items carried nothing at all before this. "Where was I?" is the
+        // single most common question a reader returns with, and until now the
+        // sidebar had no answer to it.
+        const progress = subsectionProgress(topic, sub.id);
+        const count = document.createElement('span');
+        count.className = 'nav-subsection-count';
+        count.textContent = `${progress.done}/${progress.total}`;
+        if (progress.total && progress.done === progress.total) {
+            count.classList.add('is-complete');
+        }
+
+        link.appendChild(label);
+        link.appendChild(count);
         link.addEventListener('click', closeMobileMenu);
         list.appendChild(link);
     });

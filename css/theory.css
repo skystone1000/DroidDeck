@@ -842,10 +842,23 @@
 
 .theory-progress-fill {
     height: 100%;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: var(--accent-color);
-    transition: width var(--transition-base);
+    transition: width var(--transition-panel);
 }
+
+/* The bar belongs to its track, so it takes the track's hue rather than the
+   one accent every bar on the page would otherwise share. */
+[data-hue="violet"]  .theory-progress-fill { background: var(--hue-violet-ink); }
+[data-hue="sky"]     .theory-progress-fill { background: var(--hue-sky-ink); }
+[data-hue="teal"]    .theory-progress-fill { background: var(--hue-teal-ink); }
+[data-hue="lime"]    .theory-progress-fill { background: var(--hue-lime-ink); }
+[data-hue="pink"]    .theory-progress-fill { background: var(--hue-pink-ink); }
+[data-hue="amber"]   .theory-progress-fill { background: var(--hue-amber-ink); }
+[data-hue="indigo"]  .theory-progress-fill { background: var(--hue-indigo-ink); }
+[data-hue="rose"]    .theory-progress-fill { background: var(--hue-rose-ink); }
+[data-hue="fuchsia"] .theory-progress-fill { background: var(--hue-fuchsia-ink); }
+[data-hue="slate"]   .theory-progress-fill { background: var(--hue-slate-ink); }
 
 .theory-progress-label {
     flex: none;

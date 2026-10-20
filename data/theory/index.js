@@ -12,14 +12,14 @@
    ========================================================================== */
 
 const theoryTracks = [
-    { id: 'language',     title: 'Language Foundations',            icon: '🟣', order: 1 },
-    { id: 'async',        title: 'Asynchrony & State',              icon: '⚡', order: 2 },
-    { id: 'platform',     title: 'The Android Platform',            icon: '🤖', order: 3 },
-    { id: 'ui',           title: 'Building UI',                     icon: '🎨', order: 4 },
-    { id: 'data',         title: 'Data & Background Work',          icon: '💾', order: 5 },
-    { id: 'architecture', title: 'Architecture & Design',           icon: '🏗️', order: 6 },
-    { id: 'quality',      title: 'Testing, Performance & Tooling',  icon: '🧪', order: 7 },
-    { id: 'synthesis',    title: 'Interview Synthesis',             icon: '🎯', order: 8 }
+    { id: 'language',     title: 'Language Foundations',           order: 1 },
+    { id: 'async',        title: 'Asynchrony & State',             order: 2 },
+    { id: 'platform',     title: 'The Android Platform',           order: 3 },
+    { id: 'ui',           title: 'Building UI',                    order: 4 },
+    { id: 'data',         title: 'Data & Background Work',         order: 5 },
+    { id: 'architecture', title: 'Architecture & Design',          order: 6 },
+    { id: 'quality',      title: 'Testing, Performance & Tooling', order: 7 },
+    { id: 'synthesis',    title: 'Interview Synthesis',            order: 8 }
 ];
 
 /* Ordered by the reading path. Appended to as each module is authored. */
