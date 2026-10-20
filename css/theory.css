@@ -14,9 +14,9 @@
     gap: 4px;
     padding: 4px;
     margin: 0 0 14px;
-    background: var(--bg-input);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
+    background: var(--ds-raised);
+    border: 1px solid var(--ds-border-subtle);
+    border-radius: var(--radius-input);
 }
 
 .mode-switch-option {
@@ -25,34 +25,34 @@
     font-family: inherit;
     font-size: 12.5px;
     font-weight: 600;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
     background: transparent;
     border: none;
     border-radius: 6px;
     cursor: pointer;
-    transition: background var(--transition-fast), color var(--transition-fast);
+    transition: background var(--transition-hover), color var(--transition-hover);
 }
 
 .mode-switch-option:hover {
-    color: var(--text-primary);
+    color: var(--ds-text);
 }
 
 .mode-switch-option.active {
-    color: var(--accent-hover);
-    background: var(--accent-light);
+    color: var(--accent-strong);
+    background: var(--accent-tint);
 }
 
 /* A track with no modules yet still shows its row, so the shape of the
    curriculum is visible before it is written. */
 .nav-subsection-empty {
-    color: var(--text-muted);
+    color: var(--ds-faint);
     font-style: italic;
     cursor: default;
 }
 
 .nav-subsection-empty:hover {
     background: transparent;
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 /* --------------------------------------------------------------------------
@@ -64,7 +64,7 @@
     margin: 10px 0 0;
     font-size: 14.5px;
     line-height: 1.65;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 .theory-track {
@@ -74,10 +74,10 @@
 .theory-empty {
     padding: 18px;
     font-size: 13.5px;
-    color: var(--text-muted);
-    background: var(--bg-glass);
-    border: 1px dashed var(--border-color);
-    border-radius: var(--radius-md);
+    color: var(--ds-faint);
+    background: var(--ds-glass);
+    border: 1px dashed var(--ds-border);
+    border-radius: var(--radius-row);
 }
 
 .theory-module-grid {
@@ -92,15 +92,15 @@
     gap: 8px;
     padding: 16px 18px;
     text-decoration: none;
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
+    background: var(--ds-surface);
+    border: 1px solid var(--ds-border);
     border-radius: var(--radius-card);
     transition: border-color var(--transition-hover),
                 box-shadow var(--transition-hover);
 }
 
 .theory-module-card:hover {
-    border-color: var(--accent-color);
+    border-color: var(--accent);
     box-shadow: var(--shadow-sm);
 }
 
@@ -121,21 +121,21 @@
     font-family: var(--font-mono);
     font-size: 12px;
     font-weight: 600;
-    color: var(--accent-color);
+    color: var(--accent);
 }
 
 .theory-module-title {
     margin: 0;
     font-size: 15px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--ds-text);
 }
 
 .theory-module-tagline {
     margin: 0;
     font-size: 13px;
     line-height: 1.55;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 .theory-module-tagline-large {
@@ -152,20 +152,20 @@
     margin-top: auto;
     padding-top: var(--space-2);
     font-size: var(--text-small);
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 /* Position leads, duration follows. "5 chapters · 30 min" was inventory; what a
    reader coming back wants is how far in they are. */
 .theory-module-meta .topic-stat.is-progress {
-    color: var(--text-primary);
+    color: var(--ds-text);
     font-weight: 600;
 }
 
 .theory-module-bar {
     height: 4px;
     margin-top: var(--space-3);
-    background: var(--bg-hover);
+    background: var(--ds-hover);
     border-radius: var(--radius-pill);
     overflow: hidden;
 }
@@ -175,7 +175,7 @@
     height: 100%;
     width: 0;
     border-radius: inherit;
-    background: var(--accent-color);
+    background: var(--accent);
     transition: width var(--transition-panel);
 }
 
@@ -197,7 +197,7 @@
     font-size: var(--text-micro);
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--accent-hover);
+    color: var(--accent-strong);
 }
 
 .theory-doc-kind {
@@ -206,8 +206,8 @@
     padding: 1px 6px;
     font-family: var(--font-mono);
     font-size: var(--text-micro);
-    color: var(--text-muted);
-    background: var(--bg-hover);
+    color: var(--ds-faint);
+    background: var(--ds-hover);
     border-radius: var(--radius-input);
 }
 
@@ -220,12 +220,12 @@
     margin-bottom: 10px;
     font-size: 12.5px;
     font-weight: 600;
-    color: var(--text-muted);
+    color: var(--ds-faint);
     text-decoration: none;
 }
 
 .theory-breadcrumb:hover {
-    color: var(--accent-hover);
+    color: var(--accent-strong);
 }
 
 .theory-prerequisites,
@@ -245,39 +245,39 @@
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 .theory-prerequisite {
     padding: 5px 11px;
     font-size: 12.5px;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
     text-decoration: none;
-    background: var(--bg-glass);
-    border: 1px solid var(--border-color);
+    background: var(--ds-glass);
+    border: 1px solid var(--ds-border);
     border-radius: 999px;
-    transition: color var(--transition-fast), border-color var(--transition-fast);
+    transition: color var(--transition-hover), border-color var(--transition-hover);
 }
 
 .theory-prerequisite:hover {
-    color: var(--accent-hover);
-    border-color: var(--accent-color);
+    color: var(--accent-strong);
+    border-color: var(--accent);
 }
 
 .theory-dochub-link {
     padding: 8px 14px;
     font-size: 13px;
     font-weight: 600;
-    color: var(--accent-hover);
+    color: var(--accent-strong);
     text-decoration: none;
-    background: var(--accent-light);
-    border: 1px solid var(--accent-color);
-    border-radius: var(--radius-sm);
-    transition: background var(--transition-fast);
+    background: var(--accent-tint);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-input);
+    transition: background var(--transition-hover);
 }
 
 .theory-dochub-link:hover {
-    background: var(--bg-card-hover);
+    background: var(--ds-raised);
 }
 
 .theory-control {
@@ -285,23 +285,23 @@
     font-family: inherit;
     font-size: 12.5px;
     font-weight: 600;
-    color: var(--text-secondary);
-    background: var(--bg-input);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
+    color: var(--ds-muted);
+    background: var(--ds-raised);
+    border: 1px solid var(--ds-border);
+    border-radius: var(--radius-input);
     cursor: pointer;
-    transition: color var(--transition-fast), border-color var(--transition-fast);
+    transition: color var(--transition-hover), border-color var(--transition-hover);
 }
 
 .theory-control:hover {
-    color: var(--text-primary);
-    border-color: var(--accent-color);
+    color: var(--ds-text);
+    border-color: var(--accent);
 }
 
 .theory-control.active {
-    color: var(--accent-hover);
-    background: var(--accent-light);
-    border-color: var(--accent-color);
+    color: var(--accent-strong);
+    background: var(--accent-tint);
+    border-color: var(--accent);
 }
 
 /* --------------------------------------------------------------------------
@@ -314,21 +314,21 @@
     gap: 6px;
     margin: 22px 0 8px;
     padding: 14px 16px;
-    background: var(--bg-key-topics);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
+    background: var(--accent-tint-soft);
+    border: 1px solid var(--ds-border-subtle);
+    border-radius: var(--radius-row);
 }
 
 .theory-rail-item {
     position: relative;
     padding: 5px 11px 5px 18px;
     font-size: 12.5px;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
     text-decoration: none;
-    background: var(--bg-glass);
-    border: 1px solid var(--border-color);
+    background: var(--ds-glass);
+    border: 1px solid var(--ds-border);
     border-radius: 999px;
-    transition: color var(--transition-fast), border-color var(--transition-fast);
+    transition: color var(--transition-hover), border-color var(--transition-hover);
 }
 
 .theory-rail-item::before {
@@ -340,15 +340,15 @@
     height: 5px;
     border-radius: 50%;
     transform: translateY(-50%);
-    background: var(--importance-good);
+    background: var(--tier-good-dot);
 }
 
-.theory-rail-item.importance-must::before   { background: var(--importance-must); }
-.theory-rail-item.importance-should::before { background: var(--importance-should); }
+.theory-rail-item.importance-must::before   { background: var(--tier-must-dot); }
+.theory-rail-item.importance-should::before { background: var(--tier-should-dot); }
 
 .theory-rail-item:hover {
-    color: var(--accent-hover);
-    border-color: var(--accent-color);
+    color: var(--accent-strong);
+    border-color: var(--accent);
 }
 
 /* --------------------------------------------------------------------------
@@ -357,15 +357,15 @@
 
 .theory-chapter {
     margin-bottom: 18px;
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-left: 3px solid var(--importance-good);
-    border-radius: var(--radius-md);
+    background: var(--ds-surface);
+    border: 1px solid var(--ds-border);
+    border-left: 3px solid var(--tier-good-dot);
+    border-radius: var(--radius-row);
     scroll-margin-top: 90px;
 }
 
-.theory-chapter.importance-must   { border-left-color: var(--importance-must); }
-.theory-chapter.importance-should { border-left-color: var(--importance-should); }
+.theory-chapter.importance-must   { border-left-color: var(--tier-must-dot); }
+.theory-chapter.importance-should { border-left-color: var(--tier-should-dot); }
 
 .theory-chapter-header {
     display: flex;
@@ -376,9 +376,9 @@
 }
 
 .theory-chapter-header:focus-visible {
-    outline: 2px solid var(--accent-color);
+    outline: 2px solid var(--accent);
     outline-offset: -2px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-row);
 }
 
 .theory-chapter-number {
@@ -390,8 +390,8 @@
     font-family: var(--font-mono);
     font-size: 12px;
     font-weight: 600;
-    color: var(--accent-hover);
-    background: var(--accent-light);
+    color: var(--accent-strong);
+    background: var(--accent-tint);
     border-radius: 8px;
 }
 
@@ -405,14 +405,14 @@
     font-size: 17px;
     font-weight: 600;
     line-height: 1.35;
-    color: var(--text-primary);
+    color: var(--ds-text);
 }
 
 .theory-chapter-summary {
     margin: 5px 0 0;
     font-size: 13.5px;
     line-height: 1.55;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 /* The same soft chip the question rows carry, for the same reason: a must-know
@@ -502,9 +502,9 @@
     padding: 10px 14px;
     font-size: 13.5px;
     line-height: 1.6;
-    color: var(--text-secondary);
-    background: var(--bg-glass);
-    border-radius: var(--radius-sm);
+    color: var(--ds-muted);
+    background: var(--ds-glass);
+    border-radius: var(--radius-input);
 }
 
 .theory-angle-label {
@@ -512,7 +512,7 @@
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--accent-hover);
+    color: var(--accent-strong);
 }
 
 .theory-block-title {
@@ -521,20 +521,20 @@
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 .theory-prose {
     font-size: 14.5px;
     line-height: 1.75;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 .theory-prose p { margin: 0 0 12px; }
 .theory-prose ul,
 .theory-prose ol { margin: 0 0 12px; padding-left: 22px; }
 .theory-prose li { margin-bottom: 6px; }
-.theory-prose strong { color: var(--text-primary); font-weight: 600; }
+.theory-prose strong { color: var(--ds-text); font-weight: 600; }
 .theory-prose code,
 .theory-definition code,
 .theory-types code,
@@ -543,28 +543,28 @@
     padding: 1px 5px;
     font-family: var(--font-mono);
     font-size: 0.88em;
-    color: var(--text-code);
-    background: var(--bg-code-inline);
+    color: var(--ds-text);
+    background: var(--accent-tint);
     border-radius: 4px;
 }
 
 .theory-prose a,
 .theory-callout a,
 .theory-definition a {
-    color: var(--accent-hover);
+    color: var(--accent-strong);
 }
 
 /* Definition */
 .theory-definition {
     margin: 16px 0;
     padding: 14px 16px;
-    background: var(--bg-glass);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
+    background: var(--ds-glass);
+    border: 1px solid var(--ds-border);
+    border-radius: var(--radius-row);
 }
 
 .theory-definition.is-important {
-    border-color: var(--accent-color);
+    border-color: var(--accent);
     box-shadow: var(--shadow-glow);
 }
 
@@ -577,20 +577,20 @@
     font-family: var(--font-mono);
     font-size: 14px;
     font-weight: 600;
-    color: var(--accent-hover);
+    color: var(--accent-strong);
 }
 
 .theory-definition-aka {
     font-family: var(--font-sans);
     font-size: 11.5px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 .theory-definition-body {
     font-size: 14px;
     line-height: 1.7;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 .theory-definition-body p:last-child { margin-bottom: 0; }
@@ -604,28 +604,28 @@
 .theory-types-item {
     margin-bottom: 14px;
     padding-left: 8px;
-    border-left: 2px solid var(--border-color);
+    border-left: 2px solid var(--ds-border);
 }
 
 .theory-types-name {
     font-family: var(--font-mono);
     font-size: 13.5px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--ds-text);
 }
 
 .theory-types-body {
     margin-top: 4px;
     font-size: 13.5px;
     line-height: 1.65;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 .theory-types-when {
     margin-top: 5px;
     font-size: 12.5px;
     font-style: italic;
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 /* Syntax */
@@ -635,7 +635,7 @@
     margin-top: 8px;
     font-size: 13px;
     line-height: 1.65;
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 /* Tables */
@@ -655,24 +655,24 @@
     padding: 9px 12px;
     text-align: left;
     vertical-align: top;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--ds-border);
 }
 
 .theory-table thead th {
     font-weight: 600;
-    color: var(--text-primary);
-    background: var(--bg-key-topics);
+    color: var(--ds-text);
+    background: var(--accent-tint-soft);
 }
 
 .theory-table td {
-    color: var(--text-secondary);
+    color: var(--ds-muted);
     line-height: 1.6;
 }
 
 .theory-comparison-aspect {
     font-weight: 600;
-    color: var(--text-primary);
-    background: var(--bg-glass);
+    color: var(--ds-text);
+    background: var(--ds-glass);
     white-space: nowrap;
 }
 
@@ -680,13 +680,13 @@
 .theory-callout {
     margin: 16px 0;
     padding: 12px 16px;
-    border-radius: var(--radius-sm);
-    border-left: 3px solid var(--accent-color);
-    background: var(--bg-glass);
+    border-radius: var(--radius-input);
+    border-left: 3px solid var(--accent);
+    background: var(--ds-glass);
 }
 
 .theory-callout-pitfall { border-left-color: var(--warning-color); }
-.theory-callout-tip     { border-left-color: var(--accent-color); }
+.theory-callout-tip     { border-left-color: var(--accent); }
 
 .theory-callout-label {
     margin-bottom: 5px;
@@ -694,16 +694,16 @@
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 .theory-callout-pitfall .theory-callout-label { color: var(--warning-color); }
-.theory-callout-tip .theory-callout-label     { color: var(--accent-hover); }
+.theory-callout-tip .theory-callout-label     { color: var(--accent-strong); }
 
 .theory-callout-body {
     font-size: 13.5px;
     line-height: 1.7;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 .theory-callout-body p:last-child { margin-bottom: 0; }
@@ -714,14 +714,14 @@
 .theory-drill {
     margin: 18px 0;
     padding: 14px 16px;
-    background: var(--bg-glass);
-    border: 1px solid var(--border-color);
-    border-left: 3px solid var(--importance-good);
-    border-radius: var(--radius-md);
+    background: var(--ds-glass);
+    border: 1px solid var(--ds-border);
+    border-left: 3px solid var(--tier-good-dot);
+    border-radius: var(--radius-row);
 }
 
-.theory-drill.tier-1 { border-left-color: var(--importance-must); }
-.theory-drill.tier-2 { border-left-color: var(--importance-should); }
+.theory-drill.tier-1 { border-left-color: var(--tier-must-dot); }
+.theory-drill.tier-2 { border-left-color: var(--tier-should-dot); }
 
 .theory-drill-head {
     display: flex;
@@ -737,32 +737,32 @@
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: var(--importance-good);
+    color: var(--tier-good-dot);
     border: 1px solid currentColor;
     border-radius: 999px;
 }
 
-.theory-drill.tier-1 .theory-drill-tier { color: var(--importance-must); }
-.theory-drill.tier-2 .theory-drill-tier { color: var(--importance-should); }
+.theory-drill.tier-1 .theory-drill-tier { color: var(--tier-must-dot); }
+.theory-drill.tier-2 .theory-drill-tier { color: var(--tier-should-dot); }
 
 .theory-drill-title {
     flex: 1;
     font-size: 14.5px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--ds-text);
 }
 
 .theory-drill-clock {
     font-family: var(--font-mono);
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--ds-faint);
     white-space: nowrap;
 }
 
 .theory-drill-prompt {
     font-size: 13.5px;
     line-height: 1.7;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 .theory-drill-prompt p:last-child { margin-bottom: 0; }
@@ -770,7 +770,7 @@
 .theory-drill-watch {
     margin-top: 12px;
     padding-top: 10px;
-    border-top: 1px solid var(--border-subtle);
+    border-top: 1px solid var(--ds-border-subtle);
 }
 
 .theory-drill-watch-label {
@@ -787,15 +787,15 @@
     padding-left: 18px;
     font-size: 13px;
     line-height: 1.65;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 .theory-drill code {
     padding: 1px 5px;
     font-family: var(--font-mono);
     font-size: 0.88em;
-    color: var(--text-code);
-    background: var(--bg-code-inline);
+    color: var(--ds-text);
+    background: var(--accent-tint);
     border-radius: 4px;
 }
 
@@ -813,25 +813,25 @@
     gap: 8px;
     margin-top: 18px;
     padding-top: 14px;
-    border-top: 1px solid var(--border-subtle);
+    border-top: 1px solid var(--ds-border-subtle);
 }
 
 .theory-doc-link,
 .theory-related-link {
     padding: 5px 11px;
     font-size: 12.5px;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
     text-decoration: none;
-    background: var(--bg-glass);
-    border: 1px solid var(--border-color);
+    background: var(--ds-glass);
+    border: 1px solid var(--ds-border);
     border-radius: 999px;
-    transition: color var(--transition-fast), border-color var(--transition-fast);
+    transition: color var(--transition-hover), border-color var(--transition-hover);
 }
 
 .theory-doc-link:hover,
 .theory-related-link:hover {
-    color: var(--accent-hover);
-    border-color: var(--accent-color);
+    color: var(--accent-strong);
+    border-color: var(--accent);
 }
 
 .theory-doc-link.doc-kind-api {
@@ -891,15 +891,15 @@
     margin-top: 10px;
     font-size: 11.5px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--ds-faint);
     text-decoration: none;
-    border-bottom: 1px dashed var(--border-color);
-    transition: color var(--transition-fast), border-color var(--transition-fast);
+    border-bottom: 1px dashed var(--ds-border);
+    transition: color var(--transition-hover), border-color var(--transition-hover);
 }
 
 .theory-glossary-source:hover {
-    color: var(--accent-hover);
-    border-bottom-color: var(--accent-hover);
+    color: var(--accent-strong);
+    border-bottom-color: var(--accent-strong);
 }
 
 /* --------------------------------------------------------------------------
@@ -924,14 +924,14 @@
     flex: 1;
     height: 5px;
     border-radius: 999px;
-    background: var(--bg-hover);
+    background: var(--ds-hover);
     overflow: hidden;
 }
 
 .theory-progress-fill {
     height: 100%;
     border-radius: var(--radius-pill);
-    background: var(--accent-color);
+    background: var(--accent);
     transition: width var(--transition-panel);
 }
 
@@ -952,7 +952,7 @@
     flex: none;
     font-size: 11.5px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--ds-faint);
     white-space: nowrap;
 }
 
@@ -965,17 +965,17 @@
 }
 
 .theory-module-card.is-read .theory-module-title {
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 /* The cross-track dependency a track-ordered page cannot show. */
 .theory-card-prereqs {
     margin-top: 10px;
     padding-top: 9px;
-    border-top: 1px dashed var(--border-color);
+    border-top: 1px dashed var(--ds-border);
     font-size: 11.5px;
     line-height: 1.5;
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 
@@ -988,8 +988,8 @@
 
 .glossary-term {
     position: relative;
-    color: var(--accent-hover);
-    border-bottom: 1px dashed var(--accent-light);
+    color: var(--accent-strong);
+    border-bottom: 1px dashed var(--accent-tint);
     cursor: help;
 }
 
@@ -1009,8 +1009,8 @@
     max-width: 320px;
     padding: var(--space-3) var(--space-4);
     text-align: left;
-    background: var(--bg-card-hover);
-    border: 1px solid var(--border-color);
+    background: var(--ds-raised);
+    border: 1px solid var(--ds-border);
     border-radius: var(--radius-row);
     box-shadow: var(--shadow-lg);
 }
@@ -1025,14 +1025,14 @@
     margin-bottom: var(--space-2);
     font-family: var(--font-mono);
     font-size: var(--text-small);
-    color: var(--accent-hover);
+    color: var(--accent-strong);
 }
 
 .glossary-popover-body {
     display: block;
     font-size: var(--text-small);
     line-height: var(--leading-body);
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 .glossary-popover-body p {

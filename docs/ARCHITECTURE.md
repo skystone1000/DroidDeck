@@ -38,6 +38,33 @@ The forward references from `navigation.js` and `search.js` into `app.js` are
 safe because they are only ever called from event handlers, long after every
 script has been parsed.
 
+## Colour lives in exactly one file
+
+`css/themes.css` holds every colour, radius, duration and type step the app
+uses. Nothing else may write a literal — a grep for `#rrggbb` or `rgba(` across
+the other four stylesheets returns nothing, and that is a property worth keeping
+rather than an accident.
+
+The file has two layers, and the distinction matters when adding to it. The
+**design system primitives** are read verbatim off
+`docs/design/DroidDeck-Design-System.html`: surfaces, the violet ramp, the three
+priority tiers, the nine category hues, the 4pt scale, four semantic radii and
+two durations. The **semantic layer** below them names the meanings this
+codebase needs that a palette does not — shadows, the syntax colours, the
+diagram parts, success and warning — and every one of those resolves to a
+primitive rather than to a new colour. So the rule that no colour enters outside
+the system survives the fact that a code editor needs seven of them.
+
+Two exceptions are declared in the file rather than hidden in a rule.
+`--figure-plate` is white in both themes, because several vendored figures are
+transparent PNGs drawn for a white page and would otherwise become an outline of
+nothing on dark. And the accent has two working steps: 500 on dark, 600 on
+light, because 500 fails contrast against white at small sizes.
+
+Category hue is carried on a `data-hue` attribute rather than passed down as a
+colour, so one attribute on a sidebar row, a track section or a page header
+tints the tile, the heading, the progress bar and the count beneath it together.
+
 ## Two corpora, two modes
 
 The app holds two bodies of content with different shapes and different

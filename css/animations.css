@@ -15,7 +15,7 @@
 .question-card.revealed {
     opacity: 1;
     transform: translateY(0);
-    transition: opacity var(--transition-slow), transform var(--transition-slow);
+    transition: opacity var(--transition-panel), transform var(--transition-panel);
 }
 
 @keyframes cardReveal {
@@ -24,7 +24,7 @@
 }
 
 .question-card.reveal-fallback {
-    animation: cardReveal var(--transition-slow) forwards;
+    animation: cardReveal var(--transition-panel) forwards;
 }
 
 /* --------------------------------------------------------------------------
@@ -32,7 +32,7 @@
    -------------------------------------------------------------------------- */
 
 .topic-container {
-    transition: opacity var(--transition-fast);
+    transition: opacity var(--transition-hover);
 }
 
 .topic-container.topic-transitioning {
@@ -41,7 +41,7 @@
 
 .topic-header,
 .key-topics-section {
-    animation: fadeIn var(--transition-slow) both;
+    animation: fadeIn var(--transition-panel) both;
 }
 
 .key-topics-section {
@@ -107,7 +107,7 @@
 }
 
 .search-results:not([hidden]) {
-    animation: slideDown var(--transition-base) ease;
+    animation: slideDown var(--transition-panel) ease;
 }
 
 /* --------------------------------------------------------------------------
@@ -121,8 +121,8 @@ body,
 .code-block,
 .key-topics-section,
 .search-results {
-    transition: background-color var(--transition-base), color var(--transition-base),
-                border-color var(--transition-base);
+    transition: background-color var(--transition-panel), color var(--transition-panel),
+                border-color var(--transition-panel);
 }
 
 /* --------------------------------------------------------------------------
@@ -135,9 +135,9 @@ body,
 }
 
 .skeleton {
-    background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
+    background: linear-gradient(90deg, var(--ds-surface) 25%, var(--ds-hover) 50%, var(--ds-surface) 75%);
     background-size: 800px 100%;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input);
     animation: shimmer 1.4s linear infinite;
 }
 

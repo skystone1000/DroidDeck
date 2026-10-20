@@ -44,37 +44,37 @@
 }
 
 .btn-secondary {
-    color: var(--text-primary);
-    background: var(--bg-card-hover);
-    border-color: var(--border-color);
+    color: var(--ds-text);
+    background: var(--ds-raised);
+    border-color: var(--ds-border);
 }
 
 .btn-secondary:hover {
-    border-color: var(--accent-color);
+    border-color: var(--accent);
 }
 
 .btn-ghost {
-    color: var(--text-secondary);
+    color: var(--ds-muted);
     background: transparent;
 }
 
 .btn-ghost:hover {
-    color: var(--text-primary);
-    background: var(--bg-hover);
+    color: var(--ds-text);
+    background: var(--ds-hover);
 }
 
 .btn:disabled,
 .btn[aria-disabled="true"] {
-    color: var(--text-muted);
-    background: var(--bg-glass);
-    border-color: var(--border-subtle);
+    color: var(--ds-faint);
+    background: var(--ds-glass);
+    border-color: var(--ds-border-subtle);
     cursor: default;
 }
 
 .btn:disabled:hover,
 .btn[aria-disabled="true"]:hover {
-    background: var(--bg-glass);
-    border-color: var(--border-subtle);
+    background: var(--ds-glass);
+    border-color: var(--ds-border-subtle);
 }
 
 /* --------------------------------------------------------------------------
@@ -94,14 +94,14 @@
     font-family: var(--font-display);
     font-size: var(--text-h2);
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--ds-text);
 }
 
 .state-empty-body {
     margin-top: var(--space-3);
     font-size: var(--text-small);
     line-height: var(--leading-body);
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 .state-empty .btn {
@@ -113,8 +113,8 @@
 .skeleton-row {
     height: 72px;
     margin-bottom: var(--space-4);
-    background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
+    background: var(--ds-surface);
+    border: 1px solid var(--ds-border-subtle);
     border-radius: var(--radius-row);
     overflow: hidden;
     position: relative;
@@ -124,7 +124,7 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, transparent, var(--bg-hover), transparent);
+    background: linear-gradient(90deg, transparent, var(--ds-hover), transparent);
     transform: translateX(-100%);
     animation: skeletonSweep 1.2s ease-in-out infinite;
 }
@@ -150,21 +150,21 @@
     min-height: 44px;
     font-size: var(--text-small);
     font-weight: 500;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
     text-decoration: none;
     border-radius: var(--radius-row);
     cursor: pointer;
-    transition: background var(--transition-fast), color var(--transition-fast);
+    transition: background var(--transition-hover), color var(--transition-hover);
 }
 
 .nav-item:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+    background: var(--ds-hover);
+    color: var(--ds-text);
 }
 
 .nav-item.active {
-    background: var(--accent-light);
-    color: var(--accent-hover);
+    background: var(--accent-tint);
+    color: var(--accent-strong);
     font-weight: 600;
 }
 
@@ -176,7 +176,7 @@
     transform: translateY(-50%);
     width: 3px;
     height: 60%;
-    background: var(--accent-color);
+    background: var(--accent);
     border-radius: 0 3px 3px 0;
 }
 
@@ -240,7 +240,7 @@
     flex: 0 0 auto;
     font-family: var(--font-mono);
     font-size: var(--text-micro);
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 /* Expandable groups */
@@ -260,8 +260,8 @@
 
 .nav-chevron {
     flex: 0 0 auto;
-    transition: transform var(--transition-base);
-    color: var(--text-muted);
+    transition: transform var(--transition-panel);
+    color: var(--ds-faint);
 }
 
 .nav-item-group.expanded .nav-chevron {
@@ -274,7 +274,7 @@
     gap: 1px;
     margin: 2px 0 4px 22px;
     padding-left: 10px;
-    border-left: 1px solid var(--border-color);
+    border-left: 1px solid var(--ds-border);
 }
 
 .nav-item-group.expanded .nav-subsections {
@@ -287,7 +287,7 @@
     gap: var(--space-2);
     padding: 7px 10px;
     font-size: var(--text-small);
-    color: var(--text-muted);
+    color: var(--ds-faint);
     text-decoration: none;
     border-radius: var(--radius-input);
     cursor: pointer;
@@ -307,7 +307,7 @@
     flex: 0 0 auto;
     font-family: var(--font-mono);
     font-size: var(--text-micro);
-    color: var(--text-muted);
+    color: var(--ds-faint);
     opacity: 0.75;
 }
 
@@ -317,12 +317,12 @@
 }
 
 .nav-subsection:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+    background: var(--ds-hover);
+    color: var(--ds-text);
 }
 
 .nav-subsection.active {
-    color: var(--accent-hover);
+    color: var(--accent-strong);
     font-weight: 600;
 }
 
@@ -341,7 +341,7 @@
     font-weight: 600;
     letter-spacing: -0.02em;
     line-height: 1.2;
-    color: var(--text-primary);
+    color: var(--ds-text);
 }
 
 .topic-stats {
@@ -350,7 +350,7 @@
     gap: var(--space-4);
     margin-top: var(--space-3);
     font-size: var(--text-small);
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 .topic-stat {
@@ -373,7 +373,7 @@
 }
 
 .topic-stat.is-progress {
-    color: var(--topic-hue-ink, var(--accent-color));
+    color: var(--accent);
 }
 
 /* --------------------------------------------------------------------------
@@ -383,7 +383,7 @@
 .topic-progress {
     height: 4px;
     margin-top: var(--space-4);
-    background: var(--bg-hover);
+    background: var(--ds-hover);
     border-radius: var(--radius-pill);
     overflow: hidden;
 }
@@ -393,9 +393,34 @@
     height: 100%;
     width: 0;
     border-radius: inherit;
-    background: var(--topic-hue-ink, var(--accent-color));
+    background: var(--accent);
     transition: width var(--transition-panel);
 }
+
+/* The bar takes the hue as a fill; the count beside it takes the same hue as
+   text. Two properties, so two sets of rules rather than one that has to be
+   undone for half its targets. */
+[data-hue="violet"]  .topic-progress-fill { background: var(--hue-violet-ink); }
+[data-hue="sky"]     .topic-progress-fill { background: var(--hue-sky-ink); }
+[data-hue="teal"]    .topic-progress-fill { background: var(--hue-teal-ink); }
+[data-hue="lime"]    .topic-progress-fill { background: var(--hue-lime-ink); }
+[data-hue="pink"]    .topic-progress-fill { background: var(--hue-pink-ink); }
+[data-hue="amber"]   .topic-progress-fill { background: var(--hue-amber-ink); }
+[data-hue="indigo"]  .topic-progress-fill { background: var(--hue-indigo-ink); }
+[data-hue="rose"]    .topic-progress-fill { background: var(--hue-rose-ink); }
+[data-hue="fuchsia"] .topic-progress-fill { background: var(--hue-fuchsia-ink); }
+[data-hue="slate"]   .topic-progress-fill { background: var(--hue-slate-ink); }
+
+[data-hue="violet"]  .topic-stat.is-progress { color: var(--hue-violet-ink); }
+[data-hue="sky"]     .topic-stat.is-progress { color: var(--hue-sky-ink); }
+[data-hue="teal"]    .topic-stat.is-progress { color: var(--hue-teal-ink); }
+[data-hue="lime"]    .topic-stat.is-progress { color: var(--hue-lime-ink); }
+[data-hue="pink"]    .topic-stat.is-progress { color: var(--hue-pink-ink); }
+[data-hue="amber"]   .topic-stat.is-progress { color: var(--hue-amber-ink); }
+[data-hue="indigo"]  .topic-stat.is-progress { color: var(--hue-indigo-ink); }
+[data-hue="rose"]    .topic-stat.is-progress { color: var(--hue-rose-ink); }
+[data-hue="fuchsia"] .topic-stat.is-progress { color: var(--hue-fuchsia-ink); }
+[data-hue="slate"]   .topic-stat.is-progress { color: var(--hue-slate-ink); }
 
 /* --------------------------------------------------------------------------
    Key topics
@@ -404,9 +429,9 @@
 .key-topics-section {
     margin-bottom: 32px;
     padding: 18px 20px;
-    background: var(--bg-key-topics);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
+    background: var(--accent-tint-soft);
+    border: 1px solid var(--ds-border);
+    border-radius: var(--radius-card);
 }
 
 .key-topics-title {
@@ -415,7 +440,7 @@
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 .key-topics-grid {
@@ -428,15 +453,15 @@
     padding: 6px 12px;
     font-size: var(--text-small);
     font-weight: 500;
-    color: var(--accent-hover);
-    background: var(--accent-light);
-    border: 1px solid var(--border-color);
+    color: var(--accent-strong);
+    background: var(--accent-tint);
+    border: 1px solid var(--ds-border);
     border-radius: var(--radius-pill);
     transition: background var(--transition-hover);
 }
 
 .key-topic-pill:hover {
-    background: var(--bg-card-hover);
+    background: var(--ds-raised);
 }
 
 /* Everything past the sixth waits to be asked for. */
@@ -453,17 +478,17 @@
     padding: 6px 12px;
     font-family: var(--font-mono);
     font-size: var(--text-micro);
-    color: var(--text-muted);
+    color: var(--ds-faint);
     background: transparent;
-    border: 1px dashed var(--border-color);
+    border: 1px dashed var(--ds-border);
     border-radius: var(--radius-pill);
     cursor: pointer;
     transition: color var(--transition-hover), border-color var(--transition-hover);
 }
 
 .key-topics-more:hover {
-    color: var(--text-primary);
-    border-color: var(--accent-color);
+    color: var(--ds-text);
+    border-color: var(--accent);
 }
 
 .key-topics-more:focus-visible {
@@ -495,14 +520,14 @@
     font-size: var(--text-h2);
     font-weight: 600;
     letter-spacing: -0.02em;
-    color: var(--text-primary);
+    color: var(--ds-text);
     white-space: nowrap;
 }
 
 .subsection-rule {
     flex: 1 1 auto;
     height: 1px;
-    background: linear-gradient(90deg, var(--border-color), transparent);
+    background: linear-gradient(90deg, var(--ds-border), transparent);
 }
 
 /* --------------------------------------------------------------------------
@@ -512,23 +537,23 @@
 .question-card {
     position: relative;
     margin-bottom: 12px;
-    background: var(--bg-card);
+    background: var(--ds-surface);
     background-image: var(--gradient-card);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
+    border: 1px solid var(--ds-border);
+    border-radius: var(--radius-card);
     overflow: hidden;
     scroll-margin-top: 88px;
-    transition: border-color var(--transition-base), box-shadow var(--transition-base),
-                background var(--transition-base);
+    transition: border-color var(--transition-panel), box-shadow var(--transition-panel),
+                background var(--transition-panel);
 }
 
 .question-card:hover {
-    border-color: var(--accent-color);
+    border-color: var(--accent);
 }
 
 .question-card.expanded {
-    border-color: var(--accent-color);
-    background: var(--bg-card-hover);
+    border-color: var(--accent);
+    background: var(--ds-raised);
 }
 
 .question-header {
@@ -555,7 +580,7 @@
     font-size: var(--text-small);
     font-weight: 500;
     font-variant-numeric: tabular-nums;
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 .question-text {
@@ -563,7 +588,7 @@
     font-size: var(--text-body);
     font-weight: 600;
     line-height: 1.5;
-    color: var(--text-primary);
+    color: var(--ds-text);
 }
 
 /* --------------------------------------------------------------------------
@@ -576,9 +601,9 @@
     gap: 6px;
     margin: 0 0 18px;
     padding: 5px;
-    background: var(--bg-glass);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
+    background: var(--ds-glass);
+    border: 1px solid var(--ds-border);
+    border-radius: var(--radius-card);
 }
 
 .tier-filter-option {
@@ -590,7 +615,7 @@
     font-family: inherit;
     font-size: var(--text-small);
     font-weight: 600;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
     background: transparent;
     border: 1px solid transparent;
     border-radius: var(--radius-pill);
@@ -623,14 +648,14 @@
 .tier-filter-option.tier-good::before   { background: var(--tier-good-dot); }
 
 .tier-filter-option:hover:not(:disabled):not(.active) {
-    color: var(--text-primary);
-    background: var(--bg-card);
+    color: var(--ds-text);
+    background: var(--ds-surface);
 }
 
 .tier-filter-option.active {
-    color: var(--accent-hover);
-    background: var(--accent-light);
-    border-color: var(--accent-color);
+    color: var(--accent-strong);
+    background: var(--accent-tint);
+    border-color: var(--accent);
 }
 
 .tier-filter-option:disabled {
@@ -643,11 +668,11 @@
     font-size: var(--text-micro);
     font-weight: 500;
     font-variant-numeric: tabular-nums;
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 .tier-filter-option.active .tier-filter-count {
-    color: var(--accent-hover);
+    color: var(--accent-strong);
 }
 
 /* The filter itself. The tiers are independent and combine freely, so rather
@@ -757,19 +782,19 @@
     height: 18px;
     margin: 0;
     background: transparent;
-    border: 1.5px solid var(--border-color);
+    border: 1.5px solid var(--ds-border);
     border-radius: var(--radius-input);
     cursor: pointer;
     transition: background var(--transition-hover), border-color var(--transition-hover);
 }
 
 .question-check input:hover {
-    border-color: var(--accent-color);
+    border-color: var(--accent);
 }
 
 .question-check input:checked {
-    background: var(--accent-color);
-    border-color: var(--accent-color);
+    background: var(--accent);
+    border-color: var(--accent);
 }
 
 .question-check input:focus-visible {
@@ -797,11 +822,11 @@
    like one you had never opened, which is the same as not recording it. */
 .question-card.is-done {
     background: transparent;
-    border-color: var(--border-subtle);
+    border-color: var(--ds-border-subtle);
 }
 
 .question-card.is-done .question-text {
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 .question-card.is-done .question-number,
@@ -810,7 +835,7 @@
 }
 
 .question-card.is-done:hover {
-    border-color: var(--border-color);
+    border-color: var(--ds-border);
     box-shadow: none;
 }
 
@@ -826,14 +851,14 @@
     margin-top: 4px;
     font-family: var(--font-mono);
     font-size: var(--text-micro);
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 /* Says so before you open it — a question with code is a different kind of
    preparation from one without. */
 .question-flag-code {
     padding: 2px 7px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--ds-border);
     border-radius: var(--radius-input);
 }
 
@@ -860,7 +885,7 @@
     gap: var(--space-2);
     margin-top: var(--space-5);
     padding-top: var(--space-4);
-    border-top: 1px solid var(--border-subtle);
+    border-top: 1px solid var(--ds-border-subtle);
 }
 
 .answer-action {
@@ -872,10 +897,10 @@
     font-family: inherit;
     font-size: var(--text-small);
     font-weight: 500;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
     text-decoration: none;
-    background: var(--bg-card-hover);
-    border: 1px solid var(--border-color);
+    background: var(--ds-raised);
+    border: 1px solid var(--ds-border);
     border-radius: var(--radius-input);
     cursor: pointer;
     transition: color var(--transition-hover), background var(--transition-hover),
@@ -883,8 +908,8 @@
 }
 
 .answer-action:hover {
-    color: var(--text-primary);
-    border-color: var(--accent-color);
+    color: var(--ds-text);
+    border-color: var(--accent);
 }
 
 .answer-action:focus-visible {
@@ -893,9 +918,9 @@
 }
 
 .answer-action.is-active {
-    color: var(--accent-hover);
-    background: var(--accent-light);
-    border-color: var(--accent-color);
+    color: var(--accent-strong);
+    background: var(--accent-tint);
+    border-color: var(--accent);
 }
 
 /* --------------------------------------------------------------------------
@@ -905,7 +930,7 @@
 .code-block-filename {
     font-family: var(--font-mono);
     font-size: var(--text-micro);
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 .code-copy {
@@ -915,17 +940,17 @@
     padding: 4px 9px;
     font-family: var(--font-mono);
     font-size: var(--text-micro);
-    color: var(--text-muted);
+    color: var(--ds-faint);
     background: transparent;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--ds-border);
     border-radius: var(--radius-input);
     cursor: pointer;
     transition: color var(--transition-hover), border-color var(--transition-hover);
 }
 
 .code-copy:hover {
-    color: var(--text-primary);
-    border-color: var(--accent-color);
+    color: var(--ds-text);
+    border-color: var(--accent);
 }
 
 .code-copy:focus-visible {
@@ -956,7 +981,7 @@
     flex-direction: column;
     padding: var(--code-pad-y) var(--space-3) var(--code-pad-y) 16px;
     margin-right: var(--space-3);
-    border-right: 1px solid var(--border-subtle);
+    border-right: 1px solid var(--ds-border-subtle);
     /* Same size, same leading, same vertical padding as the source it counts.
        Anything else and the numbers walk out of step with the lines. */
     font-family: var(--font-mono);
@@ -964,10 +989,10 @@
     line-height: var(--code-leading);
     font-variant-numeric: tabular-nums;
     text-align: right;
-    color: var(--text-muted);
+    color: var(--ds-faint);
     opacity: 0.55;
     user-select: none;
-    background: var(--bg-code);
+    background: var(--ds-sunken);
 }
 
 .code-block-scroll pre {
@@ -982,13 +1007,13 @@
 .question-chevron {
     flex: 0 0 auto;
     margin-top: 4px;
-    color: var(--text-muted);
-    transition: transform var(--transition-base), color var(--transition-fast);
+    color: var(--ds-faint);
+    transition: transform var(--transition-panel), color var(--transition-hover);
 }
 
 .question-card.expanded .question-chevron {
     transform: rotate(180deg);
-    color: var(--accent-color);
+    color: var(--accent);
 }
 
 /* Collapsible body */
@@ -999,8 +1024,8 @@
     max-height: 0;
     opacity: 0;
     overflow: hidden;
-    transition: max-height var(--transition-slow), opacity var(--transition-base),
-                padding var(--transition-base);
+    transition: max-height var(--transition-panel), opacity var(--transition-panel),
+                padding var(--transition-panel);
 }
 
 .question-card.expanded .answer-body {
@@ -1020,24 +1045,24 @@
     max-width: var(--measure);
     font-size: var(--text-body);
     line-height: var(--leading-answer);
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 .answer-content p { margin-bottom: 10px; }
 .answer-content p:last-child { margin-bottom: 0; }
-.answer-content strong { color: var(--text-primary); font-weight: 600; }
+.answer-content strong { color: var(--ds-text); font-weight: 600; }
 .answer-content ul,
 .answer-content ol { margin: 0 0 12px 20px; }
 .answer-content li { margin-bottom: 6px; }
-.answer-content li::marker { color: var(--accent-color); }
-.answer-content a { color: var(--accent-hover); text-decoration: underline; text-underline-offset: 2px; }
+.answer-content li::marker { color: var(--accent); }
+.answer-content a { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 2px; }
 
 .answer-content code {
     padding: 2px 6px;
     font-family: var(--font-mono);
     font-size: 0.88em;
-    color: var(--accent-hover);
-    background: var(--bg-code-inline);
+    color: var(--accent-strong);
+    background: var(--accent-tint);
     border-radius: 5px;
 }
 
@@ -1052,12 +1077,12 @@
 .answer-content td {
     padding: 8px 10px;
     text-align: left;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--ds-border);
 }
 
 .answer-content th {
-    color: var(--text-primary);
-    background: var(--bg-glass);
+    color: var(--ds-text);
+    background: var(--ds-glass);
     font-weight: 600;
 }
 
@@ -1079,17 +1104,17 @@
     padding: 4px 11px;
     font-size: 12px;
     font-weight: 500;
-    color: var(--accent-hover);
-    background: var(--accent-light);
-    border: 1px solid var(--border-color);
+    color: var(--accent-strong);
+    background: var(--accent-tint);
+    border: 1px solid var(--ds-border);
     border-radius: 999px;
     text-decoration: none;
-    transition: background var(--transition-fast), border-color var(--transition-fast);
+    transition: background var(--transition-hover), border-color var(--transition-hover);
 }
 
 .reference-link:hover {
-    background: var(--bg-card-hover);
-    border-color: var(--accent-color);
+    background: var(--ds-raised);
+    border-color: var(--accent);
 }
 
 /* --------------------------------------------------------------------------
@@ -1098,9 +1123,9 @@
 
 .code-block {
     margin: 14px 0;
-    background: var(--bg-code);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
+    background: var(--ds-sunken);
+    border: 1px solid var(--ds-border);
+    border-radius: var(--radius-row);
     overflow: hidden;
 }
 
@@ -1109,8 +1134,8 @@
     align-items: center;
     gap: 10px;
     padding: 9px 14px;
-    background: var(--bg-glass);
-    border-bottom: 1px solid var(--border-subtle);
+    background: var(--ds-glass);
+    border-bottom: 1px solid var(--ds-border-subtle);
     cursor: pointer;
     user-select: none;
 }
@@ -1119,7 +1144,7 @@
     flex: 1 1 auto;
     font-size: 12.5px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--ds-text);
 }
 
 .code-block-lang {
@@ -1128,14 +1153,14 @@
     font-size: 10.5px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--text-muted);
-    background: var(--bg-hover);
+    color: var(--ds-faint);
+    background: var(--ds-hover);
     border-radius: 4px;
 }
 
 .code-block-toggle {
-    color: var(--text-muted);
-    transition: transform var(--transition-base);
+    color: var(--ds-faint);
+    transition: transform var(--transition-panel);
 }
 
 .code-block.collapsed .code-block-toggle {
@@ -1145,7 +1170,7 @@
 .code-block-body {
     max-height: 1200px;
     overflow: auto;
-    transition: max-height var(--transition-base);
+    transition: max-height var(--transition-panel);
 }
 
 .code-block.collapsed .code-block-body {
@@ -1170,7 +1195,7 @@
     font-family: var(--font-mono);
     font-size: var(--code-size);
     line-height: var(--code-leading);
-    color: var(--text-code);
+    color: var(--ds-text);
     white-space: pre;
     tab-size: 4;
 }
@@ -1184,8 +1209,8 @@
 
 .code-output {
     padding: 12px 16px 14px;
-    border-top: 1px dashed var(--border-color);
-    background: var(--bg-glass);
+    border-top: 1px dashed var(--ds-border);
+    background: var(--ds-glass);
 }
 
 .code-output-label {
@@ -1195,7 +1220,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 .code-output-stdout .code-output-label::before {
@@ -1206,13 +1231,13 @@
 .code-output-console {
     margin: 0;
     padding: 10px 12px;
-    background: var(--bg-code);
+    background: var(--ds-sunken);
     border-left: 2px solid var(--success-color);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    border-radius: 0 var(--radius-input) var(--radius-input) 0;
     font-family: var(--font-mono);
     font-size: 12px;
     line-height: 1.65;
-    color: var(--text-code);
+    color: var(--ds-text);
     white-space: pre-wrap;
     overflow-x: auto;
 }
@@ -1222,7 +1247,7 @@
     padding-left: 20px;
     font-size: 13px;
     line-height: 1.65;
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 .code-output-steps li {
@@ -1233,7 +1258,7 @@
     margin-top: 10px;
     font-size: 12.5px;
     line-height: 1.6;
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 .code-output-explain p:last-child {
@@ -1253,9 +1278,9 @@
 .doc-figure {
     margin: 18px 0;
     padding: 14px;
-    background: var(--bg-glass);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
+    background: var(--ds-glass);
+    border: 1px solid var(--ds-border);
+    border-radius: var(--radius-row);
 }
 
 .doc-figure-image {
@@ -1266,15 +1291,15 @@
     /* The plate. Light theme needs it too — several figures are transparent
        PNGs that would otherwise sit on the card's tint. */
     padding: 10px;
-    background: #ffffff;
-    border-radius: var(--radius-sm);
+    background: var(--figure-plate);
+    border-radius: var(--radius-input);
 }
 
 .doc-figure-caption {
     margin-top: 10px;
     font-size: 12.5px;
     line-height: 1.55;
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 .doc-figure-text {
@@ -1283,18 +1308,18 @@
 }
 
 .doc-figure-credit {
-    color: var(--text-secondary);
+    color: var(--ds-muted);
     text-decoration: none;
-    border-bottom: 1px dotted var(--border-color);
+    border-bottom: 1px dotted var(--ds-border);
 }
 
 .doc-figure-credit::before {
     content: 'Source: ';
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 .doc-figure-credit:hover {
-    color: var(--accent-color);
+    color: var(--accent);
     border-bottom-color: currentColor;
 }
 
@@ -1316,8 +1341,8 @@
     margin: 16px 0;
     padding: 16px;
     background: var(--diagram-bg);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
+    border: 1px solid var(--ds-border);
+    border-radius: var(--radius-row);
     overflow-x: auto;
 }
 
@@ -1350,14 +1375,14 @@
     flex-direction: column;
     gap: 3px;
     padding: 9px 12px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-input);
     cursor: pointer;
-    transition: background var(--transition-fast);
+    transition: background var(--transition-hover);
 }
 
 .search-result-item:hover,
 .search-result-item.highlighted {
-    background: var(--bg-hover);
+    background: var(--ds-hover);
 }
 
 .search-result-topic {
@@ -1368,7 +1393,7 @@
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--accent-hover);
+    color: var(--accent-strong);
 }
 
 /* Theory results sit in the same list as questions, so they carry a badge —
@@ -1380,8 +1405,8 @@
     border-radius: 999px;
     font-size: 9.5px;
     letter-spacing: 0.06em;
-    color: var(--bg-primary);
-    background: var(--accent-hover);
+    color: var(--ds-canvas);
+    background: var(--accent-strong);
 }
 
 /* The same soft chip the question rows carry. A tier means one thing, so it
@@ -1406,18 +1431,18 @@
 }
 
 .search-result-chapter .search-result-topic {
-    color: var(--text-secondary);
+    color: var(--ds-muted);
 }
 
 .search-result-question {
     font-size: 13.5px;
     line-height: 1.45;
-    color: var(--text-primary);
+    color: var(--ds-text);
 }
 
 .search-result-question mark {
-    color: var(--accent-hover);
-    background: var(--accent-light);
+    color: var(--accent-strong);
+    background: var(--accent-tint);
     border-radius: 3px;
     padding: 0 2px;
 }
@@ -1426,7 +1451,7 @@
     padding: 20px 12px;
     text-align: center;
     font-size: 13.5px;
-    color: var(--text-muted);
+    color: var(--ds-faint);
 }
 
 /* --------------------------------------------------------------------------

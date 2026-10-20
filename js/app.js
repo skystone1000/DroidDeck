@@ -143,6 +143,9 @@ function renderEmptyState(topic) {
 function renderTopicHeader(topic) {
     const header = document.createElement('header');
     header.className = 'topic-header';
+    // The topic's own hue, carried the same way every other hue is carried, so
+    // the header bar and count match the tile beside it in the sidebar.
+    header.dataset.hue = topicHue(topic.id);
 
     const title = document.createElement('h2');
     title.className = 'topic-title';

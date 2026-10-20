@@ -76,6 +76,13 @@
 
     /* One ring, both themes, every focusable thing. */
     --focus-ring: 0 0 0 3px rgba(139, 92, 246, 0.2);
+
+    /* The one colour that must not follow the theme. Several vendored figures
+       are transparent PNGs drawn for a white page; on dark they need a plate
+       under them or they become an outline of nothing. It lives here so that
+       even the exception is declared with the rest of the palette rather than
+       buried as a literal in a rule. */
+    --figure-plate: #FFFFFF;
 }
 
 /* --------------------------------------------------------------------------
@@ -94,6 +101,10 @@
     --ds-muted: #A19BB4;
     --ds-faint: #6E6885;
     --ds-veil: rgba(18, 16, 26, 0.82);
+    --ds-veil-strong: rgba(18, 16, 26, 0.9);
+    --ds-hover: rgba(244, 242, 248, 0.06);
+    --ds-glass: rgba(244, 242, 248, 0.03);
+    --ds-scrim: rgba(0, 0, 0, 0.5);
 
     /* Primitives — accent in this theme */
     --accent: var(--accent-500);
@@ -127,43 +138,23 @@
     --hue-fuchsia-bg: rgba(232, 121, 249, 0.14); --hue-fuchsia-ink: #F0ABFC;
     --hue-slate-bg: rgba(161, 155, 180, 0.14);   --hue-slate-ink: #C6C1D4;
 
-    /* ---- Aliases ---- */
-    --bg-primary: var(--ds-canvas);
-    --bg-secondary: var(--ds-surface);
-    --bg-header: var(--ds-veil);
-    --bg-sidebar: rgba(18, 16, 26, 0.9);
-    --bg-card: var(--ds-surface);
-    --bg-card-hover: var(--ds-raised);
-    --bg-input: var(--ds-raised);
-    --bg-hover: rgba(244, 242, 248, 0.06);
-    --bg-code: var(--ds-sunken);
-    --bg-code-inline: var(--accent-tint);
-    --bg-glass: rgba(244, 242, 248, 0.03);
-    --bg-key-topics: var(--accent-tint-soft);
-    --text-primary: var(--ds-text);
-    --text-secondary: var(--ds-muted);
-    --text-muted: var(--ds-faint);
-    --text-code: var(--ds-text);
-    --border-color: var(--ds-border);
-    --border-subtle: var(--ds-border-subtle);
-    --accent-color: var(--accent);
-    --accent-hover: var(--accent-strong);
-    --accent-light: var(--accent-tint);
+    /* --- The app's own semantic layer ---
+       Not part of the design system, and not aliases either: these are the
+       meanings this codebase needs that a colour palette does not name. Every
+       one of them resolves to a value above, so the rule that no colour may be
+       introduced outside the system still holds. */
     --accent-glow: rgba(139, 92, 246, 0.35);
     --gradient-accent: linear-gradient(135deg, var(--accent-500), var(--accent-600));
     --gradient-card: linear-gradient(135deg, rgba(139, 92, 246, 0.04), transparent 60%);
-    --gradient-shine: linear-gradient(135deg, rgba(244, 242, 248, 0.05) 0%, transparent 60%);
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
     --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.4);
     --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
     --shadow-glow: 0 0 0 1px rgba(139, 92, 246, 0.18);
-    /* Semantic states, drawn from the category hues so no foreign colour
-       enters through the back door. */
     --success-color: var(--hue-teal-ink);
     --warning-color: var(--hue-amber-ink);
-    --error-color: var(--hue-rose-ink);
+
     /* Syntax. The system does not specify a code theme, so it is composed from
-       the sanctioned hues rather than invented. */
+       the sanctioned category hues rather than invented. */
     --keyword-color: var(--accent-300);
     --string-color: var(--hue-teal-ink);
     --comment-color: var(--ds-faint);
@@ -171,14 +162,13 @@
     --annotation-color: var(--hue-amber-ink);
     --tag-color: var(--hue-rose-ink);
     --attribute-color: var(--hue-indigo-ink);
+
     --diagram-bg: rgba(139, 92, 246, 0.06);
     --diagram-border: var(--accent-500);
     --diagram-node: rgba(139, 92, 246, 0.18);
     --diagram-text: var(--accent-300);
     --diagram-arrow: var(--accent-500);
-    --importance-must: var(--tier-must-dot);
-    --importance-should: var(--tier-should-dot);
-    --importance-good: var(--tier-good-dot);
+
 }
 
 /* --------------------------------------------------------------------------
@@ -199,6 +189,10 @@
     --ds-muted: #5C566E;
     --ds-faint: #8B8398;
     --ds-veil: rgba(255, 255, 255, 0.85);
+    --ds-veil-strong: rgba(255, 255, 255, 0.92);
+    --ds-hover: rgba(23, 21, 34, 0.04);
+    --ds-glass: #F4F3F8;
+    --ds-scrim: rgba(23, 21, 34, 0.35);
 
     --accent: var(--accent-600);
     --accent-strong: var(--accent-700);
@@ -228,39 +222,23 @@
     --hue-fuchsia-bg: rgba(232, 121, 249, 0.14); --hue-fuchsia-ink: #A21CAF;
     --hue-slate-bg: rgba(161, 155, 180, 0.16);   --hue-slate-ink: #4A4162;
 
-    /* ---- Aliases ---- */
-    --bg-primary: var(--ds-canvas);
-    --bg-secondary: var(--ds-surface);
-    --bg-header: var(--ds-veil);
-    --bg-sidebar: rgba(255, 255, 255, 0.92);
-    --bg-card: var(--ds-surface);
-    --bg-card-hover: var(--ds-raised);
-    --bg-input: var(--ds-raised);
-    --bg-hover: rgba(23, 21, 34, 0.04);
-    --bg-code: var(--ds-sunken);
-    --bg-code-inline: var(--accent-tint);
-    --bg-glass: var(--ds-raised);
-    --bg-key-topics: var(--accent-tint-soft);
-    --text-primary: var(--ds-text);
-    --text-secondary: var(--ds-muted);
-    --text-muted: var(--ds-faint);
-    --text-code: var(--ds-text);
-    --border-color: var(--ds-border);
-    --border-subtle: var(--ds-border-subtle);
-    --accent-color: var(--accent);
-    --accent-hover: var(--accent-strong);
-    --accent-light: var(--accent-tint);
+    /* --- The app's own semantic layer ---
+       Not part of the design system, and not aliases either: these are the
+       meanings this codebase needs that a colour palette does not name. Every
+       one of them resolves to a value above, so the rule that no colour may be
+       introduced outside the system still holds. */
     --accent-glow: rgba(124, 58, 237, 0.18);
     --gradient-accent: linear-gradient(135deg, var(--accent-600), var(--accent-700));
     --gradient-card: linear-gradient(135deg, rgba(124, 58, 237, 0.03), transparent 60%);
-    --gradient-shine: linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, transparent 60%);
     --shadow-sm: 0 1px 3px rgba(23, 21, 34, 0.06);
     --shadow-md: 0 4px 14px rgba(23, 21, 34, 0.08);
     --shadow-lg: 0 12px 32px rgba(23, 21, 34, 0.12);
     --shadow-glow: 0 0 0 1px rgba(124, 58, 237, 0.14);
     --success-color: var(--hue-teal-ink);
     --warning-color: var(--hue-amber-ink);
-    --error-color: var(--hue-rose-ink);
+
+    /* Syntax. The system does not specify a code theme, so it is composed from
+       the sanctioned category hues rather than invented. */
     --keyword-color: var(--accent-700);
     --string-color: var(--hue-teal-ink);
     --comment-color: var(--ds-faint);
@@ -268,30 +246,13 @@
     --annotation-color: var(--hue-amber-ink);
     --tag-color: var(--hue-rose-ink);
     --attribute-color: var(--hue-indigo-ink);
+
     --diagram-bg: rgba(124, 58, 237, 0.05);
     --diagram-border: var(--accent-600);
     --diagram-node: rgba(124, 58, 237, 0.12);
     --diagram-text: var(--accent-700);
     --diagram-arrow: var(--accent-600);
-    --importance-must: var(--tier-must-dot);
-    --importance-should: var(--tier-should-dot);
-    --importance-good: var(--tier-good-dot);
-}
 
-/* --------------------------------------------------------------------------
-   Radius and motion aliases
-
-   The old names survive so nothing breaks in this commit; call sites move to
-   the semantic names as each component group is rebuilt.
-   -------------------------------------------------------------------------- */
-
-:root {
-    --radius-sm: var(--radius-input);
-    --radius-md: var(--radius-row);
-    --radius-lg: var(--radius-card);
-    --transition-fast: var(--transition-hover);
-    --transition-base: var(--transition-panel);
-    --transition-slow: var(--transition-panel);
 }
 
 /* Counts sit in columns — in the sidebar, in the filter pills, down the left
@@ -301,8 +262,8 @@ body {
 }
 
 /* Scrollbar */
-* { scrollbar-width: thin; scrollbar-color: var(--text-muted) transparent; }
+* { scrollbar-width: thin; scrollbar-color: var(--ds-faint) transparent; }
 *::-webkit-scrollbar { width: 6px; height: 6px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: var(--radius-pill); }
-*::-webkit-scrollbar-thumb:hover { background-color: var(--text-muted); }
+*::-webkit-scrollbar-thumb { background-color: var(--ds-border); border-radius: var(--radius-pill); }
+*::-webkit-scrollbar-thumb:hover { background-color: var(--ds-faint); }

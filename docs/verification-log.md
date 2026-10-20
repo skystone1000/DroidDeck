@@ -557,3 +557,29 @@ live, and they are grep-able.
 elsewhere passes `check-doc-links.js`, which is how sixteen dead anchors survived
 every previous run. Worth closing deliberately, in its own commit, rather than
 during a content pass.
+
+### 2026-10-20 — design system pass
+
+Both themes walked end to end on every commit. Checked at 1440, 1000, 820 and
+375px.
+
+- **Tokens.** Every `var(--x)` used across `css/`, `js/` and `index.html` resolves
+  to a `--x:` defined in `themes.css`; no colour literal remains in the other
+  four stylesheets. Cross-checked with `comm` in both directions.
+- **Emoji.** None remain in `js/`, `css/` or `index.html`.
+- **Keyboard.** `/` focuses search. Enter and Space expand a row; the checkbox
+  inside it does not. Escape dismisses a glossary popover. Focus ring visible on
+  every control the pass touched.
+- **Progress.** Ticking a row moves the row, its action button, the header bar
+  and the sidebar count together, with no re-render. Keys are
+  `topicId:questionId`; verified two topics sharing a question id stay distinct.
+- **Theory migration.** A legacy `droiddeck:theory:read` of two modules expanded
+  to ten chapter keys on first load; the old key was left in place.
+- **Code blocks.** Gutter line count matches the source exactly (36/36 on the
+  longest Kotlin sample) and the two line boxes share a measured line height of
+  21.25px. Copy verified with a real pointer gesture; the synthetic-click path
+  correctly falls through to the textarea fallback.
+- **Empty state.** `#kotlin-coroutines?tier=good` — a genuinely empty
+  combination — renders the state rather than a blank page.
+- **Not covered.** No automated test asserts any of the above; this pass has no
+  test-suite equivalent and the two validators only prove the corpus is intact.
