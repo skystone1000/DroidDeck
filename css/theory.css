@@ -94,16 +94,19 @@
     text-decoration: none;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    transition: transform var(--transition-fast),
-                border-color var(--transition-fast),
-                box-shadow var(--transition-fast);
+    border-radius: var(--radius-card);
+    transition: border-color var(--transition-hover),
+                box-shadow var(--transition-hover);
 }
 
 .theory-module-card:hover {
-    transform: translateY(-2px);
     border-color: var(--accent-color);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.theory-module-card:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
 }
 
 .theory-module-card-top {
@@ -144,9 +147,68 @@
 .theory-module-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    align-items: center;
+    gap: var(--space-2);
     margin-top: auto;
-    padding-top: 6px;
+    padding-top: var(--space-2);
+    font-size: var(--text-small);
+    color: var(--text-muted);
+}
+
+/* Position leads, duration follows. "5 chapters · 30 min" was inventory; what a
+   reader coming back wants is how far in they are. */
+.theory-module-meta .topic-stat.is-progress {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.theory-module-bar {
+    height: 4px;
+    margin-top: var(--space-3);
+    background: var(--bg-hover);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+}
+
+.theory-module-bar-fill {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: inherit;
+    background: var(--accent-color);
+    transition: width var(--transition-panel);
+}
+
+/* The bar belongs to its track, like every other bar on the page. */
+[data-hue="violet"]  .theory-module-bar-fill { background: var(--hue-violet-ink); }
+[data-hue="sky"]     .theory-module-bar-fill { background: var(--hue-sky-ink); }
+[data-hue="teal"]    .theory-module-bar-fill { background: var(--hue-teal-ink); }
+[data-hue="lime"]    .theory-module-bar-fill { background: var(--hue-lime-ink); }
+[data-hue="pink"]    .theory-module-bar-fill { background: var(--hue-pink-ink); }
+[data-hue="amber"]   .theory-module-bar-fill { background: var(--hue-amber-ink); }
+[data-hue="indigo"]  .theory-module-bar-fill { background: var(--hue-indigo-ink); }
+[data-hue="rose"]    .theory-module-bar-fill { background: var(--hue-rose-ink); }
+[data-hue="fuchsia"] .theory-module-bar-fill { background: var(--hue-fuchsia-ink); }
+[data-hue="slate"]   .theory-module-bar-fill { background: var(--hue-slate-ink); }
+
+.theory-module-cta {
+    margin-top: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-hover);
+}
+
+.theory-doc-kind {
+    display: inline-block;
+    margin-right: var(--space-2);
+    padding: 1px 6px;
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    color: var(--text-muted);
+    background: var(--bg-hover);
+    border-radius: var(--radius-input);
 }
 
 /* --------------------------------------------------------------------------
@@ -353,22 +415,48 @@
     color: var(--text-secondary);
 }
 
+/* The same soft chip the question rows carry, for the same reason: a must-know
+   chapter and a must-know question mean the same thing, and neither is an
+   error to be outlined in red. */
 .theory-importance {
     flex: 0 0 auto;
-    padding: 3px 9px;
-    font-size: 10.5px;
-    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 11px;
+    font-size: var(--text-micro);
+    font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     white-space: nowrap;
-    border-radius: 999px;
-    color: var(--importance-good);
-    background: var(--bg-glass);
-    border: 1px solid currentColor;
+    border: none;
+    border-radius: var(--radius-pill);
+    color: var(--tier-good-ink);
+    background: var(--tier-good-bg);
 }
 
-.theory-importance.importance-must   { color: var(--importance-must); }
-.theory-importance.importance-should { color: var(--importance-should); }
+.theory-importance::before {
+    content: '';
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--tier-good-dot);
+}
+
+.theory-importance.importance-must {
+    color: var(--tier-must-ink);
+    background: var(--tier-must-bg);
+}
+
+.theory-importance.importance-must::before { background: var(--tier-must-dot); }
+
+.theory-importance.importance-should {
+    color: var(--tier-should-ink);
+    background: var(--tier-should-bg);
+}
+
+.theory-importance.importance-should::before { background: var(--tier-should-dot); }
 
 .theory-chapter-body {
     padding: 0 20px 20px;
@@ -869,10 +957,11 @@
 }
 
 .theory-module-read {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
     margin-left: auto;
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--accent-hover);
+    color: var(--success-color);
 }
 
 .theory-module-card.is-read .theory-module-title {

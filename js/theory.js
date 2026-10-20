@@ -21,12 +21,15 @@ const IMPORTANCE = {
     'good-to-know': { label: 'Good to know', modifier: 'good' }
 };
 
-const DOC_KIND_ICONS = {
-    guide:   '📘',
-    api:     '⚙️',
-    codelab: '🧑‍💻',
-    sample:  '📦',
-    course:  '🎓'
+/* What kind of thing the link goes to, said in a word rather than drawn in a
+   pictogram nobody decodes the same way. Rendered as a mono label beside the
+   title, which also survives a print stylesheet. */
+const DOC_KIND_LABELS = {
+    guide:   'guide',
+    api:     'api',
+    codelab: 'codelab',
+    sample:  'sample',
+    course:  'course'
 };
 
 function resolveDocUrl(doc) {
@@ -48,27 +51,24 @@ function lookupModule(moduleId) {
    private mode, and progress is not worth breaking the page over.
    -------------------------------------------------------------------------- */
 
-const READ_STORAGE_KEY = 'droiddeck:theory:read';
+/* The store itself lives in js/progress.js, where the question bank's progress
+   lives too — one place, one set of localStorage habits. What stays here is the
+   theory-shaped view of it.
 
+   The unit moved from the module to the chapter, because "3 of 5 chapters" is
+   not derivable from a set of module ids, and a card reading "0 of 5" after you
+   have read four is worse than the bare count it replaced. */
+
+/** Modules whose every chapter is read — the set the overview and cards want. */
 function readModules() {
-    try {
-        const raw = window.localStorage.getItem(READ_STORAGE_KEY);
-        const parsed = raw ? JSON.parse(raw) : [];
-        return new Set(Array.isArray(parsed) ? parsed : []);
-    } catch (error) {
-        return new Set();
-    }
+    const modules = (typeof theoryModules === 'undefined') ? [] : theoryModules;
+    return new Set(modules.filter(isModuleRead).map((mod) => mod.id));
 }
 
 function setModuleRead(moduleId, read) {
-    const current = readModules();
-    if (read) current.add(moduleId); else current.delete(moduleId);
-    try {
-        window.localStorage.setItem(READ_STORAGE_KEY, JSON.stringify([...current]));
-    } catch (error) {
-        /* Progress is a convenience; losing it is not worth an error. */
-    }
-    return current;
+    const mod = lookupModule(moduleId);
+    if (mod) setModuleChaptersRead(mod, read);
+    return readModules();
 }
 
 function trackProgress(trackId, modules, read) {
@@ -141,10 +141,10 @@ function renderTheoryOverview() {
 
         const stats = document.createElement('div');
         stats.className = 'topic-stats';
-        stats.appendChild(makeStat('🧭', `${tracks.length} tracks`));
-        stats.appendChild(makeStat('📚', `${modules.length} modules`));
-        if (totalChapters) stats.appendChild(makeStat('📄', `${totalChapters} chapters`));
-        if (totalMinutes) stats.appendChild(makeStat('⏱️', `${totalMinutes} min`));
+        stats.appendChild(makeStat(`${tracks.length} tracks`));
+        stats.appendChild(makeStat(`${modules.length} modules`));
+        if (totalChapters) stats.appendChild(makeStat(`${totalChapters} chapters`));
+        if (totalMinutes) stats.appendChild(makeStat(`${totalMinutes} min`));
 
         header.appendChild(title);
         header.appendChild(blurb);
@@ -154,7 +154,7 @@ function renderTheoryOverview() {
         glossaryLink.className = 'theory-dochub-link theory-glossary-link';
         glossaryLink.href = generateTheoryHash(GLOSSARY_ROUTE);
         glossaryLink.textContent =
-            `📖 Glossary — ${collectGlossaryEntries().length} terms defined across the path`;
+            `Glossary — ${collectGlossaryEntries().length} terms defined across the path`;
         header.appendChild(glossaryLink);
         header.appendChild(renderCramToggle({ collapseAll: false }));
 
@@ -182,6 +182,9 @@ function renderTheoryOverview() {
 function renderTrackSection(track, modules, read) {
     const section = document.createElement('section');
     section.className = 'theory-track';
+    // On the section rather than only on its heading, so the cards inside it
+    // inherit the track's hue for their progress bars too.
+    section.dataset.hue = (trackMarks[track.id] || GLOSSARY_MARK).hue;
 
     const heading = document.createElement('div');
     heading.className = 'subsection-header';
@@ -252,10 +255,17 @@ function renderModuleCard(mod, read) {
     top.appendChild(title);
 
     if (isRead) {
-        const tick = document.createElement('span');
-        tick.className = 'theory-module-read';
-        tick.textContent = '✓';
-        tick.title = 'Marked as read';
+        const tick = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        tick.setAttribute('class', 'theory-module-read');
+        tick.setAttribute('viewBox', '0 0 24 24');
+        tick.setAttribute('fill', 'none');
+        tick.setAttribute('stroke', 'currentColor');
+        tick.setAttribute('stroke-width', '3');
+        tick.setAttribute('stroke-linecap', 'round');
+        tick.setAttribute('stroke-linejoin', 'round');
+        const tickPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        tickPath.setAttribute('d', 'M20 6L9 17l-5-5');
+        tick.appendChild(tickPath);
         top.appendChild(tick);
     }
 
@@ -263,19 +273,48 @@ function renderModuleCard(mod, read) {
     tagline.className = 'theory-module-tagline';
     tagline.textContent = mod.tagline || '';
 
+    /* "5 chapters · 30 min" told you nothing you would act on. Position in the
+       module is the thing you come back wanting to know, so it leads and the
+       duration drops behind it. */
+    const progress = moduleProgress(mod);
     const meta = document.createElement('div');
     meta.className = 'theory-module-meta';
-    meta.appendChild(makeStat('📄', `${(mod.chapters || []).length} chapters`));
-    meta.appendChild(makeStat('⏱️', `${mod.estimatedMinutes} min`));
+    meta.appendChild(makeStat(`${progress.done} of ${progress.total} chapters`, 'is-progress'));
+    meta.appendChild(makeStat(`${mod.estimatedMinutes} min`));
     meta.appendChild(renderImportanceBadge(moduleImportance(mod)));
 
     card.appendChild(top);
     card.appendChild(tagline);
     card.appendChild(meta);
+    card.appendChild(renderModuleProgressBar(progress));
+    card.appendChild(renderModuleCta(progress));
 
     const external = crossTrackPrerequisites(mod);
     if (external.length) card.appendChild(renderCardPrerequisites(external));
     return card;
+}
+
+function renderModuleProgressBar(progress) {
+    const bar = document.createElement('div');
+    bar.className = 'theory-module-bar';
+
+    const fill = document.createElement('span');
+    fill.className = 'theory-module-bar-fill';
+    fill.style.width = `${progressPercent(progress.done, progress.total)}%`;
+
+    bar.appendChild(fill);
+    return bar;
+}
+
+/** Start, continue, or done — the card says which of the three it is. */
+function renderModuleCta(progress) {
+    const cta = document.createElement('span');
+    cta.className = 'theory-module-cta';
+    if (!progress.total) cta.textContent = 'Read';
+    else if (progress.done === progress.total) cta.textContent = 'Review';
+    else if (progress.done) cta.textContent = 'Continue';
+    else cta.textContent = 'Start';
+    return cta;
 }
 
 /* The dependency a reader cannot infer from the page.
@@ -394,8 +433,8 @@ function renderTheoryGlossary() {
 
         const stats = document.createElement('div');
         stats.className = 'topic-stats';
-        stats.appendChild(makeStat('📖', `${entries.length} terms`));
-        stats.appendChild(makeStat('🔥', `${important} must know`));
+        stats.appendChild(makeStat(`${entries.length} terms`));
+        stats.appendChild(makeStat(`${important} must know`, 'is-progress'));
 
         header.appendChild(eyebrow);
         header.appendChild(title);
@@ -570,10 +609,11 @@ function renderModuleHeader(mod) {
     tagline.className = 'theory-module-tagline theory-module-tagline-large';
     tagline.textContent = mod.tagline || '';
 
+    const progress = moduleProgress(mod);
     const stats = document.createElement('div');
     stats.className = 'topic-stats';
-    stats.appendChild(makeStat('📄', `${(mod.chapters || []).length} chapters`));
-    stats.appendChild(makeStat('⏱️', `${mod.estimatedMinutes} min`));
+    stats.appendChild(makeStat(`${progress.done} of ${progress.total} chapters`, 'is-progress'));
+    stats.appendChild(makeStat(`${mod.estimatedMinutes} min`));
 
     header.appendChild(eyebrow);
     header.appendChild(title);
@@ -603,16 +643,18 @@ function renderReadToggle(mod) {
     button.className = 'theory-control';
 
     const paint = (isRead) => {
-        button.textContent = isRead ? '✓ Read' : '○ Mark as read';
+        button.textContent = isRead ? 'Read' : 'Mark as read';
         button.classList.toggle('active', isRead);
         button.setAttribute('aria-pressed', String(isRead));
     };
 
-    paint(readModules().has(mod.id));
+    paint(isModuleRead(mod));
 
+    // One press still means the whole module — it now sets or clears every
+    // chapter in it rather than a single flag standing in for them.
     button.addEventListener('click', () => {
-        const wasRead = readModules().has(mod.id);
-        paint(setModuleRead(mod.id, !wasRead).has(mod.id));
+        setModuleChaptersRead(mod, !isModuleRead(mod));
+        paint(isModuleRead(mod));
     });
 
     return button;
@@ -648,7 +690,7 @@ function renderDocHub(docHub) {
     link.href = resolveDocUrl(docHub);
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-    link.textContent = `📖 Official docs — ${docHub.title}`;
+    link.textContent = `Official docs — ${docHub.title}`;
 
     wrapper.appendChild(link);
     return wrapper;
@@ -667,7 +709,7 @@ function renderCramToggle({ collapseAll = true } = {}) {
     cram.className = 'theory-control';
     cram.setAttribute('aria-pressed', String(on));
     cram.classList.toggle('active', on);
-    cram.textContent = '🔥 Must-know only';
+    cram.textContent = 'Must-know only';
     cram.addEventListener('click', () => {
         // Writing the hash is the whole state change — handleRouteChange
         // re-renders with the flag applied, so there is one path in and the
@@ -685,12 +727,12 @@ function renderCramToggle({ collapseAll = true } = {}) {
         const collapse = document.createElement('button');
         collapse.type = 'button';
         collapse.className = 'theory-control';
-        collapse.textContent = '🗂️ Collapse all';
+        collapse.textContent = 'Collapse all';
         collapse.addEventListener('click', () => {
             const chapters = document.querySelectorAll('.theory-chapter');
             const anyOpen = [...chapters].some((c) => !c.classList.contains('collapsed'));
             chapters.forEach((c) => c.classList.toggle('collapsed', anyOpen));
-            collapse.textContent = anyOpen ? '🗂️ Expand all' : '🗂️ Collapse all';
+            collapse.textContent = anyOpen ? 'Expand all' : 'Collapse all';
         });
         wrapper.appendChild(collapse);
     }
@@ -830,7 +872,11 @@ function renderDocLinks(docs) {
         link.href = url;
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
-        link.textContent = `${DOC_KIND_ICONS[doc.kind] || '📘'} ${doc.title}`;
+        const kind = document.createElement('span');
+        kind.className = 'theory-doc-kind';
+        kind.textContent = DOC_KIND_LABELS[doc.kind] || 'guide';
+        link.appendChild(kind);
+        link.appendChild(document.createTextNode(doc.title));
         wrapper.appendChild(link);
     });
 
@@ -856,7 +902,7 @@ function renderRelatedQuestions(refs) {
         const link = document.createElement('a');
         link.className = 'theory-related-link';
         link.href = generateHash(ref.topicId, question.subsection);
-        link.textContent = `❓ ${question.question}`;
+        link.textContent = question.question;
         link.addEventListener('click', () => {
             // The card only exists once renderTopic has run.
             setTimeout(() => {
@@ -888,8 +934,8 @@ function renderBlock(block) {
         case 'syntax':     return renderSyntaxBlock(block);
         case 'table':      return renderTableBlock(block);
         case 'comparison': return renderComparisonBlock(block);
-        case 'pitfall':    return renderCalloutBlock(block, 'pitfall', '⚠️ Pitfall');
-        case 'tip':        return renderCalloutBlock(block, 'tip', '🎯 Saying it well');
+        case 'pitfall':    return renderCalloutBlock(block, 'pitfall', 'Pitfall');
+        case 'tip':        return renderCalloutBlock(block, 'tip', 'Saying it well');
         case 'diagram':    return renderDiagramBlock(block);
         case 'drill':      return renderDrillBlock(block);
         default:           return null;

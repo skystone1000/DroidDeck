@@ -15,6 +15,10 @@ let scrollDebounceId = null;
 
 function initApp() {
     initTheme();
+    // Before anything reads theory progress: the store moved from modules to
+    // chapters, and this expands what the old one held so nobody arrives to
+    // find their read history gone.
+    migrateModuleProgress(typeof theoryModules === 'undefined' ? [] : theoryModules);
     renderSidebar(topics);
     setupSearch(topics, typeof theoryModules === 'undefined' ? [] : theoryModules);
     setupEventListeners();
@@ -644,7 +648,7 @@ function renderReferenceLinks(links) {
         anchor.href = link.url;
         anchor.target = '_blank';
         anchor.rel = 'noopener noreferrer';
-        anchor.textContent = `📎 ${link.title}`;
+        anchor.textContent = link.title;
         wrapper.appendChild(anchor);
     });
 

@@ -135,6 +135,9 @@ function relativeDay(date) {
    read is worse than the bare count it replaced.
    -------------------------------------------------------------------------- */
 
+const MODULE_STORAGE_KEY = 'droiddeck:theory:read';
+const MIGRATION_FLAG_KEY = 'droiddeck:theory:chapters:migrated';
+
 function chapterKey(moduleId, chapterId) {
     return `${moduleId}:${chapterId}`;
 }
@@ -150,6 +153,73 @@ function setChapterRead(moduleId, chapterId, read) {
     writeSet(CHAPTER_STORAGE_KEY, current);
     announceProgress({ kind: 'chapter', moduleId, chapterId, read });
     return current;
+}
+
+/**
+ * A module is read when all of its chapters are. That is the definition the
+ * card's "3 of 5 chapters" needs, and it keeps the old module-level control
+ * meaningful: pressing it sets or clears the whole set at once.
+ */
+function moduleProgress(mod) {
+    const chapters = (mod && mod.chapters) || [];
+    const done = readChapters();
+    return {
+        done: chapters.filter((c) => done.has(chapterKey(mod.id, c.id))).length,
+        total: chapters.length
+    };
+}
+
+function isModuleRead(mod) {
+    const { done, total } = moduleProgress(mod);
+    return total > 0 && done === total;
+}
+
+function setModuleChaptersRead(mod, read) {
+    const current = readChapters();
+    (mod.chapters || []).forEach((chapter) => {
+        const key = chapterKey(mod.id, chapter.id);
+        if (read) current.add(key); else current.delete(key);
+    });
+    writeSet(CHAPTER_STORAGE_KEY, current);
+    announceProgress({ kind: 'module', moduleId: mod.id, read });
+    return current;
+}
+
+/**
+ * Read state used to live at module granularity, which cannot express a module
+ * three chapters into five. Everything already marked read expands into all of
+ * its chapter ids, once, so nobody loses progress in the move.
+ *
+ * The old key is read but deliberately not deleted. If this ships broken, the
+ * data it held is still there to migrate again — and a one-line flag is a
+ * cheaper insurance policy than a support message about lost progress.
+ */
+function migrateModuleProgress(modules) {
+    let alreadyRun = false;
+    try {
+        alreadyRun = window.localStorage.getItem(MIGRATION_FLAG_KEY) === '1';
+    } catch (error) {
+        return;
+    }
+    if (alreadyRun) return;
+
+    const legacy = readSet(MODULE_STORAGE_KEY);
+    if (legacy.size) {
+        const current = readChapters();
+        (modules || []).forEach((mod) => {
+            if (!legacy.has(mod.id)) return;
+            (mod.chapters || []).forEach((chapter) => {
+                current.add(chapterKey(mod.id, chapter.id));
+            });
+        });
+        writeSet(CHAPTER_STORAGE_KEY, current);
+    }
+
+    try {
+        window.localStorage.setItem(MIGRATION_FLAG_KEY, '1');
+    } catch (error) {
+        /* Worst case it runs again, and adding the same keys twice is a no-op. */
+    }
 }
 
 /* --------------------------------------------------------------------------
