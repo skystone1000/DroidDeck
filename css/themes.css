@@ -1,6 +1,19 @@
 /* ==========================================================================
    Design tokens
-   Everything themable lives here as a custom property on [data-theme].
+
+   Two layers, on purpose.
+
+   The PRIMITIVES are the design system verbatim — the values read off
+   docs/design/DroidDeck-Design-System.html and nothing else. They are the only
+   place a literal colour may be written.
+
+   The ALIASES redefine every token name the rest of the CSS already uses in
+   terms of those primitives. That is what lets the whole app be re-skinned in
+   one reviewable commit instead of a two-thousand-line find-and-replace across
+   five files: the palette can be judged on the real app, in both themes, before
+   a single component's markup changes. Each later phase of the revamp deletes
+   the aliases its component group used, so an empty alias block is the signal
+   that the pass is finished.
    ========================================================================== */
 
 :root {
@@ -11,121 +24,278 @@
     --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
-    --radius-xl: 24px;
-    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Type scale. `small` is a floor, not a suggestion: nothing in the UI goes
+       below it, including the monospaced counts. */
+    --text-display: 44px;
+    --text-h1: 28px;
+    --text-h2: 20px;
+    --text-body: 15px;
+    --text-small: 13px;
+    --text-micro: 11px;
+    --leading-body: 1.65;
+    --leading-answer: 1.7;
+    --measure: 72ch;
+
+    /* Spacing, 4pt. Row rhythm is 12 inside a card, 16 between cards, 48
+       between page blocks. */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-7: 48px;
+
+    /* Radius is semantic rather than sized: the name says where it goes, so a
+       row and a card cannot drift apart as they did under sm/md/lg/xl. */
+    --radius-input: 6px;
+    --radius-row: 10px;
+    --radius-card: 14px;
+    --radius-pill: 999px;
+
+    /* Two durations. Hover and focus are quick enough to feel like a state
+       change; panels are slow enough to be followed. There is no third. */
+    --transition-hover: 120ms ease-out;
+    --transition-panel: 200ms cubic-bezier(.2, .7, .3, 1);
+
+    /* Accent ramp. Theme-independent — which step is "the" accent is not. */
+    --accent-100: #EDE9FE;
+    --accent-300: #C4B5FD;
+    --accent-500: #8B5CF6;
+    --accent-600: #7C3AED;
+    --accent-700: #6D28D9;
+    --accent-wash: #2A2340;
+
+    /* One ring, both themes, every focusable thing. */
+    --focus-ring: 0 0 0 3px rgba(139, 92, 246, 0.2);
 }
+
+/* --------------------------------------------------------------------------
+   Dark — canonical
+   -------------------------------------------------------------------------- */
 
 [data-theme="dark"] {
-    --bg-primary: #0a0a0f;
-    --bg-secondary: #111118;
-    --bg-header: rgba(17, 17, 24, 0.8);
-    --bg-sidebar: rgba(17, 17, 24, 0.9);
-    --bg-card: rgba(22, 22, 32, 0.6);
-    --bg-card-hover: rgba(30, 30, 45, 0.8);
-    --bg-input: rgba(255, 255, 255, 0.05);
-    --bg-hover: rgba(255, 255, 255, 0.08);
-    --bg-code: rgba(0, 0, 0, 0.4);
-    --bg-code-inline: rgba(139, 92, 246, 0.15);
-    --bg-glass: rgba(255, 255, 255, 0.03);
-    --bg-key-topics: rgba(139, 92, 246, 0.08);
-    --text-primary: #f0f0f5;
-    --text-secondary: #a0a0b5;
-    --text-muted: #6b6b80;
-    --text-code: #e0e0f0;
-    --border-color: rgba(255, 255, 255, 0.08);
-    --border-subtle: rgba(255, 255, 255, 0.04);
-    --accent-color: #8b5cf6;
-    --accent-hover: #a78bfa;
-    --accent-light: rgba(139, 92, 246, 0.15);
-    --accent-glow: rgba(139, 92, 246, 0.4);
-    --gradient-accent: linear-gradient(135deg, #8b5cf6, #6366f1);
-    --gradient-card: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(99, 102, 241, 0.02));
-    --gradient-shine: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 60%);
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
-    --shadow-glow: 0 0 30px rgba(139, 92, 246, 0.15);
-    --success-color: #10b981;
-    --warning-color: #f59e0b;
-    --error-color: #ef4444;
-    --keyword-color: #c084fc;
-    --string-color: #34d399;
-    --comment-color: #6b7280;
-    --number-color: #60a5fa;
-    --annotation-color: #fbbf24;
-    --tag-color: #f87171;
-    --attribute-color: #a78bfa;
-    --diagram-bg: rgba(139, 92, 246, 0.05);
-    --diagram-border: #6366f1;
-    --diagram-node: rgba(139, 92, 246, 0.2);
-    --diagram-text: #a78bfa;
-    --diagram-arrow: #8b5cf6;
-    /* Theory importance tiers. Their own tokens rather than reuses of
-       --error-color/--warning-color: a must-know badge is not an error, and
-       the two meanings must be free to diverge. */
-    --importance-must: #f87171;
-    --importance-should: #fbbf24;
-    --importance-good: #6b6b80;
+    /* Primitives — surfaces */
+    --ds-canvas: #0A0910;
+    --ds-surface: #12101A;
+    --ds-raised: #1A1726;
+    --ds-sunken: #0E0C16;
+    --ds-border: #272235;
+    --ds-border-subtle: #1E1A2A;
+    --ds-text: #F4F2F8;
+    --ds-muted: #A19BB4;
+    --ds-faint: #6E6885;
+    --ds-veil: rgba(18, 16, 26, 0.82);
+
+    /* Primitives — accent in this theme */
+    --accent: var(--accent-500);
+    --accent-strong: var(--accent-300);
+    --accent-tint: rgba(139, 92, 246, 0.15);
+    --accent-tint-soft: rgba(139, 92, 246, 0.08);
+
+    /* Primitives — priority tiers. Soft fills with a rank dot, not outlined
+       red and yellow badges: those read as errors and warnings. The third tier
+       is neutral because optional content should recede, not compete. */
+    --tier-must-bg: rgba(251, 113, 133, 0.14);
+    --tier-must-dot: #FB7185;
+    --tier-must-ink: #FDA4AF;
+    --tier-should-bg: rgba(251, 191, 36, 0.13);
+    --tier-should-dot: #FBBF24;
+    --tier-should-ink: #FCD34D;
+    --tier-good-bg: rgba(148, 163, 184, 0.12);
+    --tier-good-dot: #94A3B8;
+    --tier-good-ink: #B6BECB;
+
+    /* Primitives — category hues. One per track, used for the tile, the track
+       heading and the progress bar. Nothing outside this set may be introduced. */
+    --hue-violet-bg: rgba(139, 92, 246, 0.16);   --hue-violet-ink: #A78BFA;
+    --hue-sky-bg: rgba(56, 189, 248, 0.14);      --hue-sky-ink: #7DD3FC;
+    --hue-teal-bg: rgba(45, 212, 191, 0.14);     --hue-teal-ink: #5EEAD4;
+    --hue-lime-bg: rgba(163, 230, 53, 0.13);     --hue-lime-ink: #BEF264;
+    --hue-pink-bg: rgba(244, 114, 182, 0.14);    --hue-pink-ink: #F9A8D4;
+    --hue-amber-bg: rgba(251, 191, 36, 0.13);    --hue-amber-ink: #FCD34D;
+    --hue-indigo-bg: rgba(129, 140, 248, 0.15);  --hue-indigo-ink: #A5B4FC;
+    --hue-rose-bg: rgba(251, 113, 133, 0.14);    --hue-rose-ink: #FDA4AF;
+    --hue-fuchsia-bg: rgba(232, 121, 249, 0.14); --hue-fuchsia-ink: #F0ABFC;
+    --hue-slate-bg: rgba(161, 155, 180, 0.14);   --hue-slate-ink: #C6C1D4;
+
+    /* ---- Aliases ---- */
+    --bg-primary: var(--ds-canvas);
+    --bg-secondary: var(--ds-surface);
+    --bg-header: var(--ds-veil);
+    --bg-sidebar: rgba(18, 16, 26, 0.9);
+    --bg-card: var(--ds-surface);
+    --bg-card-hover: var(--ds-raised);
+    --bg-input: var(--ds-raised);
+    --bg-hover: rgba(244, 242, 248, 0.06);
+    --bg-code: var(--ds-sunken);
+    --bg-code-inline: var(--accent-tint);
+    --bg-glass: rgba(244, 242, 248, 0.03);
+    --bg-key-topics: var(--accent-tint-soft);
+    --text-primary: var(--ds-text);
+    --text-secondary: var(--ds-muted);
+    --text-muted: var(--ds-faint);
+    --text-code: var(--ds-text);
+    --border-color: var(--ds-border);
+    --border-subtle: var(--ds-border-subtle);
+    --accent-color: var(--accent);
+    --accent-hover: var(--accent-strong);
+    --accent-light: var(--accent-tint);
+    --accent-glow: rgba(139, 92, 246, 0.35);
+    --gradient-accent: linear-gradient(135deg, var(--accent-500), var(--accent-600));
+    --gradient-card: linear-gradient(135deg, rgba(139, 92, 246, 0.04), transparent 60%);
+    --gradient-shine: linear-gradient(135deg, rgba(244, 242, 248, 0.05) 0%, transparent 60%);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
+    --shadow-glow: 0 0 0 1px rgba(139, 92, 246, 0.18);
+    /* Semantic states, drawn from the category hues so no foreign colour
+       enters through the back door. */
+    --success-color: var(--hue-teal-ink);
+    --warning-color: var(--hue-amber-ink);
+    --error-color: var(--hue-rose-ink);
+    /* Syntax. The system does not specify a code theme, so it is composed from
+       the sanctioned hues rather than invented. */
+    --keyword-color: var(--accent-300);
+    --string-color: var(--hue-teal-ink);
+    --comment-color: var(--ds-faint);
+    --number-color: var(--hue-sky-ink);
+    --annotation-color: var(--hue-amber-ink);
+    --tag-color: var(--hue-rose-ink);
+    --attribute-color: var(--hue-indigo-ink);
+    --diagram-bg: rgba(139, 92, 246, 0.06);
+    --diagram-border: var(--accent-500);
+    --diagram-node: rgba(139, 92, 246, 0.18);
+    --diagram-text: var(--accent-300);
+    --diagram-arrow: var(--accent-500);
+    --importance-must: var(--tier-must-dot);
+    --importance-should: var(--tier-should-dot);
+    --importance-good: var(--tier-good-dot);
 }
 
+/* --------------------------------------------------------------------------
+   Light — a peer, not an inversion
+
+   Its own tier palette rather than dark's reds on white, and the 600 step of
+   the accent, because 500 fails contrast against #FFFFFF at small sizes.
+   -------------------------------------------------------------------------- */
+
 [data-theme="light"] {
-    --bg-primary: #fafafa;
-    --bg-secondary: #ffffff;
-    --bg-header: rgba(255, 255, 255, 0.85);
+    --ds-canvas: #FAFAFC;
+    --ds-surface: #FFFFFF;
+    --ds-raised: #F4F3F8;
+    --ds-sunken: #F4F3F8;
+    --ds-border: #E6E3EF;
+    --ds-border-subtle: #F0EEF6;
+    --ds-text: #171522;
+    --ds-muted: #5C566E;
+    --ds-faint: #8B8398;
+    --ds-veil: rgba(255, 255, 255, 0.85);
+
+    --accent: var(--accent-600);
+    --accent-strong: var(--accent-700);
+    --accent-tint: rgba(124, 58, 237, 0.1);
+    --accent-tint-soft: rgba(124, 58, 237, 0.05);
+
+    --tier-must-bg: #FFE4E6;
+    --tier-must-dot: #E11D48;
+    --tier-must-ink: #9F1239;
+    --tier-should-bg: #FEF3C7;
+    --tier-should-dot: #D97706;
+    --tier-should-ink: #92400E;
+    --tier-good-bg: #F1EFF6;
+    --tier-good-dot: #B9B3C7;
+    --tier-good-ink: #4A4162;
+
+    /* Same nine hues. The glyph moves to the 700 step for the same reason the
+       accent does — the 300 step is unreadable on white. */
+    --hue-violet-bg: rgba(139, 92, 246, 0.12);   --hue-violet-ink: #6D28D9;
+    --hue-sky-bg: rgba(56, 189, 248, 0.16);      --hue-sky-ink: #0369A1;
+    --hue-teal-bg: rgba(45, 212, 191, 0.18);     --hue-teal-ink: #0F766E;
+    --hue-lime-bg: rgba(163, 230, 53, 0.22);     --hue-lime-ink: #4D7C0F;
+    --hue-pink-bg: rgba(244, 114, 182, 0.14);    --hue-pink-ink: #BE185D;
+    --hue-amber-bg: rgba(251, 191, 36, 0.18);    --hue-amber-ink: #B45309;
+    --hue-indigo-bg: rgba(129, 140, 248, 0.16);  --hue-indigo-ink: #4338CA;
+    --hue-rose-bg: rgba(251, 113, 133, 0.14);    --hue-rose-ink: #BE123C;
+    --hue-fuchsia-bg: rgba(232, 121, 249, 0.14); --hue-fuchsia-ink: #A21CAF;
+    --hue-slate-bg: rgba(161, 155, 180, 0.16);   --hue-slate-ink: #4A4162;
+
+    /* ---- Aliases ---- */
+    --bg-primary: var(--ds-canvas);
+    --bg-secondary: var(--ds-surface);
+    --bg-header: var(--ds-veil);
     --bg-sidebar: rgba(255, 255, 255, 0.92);
-    --bg-card: rgba(255, 255, 255, 0.8);
-    --bg-card-hover: rgba(255, 255, 255, 0.95);
-    --bg-input: rgba(0, 0, 0, 0.04);
-    --bg-hover: rgba(0, 0, 0, 0.04);
-    --bg-code: rgba(0, 0, 0, 0.03);
-    --bg-code-inline: rgba(139, 92, 246, 0.1);
-    --bg-glass: rgba(255, 255, 255, 0.6);
-    --bg-key-topics: rgba(139, 92, 246, 0.06);
-    --text-primary: #111118;
-    --text-secondary: #555566;
-    --text-muted: #888899;
-    --text-code: #1a1a2e;
-    --border-color: rgba(0, 0, 0, 0.08);
-    --border-subtle: rgba(0, 0, 0, 0.04);
-    --accent-color: #7c3aed;
-    --accent-hover: #6d28d9;
-    --accent-light: rgba(124, 58, 237, 0.1);
-    --accent-glow: rgba(124, 58, 237, 0.2);
-    --gradient-accent: linear-gradient(135deg, #7c3aed, #4f46e5);
-    --gradient-card: linear-gradient(135deg, rgba(124, 58, 237, 0.03), rgba(79, 70, 229, 0.01));
-    --gradient-shine: linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 60%);
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
-    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
-    --shadow-glow: 0 0 30px rgba(124, 58, 237, 0.08);
-    --success-color: #059669;
-    --warning-color: #d97706;
-    --error-color: #dc2626;
-    --keyword-color: #7c3aed;
-    --string-color: #059669;
-    --comment-color: #6b7280;
-    --number-color: #2563eb;
-    --annotation-color: #d97706;
-    --tag-color: #dc2626;
-    --attribute-color: #7c3aed;
-    --diagram-bg: rgba(124, 58, 237, 0.04);
-    --diagram-border: #7c3aed;
-    --diagram-node: rgba(124, 58, 237, 0.1);
-    --diagram-text: #4f46e5;
-    --diagram-arrow: #7c3aed;
-    --importance-must: #dc2626;
-    --importance-should: #d97706;
-    --importance-good: #6b7280;
+    --bg-card: var(--ds-surface);
+    --bg-card-hover: var(--ds-raised);
+    --bg-input: var(--ds-raised);
+    --bg-hover: rgba(23, 21, 34, 0.04);
+    --bg-code: var(--ds-sunken);
+    --bg-code-inline: var(--accent-tint);
+    --bg-glass: var(--ds-raised);
+    --bg-key-topics: var(--accent-tint-soft);
+    --text-primary: var(--ds-text);
+    --text-secondary: var(--ds-muted);
+    --text-muted: var(--ds-faint);
+    --text-code: var(--ds-text);
+    --border-color: var(--ds-border);
+    --border-subtle: var(--ds-border-subtle);
+    --accent-color: var(--accent);
+    --accent-hover: var(--accent-strong);
+    --accent-light: var(--accent-tint);
+    --accent-glow: rgba(124, 58, 237, 0.18);
+    --gradient-accent: linear-gradient(135deg, var(--accent-600), var(--accent-700));
+    --gradient-card: linear-gradient(135deg, rgba(124, 58, 237, 0.03), transparent 60%);
+    --gradient-shine: linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, transparent 60%);
+    --shadow-sm: 0 1px 3px rgba(23, 21, 34, 0.06);
+    --shadow-md: 0 4px 14px rgba(23, 21, 34, 0.08);
+    --shadow-lg: 0 12px 32px rgba(23, 21, 34, 0.12);
+    --shadow-glow: 0 0 0 1px rgba(124, 58, 237, 0.14);
+    --success-color: var(--hue-teal-ink);
+    --warning-color: var(--hue-amber-ink);
+    --error-color: var(--hue-rose-ink);
+    --keyword-color: var(--accent-700);
+    --string-color: var(--hue-teal-ink);
+    --comment-color: var(--ds-faint);
+    --number-color: var(--hue-sky-ink);
+    --annotation-color: var(--hue-amber-ink);
+    --tag-color: var(--hue-rose-ink);
+    --attribute-color: var(--hue-indigo-ink);
+    --diagram-bg: rgba(124, 58, 237, 0.05);
+    --diagram-border: var(--accent-600);
+    --diagram-node: rgba(124, 58, 237, 0.12);
+    --diagram-text: var(--accent-700);
+    --diagram-arrow: var(--accent-600);
+    --importance-must: var(--tier-must-dot);
+    --importance-should: var(--tier-should-dot);
+    --importance-good: var(--tier-good-dot);
+}
+
+/* --------------------------------------------------------------------------
+   Radius and motion aliases
+
+   The old names survive so nothing breaks in this commit; call sites move to
+   the semantic names as each component group is rebuilt.
+   -------------------------------------------------------------------------- */
+
+:root {
+    --radius-sm: var(--radius-input);
+    --radius-md: var(--radius-row);
+    --radius-lg: var(--radius-card);
+    --transition-fast: var(--transition-hover);
+    --transition-base: var(--transition-panel);
+    --transition-slow: var(--transition-panel);
+}
+
+/* Counts sit in columns — in the sidebar, in the filter pills, down the left
+   edge of a question list. Proportional numerals make those columns dance. */
+body {
+    font-variant-numeric: tabular-nums;
 }
 
 /* Scrollbar */
 * { scrollbar-width: thin; scrollbar-color: var(--text-muted) transparent; }
 *::-webkit-scrollbar { width: 6px; height: 6px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: 3px; }
+*::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: var(--radius-pill); }
 *::-webkit-scrollbar-thumb:hover { background-color: var(--text-muted); }

@@ -41,6 +41,15 @@ body {
     opacity: 0.6;
 }
 
+/* The constellation is a dark-theme device. On light it sits behind body copy,
+   and at 60% it does worse than that: the header and sidebar are translucent,
+   so a dark starfield showing through turned them dark and made light theme
+   look half-applied. The system caps it below 3%. Done here rather than in the
+   Three.js material so it still holds when the CDN script fails to load. */
+[data-theme="light"] .bg-canvas {
+    opacity: 0.03;
+}
+
 /* --------------------------------------------------------------------------
    Skip link
    -------------------------------------------------------------------------- */
