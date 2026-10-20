@@ -37,6 +37,13 @@
     --leading-answer: 1.7;
     --measure: 72ch;
 
+    /* Code metrics are tokens because two elements have to agree on them
+       exactly: the highlighted source and the line-number gutter beside it. A
+       half-line drift between the two is immediately visible. */
+    --code-size: 12.5px;
+    --code-leading: 1.7;
+    --code-pad-y: 14px;
+
     /* Spacing, 4pt. Row rhythm is 12 inside a card, 16 between cards, 48
        between page blocks. */
     --space-1: 4px;

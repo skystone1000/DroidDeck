@@ -61,7 +61,7 @@ function renderTopic(topicId, scrollToSubsection) {
             renderGroupedQuestions(container, topic);
         } else {
             (topic.questions || []).forEach((question, i) => {
-                container.appendChild(renderQuestionCard(question, i + 1));
+                container.appendChild(renderQuestionCard(question, i + 1, topic.id));
             });
         }
 
@@ -186,7 +186,7 @@ function renderGroupedQuestions(container, topic) {
         section.className = 'question-section';
         section.appendChild(makeSubsectionHeader(sub));
         inSection.forEach((question) => {
-            section.appendChild(renderQuestionCard(question, ++number));
+            section.appendChild(renderQuestionCard(question, ++number, topic.id));
         });
         container.appendChild(section);
     };
@@ -315,7 +315,7 @@ function makeSubsectionHeader(sub) {
    Question card
    -------------------------------------------------------------------------- */
 
-function renderQuestionCard(question, number) {
+function renderQuestionCard(question, number, topicId) {
     // IMPORTANCE comes from js/theory.js, which loads first. Deliberately the
     // same map rather than a parallel one: a must-know question and a must-know
     // chapter mean the same thing, so they carry the same label and colour.
@@ -324,6 +324,8 @@ function renderQuestionCard(question, number) {
     const card = document.createElement('article');
     card.className = `question-card importance-${tier.modifier}`;
     card.dataset.id = question.id;
+    card.dataset.topicId = topicId;
+    if (isQuestionDone(topicId, question.id)) card.classList.add('is-done');
 
     /* Header */
     const header = document.createElement('div');
@@ -332,13 +334,18 @@ function renderQuestionCard(question, number) {
     header.setAttribute('aria-expanded', 'false');
     header.tabIndex = 0;
 
+    const check = renderQuestionCheck(card, question, topicId);
+
     const badge = document.createElement('span');
     badge.className = 'question-number';
-    badge.textContent = number;
+    // Padded so the column is a column: 01, not 1 sitting under 10.
+    badge.textContent = String(number).padStart(2, '0');
 
     const text = document.createElement('h4');
     text.className = 'question-text';
     text.textContent = question.question;
+
+    const meta = renderQuestionMeta(question, topicId);
 
     const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     chevron.setAttribute('class', 'question-chevron');
@@ -356,8 +363,10 @@ function renderQuestionCard(question, number) {
     importance.className = `question-importance importance-${tier.modifier}`;
     importance.textContent = tier.label;
 
+    header.appendChild(check);
     header.appendChild(badge);
     header.appendChild(text);
+    if (meta) header.appendChild(meta);
     header.appendChild(importance);
     header.appendChild(chevron);
 
@@ -397,8 +406,14 @@ function renderQuestionCard(question, number) {
         }, 100);
     }
 
+    body.appendChild(renderAnswerActions(card, question, topicId));
+
     card.appendChild(header);
     card.appendChild(body);
+
+    // After both halves are attached: the painter reads the row out of the DOM,
+    // so it has to run once the row exists rather than while it is being built.
+    syncQuestionRow(card, topicId, question.id);
 
     header.addEventListener('click', () => toggleAnswer(card));
     header.addEventListener('keydown', (event) => {
@@ -409,6 +424,172 @@ function renderQuestionCard(question, number) {
     });
 
     return card;
+}
+
+/**
+ * A real checkbox, styled rather than replaced, so it keeps its own keyboard
+ * handling and announces itself correctly. The row header around it is a
+ * role="button" that expands on Enter and Space, so both click and keydown are
+ * stopped here — otherwise ticking a question would also open it.
+ */
+function renderQuestionCheck(card, question, topicId) {
+    // A span, not a label. A <label> wrapping its own control re-forwards the
+    // click to it, so a direct click toggles twice and lands back where it
+    // started. The input carries aria-label, so it is named without one.
+    const wrapper = document.createElement('span');
+    wrapper.className = 'question-check';
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = isQuestionDone(topicId, question.id);
+    input.setAttribute('aria-label', `Mark "${question.question}" as known`);
+
+    const tick = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    tick.setAttribute('viewBox', '0 0 24 24');
+    tick.setAttribute('fill', 'none');
+    tick.setAttribute('stroke', 'currentColor');
+    tick.setAttribute('stroke-width', '3.5');
+    tick.setAttribute('stroke-linecap', 'round');
+    tick.setAttribute('stroke-linejoin', 'round');
+    const tickPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    tickPath.setAttribute('d', 'M20 6L9 17l-5-5');
+    tick.appendChild(tickPath);
+
+    // Writes only. Everything that has to change on screen — this row, the
+    // action button inside it, the header bar, the sidebar count — is painted
+    // by the one listener that hears the store, so no two of them can disagree.
+    input.addEventListener('change', () => {
+        setQuestionDone(topicId, question.id, input.checked);
+    });
+
+    const swallow = (event) => event.stopPropagation();
+    wrapper.addEventListener('click', swallow);
+    wrapper.addEventListener('keydown', swallow);
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(tick);
+    return wrapper;
+}
+
+/** What the row can say about itself before it is opened. */
+function renderQuestionMeta(question, topicId) {
+    const parts = [];
+
+    if ((question.codeSnippets || []).length) {
+        const flag = document.createElement('span');
+        flag.className = 'question-flag-code';
+        flag.textContent = 'code';
+        parts.push(flag);
+    }
+
+    const reviewed = questionReviewedAt(topicId, question.id);
+    if (reviewed) {
+        const flag = document.createElement('span');
+        flag.className = 'question-flag-review';
+        flag.textContent = `reviewed ${relativeDay(reviewed)}`;
+        parts.push(flag);
+    }
+
+    if (!parts.length) return null;
+
+    const meta = document.createElement('span');
+    meta.className = 'question-meta';
+    parts.forEach((part) => meta.appendChild(part));
+    return meta;
+}
+
+/**
+ * Three actions, and the third is conditional. Roughly a third of the bank is
+ * referenced by no chapter, and a button that can never be enabled teaches
+ * nothing — so it is omitted rather than rendered disabled.
+ */
+function renderAnswerActions(card, question, topicId) {
+    const actions = document.createElement('div');
+    actions.className = 'answer-actions';
+
+    const known = document.createElement('button');
+    known.type = 'button';
+    known.className = 'answer-action answer-action-known';
+
+    known.addEventListener('click', () => {
+        setQuestionDone(topicId, question.id, !isQuestionDone(topicId, question.id));
+    });
+
+    const later = document.createElement('button');
+    later.type = 'button';
+    later.className = 'answer-action';
+
+    const paintLater = () => {
+        const at = questionReviewedAt(topicId, question.id);
+        later.textContent = at ? `Reviewed ${relativeDay(at)}` : 'Review later';
+        later.classList.toggle('is-active', Boolean(at));
+        later.setAttribute('aria-pressed', String(Boolean(at)));
+    };
+    paintLater();
+
+    later.addEventListener('click', () => {
+        setQuestionReviewLater(topicId, question.id, !questionReviewedAt(topicId, question.id));
+        paintLater();
+    });
+
+    actions.appendChild(known);
+    actions.appendChild(later);
+
+    const chapter = theoryChapterForQuestion(topicId, question.id);
+    if (chapter) {
+        const open = document.createElement('a');
+        open.className = 'answer-action';
+        open.href = generateTheoryHash(chapter.moduleId);
+        open.textContent = 'Open in Theory';
+        actions.appendChild(open);
+    }
+
+    return actions;
+}
+
+/** Every readout inside one row, brought back into agreement with the store. */
+function syncQuestionRow(card, topicId, questionId) {
+    const done = isQuestionDone(topicId, questionId);
+    card.classList.toggle('is-done', done);
+
+    const box = card.querySelector('.question-check input');
+    if (box) box.checked = done;
+
+    const known = card.querySelector('.answer-action-known');
+    if (known) {
+        known.textContent = done ? 'Marked as known' : 'Mark as known';
+        known.classList.toggle('is-active', done);
+        known.setAttribute('aria-pressed', String(done));
+    }
+}
+
+/**
+ * Built once, from the relatedQuestions every theory module already carries, so
+ * the link exists without a single edit to either corpus. Lazily, because the
+ * theory registry is only guaranteed to be assembled by the time a card is
+ * rendered — not while this file is being parsed.
+ */
+let theoryQuestionIndex = null;
+
+function theoryChapterForQuestion(topicId, questionId) {
+    if (!theoryQuestionIndex) {
+        theoryQuestionIndex = new Map();
+        const modules = (typeof theoryModules === 'undefined') ? [] : theoryModules;
+        modules.forEach((mod) => {
+            (mod.chapters || []).forEach((chapter) => {
+                (chapter.relatedQuestions || []).forEach((ref) => {
+                    const key = `${ref.topicId}:${ref.questionId}`;
+                    // First chapter wins: the reading path is ordered, and the
+                    // earliest chapter to reference a question is the one that
+                    // teaches it rather than the one that revisits it.
+                    if (!theoryQuestionIndex.has(key)) {
+                        theoryQuestionIndex.set(key, { moduleId: mod.id, chapterId: chapter.id });
+                    }
+                });
+            });
+        });
+    }
+    return theoryQuestionIndex.get(`${topicId}:${questionId}`) || null;
 }
 
 function toggleAnswer(card) {
@@ -498,6 +679,8 @@ function renderCodeBlock(snippet) {
     lang.className = 'code-block-lang';
     lang.textContent = snippet.language || 'text';
 
+    const copy = renderCopyButton(snippet.code || '');
+
     const toggle = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     toggle.setAttribute('class', 'code-block-toggle');
     toggle.setAttribute('width', '14');
@@ -512,15 +695,22 @@ function renderCodeBlock(snippet) {
 
     header.appendChild(title);
     header.appendChild(lang);
+    header.appendChild(copy);
     header.appendChild(toggle);
 
     const bodyWrap = document.createElement('div');
     bodyWrap.className = 'code-block-body';
+
+    const scroll = document.createElement('div');
+    scroll.className = 'code-block-scroll';
+    scroll.appendChild(renderLineGutter(snippet.code || ''));
+
     const pre = document.createElement('pre');
     const code = document.createElement('code');
     code.innerHTML = highlightCode(snippet.code || '', snippet.language);
     pre.appendChild(code);
-    bodyWrap.appendChild(pre);
+    scroll.appendChild(pre);
+    bodyWrap.appendChild(scroll);
 
     if (snippet.output) bodyWrap.appendChild(renderCodeOutput(snippet.output));
 
@@ -528,6 +718,7 @@ function renderCodeBlock(snippet) {
     block.appendChild(bodyWrap);
 
     const collapse = () => block.classList.toggle('collapsed');
+    copy.addEventListener('click', (event) => event.stopPropagation());
     header.addEventListener('click', collapse);
     header.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -547,6 +738,81 @@ function renderCodeBlock(snippet) {
    shown as a numbered list under a heading that says so. Dressing a described
    trace up as console output would teach a beginner something false about the
    platform, which is worse than showing them nothing. */
+/**
+ * Numbers are their own column of elements, counted from the raw source before
+ * it is highlighted. They are deliberately NOT produced by splitting the
+ * highlighter's output on newlines: code-highlight.js matches block comments
+ * and multi-line string literals in a single alternation, so its spans cross
+ * line boundaries by design, and cutting that output into lines would leave
+ * torn markup on both sides of the cut.
+ */
+function renderLineGutter(code) {
+    const gutter = document.createElement('div');
+    gutter.className = 'code-gutter';
+    gutter.setAttribute('aria-hidden', 'true');
+
+    const lines = code.split('\n').length;
+    for (let i = 1; i <= lines; i += 1) {
+        const number = document.createElement('span');
+        number.textContent = i;
+        gutter.appendChild(number);
+    }
+    return gutter;
+}
+
+/**
+ * navigator.clipboard is unavailable on file:// in several browsers, and this
+ * app is meant to open from disk — so the textarea fallback is the path that
+ * actually runs for some readers rather than a formality.
+ */
+function renderCopyButton(code) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'code-copy';
+    button.textContent = 'copy';
+
+    button.addEventListener('click', async () => {
+        let copied = false;
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(code);
+                copied = true;
+            }
+        } catch (error) {
+            copied = false;
+        }
+
+        if (!copied) copied = copyViaTextarea(code);
+
+        button.textContent = copied ? 'copied' : 'failed';
+        button.classList.toggle('is-copied', copied);
+        setTimeout(() => {
+            button.textContent = 'copy';
+            button.classList.remove('is-copied');
+        }, 1600);
+    });
+
+    return button;
+}
+
+function copyViaTextarea(code) {
+    const area = document.createElement('textarea');
+    area.value = code;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    let ok = false;
+    try {
+        ok = document.execCommand('copy');
+    } catch (error) {
+        ok = false;
+    }
+    document.body.removeChild(area);
+    return ok;
+}
+
 function renderCodeOutput(output) {
     const stdout = output.kind === 'stdout';
 
@@ -617,6 +883,43 @@ function setupEventListeners() {
         event.preventDefault();
         const input = document.getElementById('searchInput');
         if (input) input.focus();
+    });
+
+    // One tick moves three counters — the row, the bar in the page header and
+    // the count in the sidebar. Re-rendering the topic would achieve that and
+    // throw away every expanded row on the page, so the store announces the
+    // change instead and the two counters outside the row repaint themselves.
+    document.addEventListener('droiddeck:progress', (event) => {
+        if (!event.detail || event.detail.kind !== 'done') return;
+        const { topicId, questionId } = event.detail;
+
+        const card = document.querySelector(
+            `.question-card[data-topic-id="${topicId}"][data-id="${questionId}"]`
+        );
+        if (card) syncQuestionRow(card, topicId, questionId);
+
+        refreshProgressReadouts(topicId);
+    });
+}
+
+function refreshProgressReadouts(topicId) {
+    const topic = topics.find((t) => t.id === topicId);
+    if (!topic) return;
+
+    const bar = document.querySelector(`.topic-progress[data-topic-id="${topicId}"]`);
+    if (bar) paintTopicProgress(bar, topic);
+
+    const { done } = topicProgress(topic);
+    const stat = document.querySelector('.topic-stat.is-progress');
+    if (stat) stat.textContent = `${done} done`;
+
+    document.querySelectorAll(
+        `.nav-subsection[data-topic-id="${topicId}"] .nav-subsection-count`
+    ).forEach((node) => {
+        const sub = node.closest('.nav-subsection').dataset.subsectionId;
+        const progress = subsectionProgress(topic, sub);
+        node.textContent = `${progress.done}/${progress.total}`;
+        node.classList.toggle('is-complete', Boolean(progress.total) && progress.done === progress.total);
     });
 }
 

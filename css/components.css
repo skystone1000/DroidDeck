@@ -357,23 +357,8 @@
                 background var(--transition-base);
 }
 
-.question-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: var(--gradient-shine);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity var(--transition-base);
-}
-
 .question-card:hover {
     border-color: var(--accent-color);
-    box-shadow: var(--shadow-glow);
-}
-
-.question-card:hover::after {
-    opacity: 1;
 }
 
 .question-card.expanded {
@@ -386,32 +371,32 @@
     z-index: 1;
     display: flex;
     align-items: flex-start;
-    gap: 14px;
-    padding: 16px 18px;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
     cursor: pointer;
     user-select: none;
 }
 
+.question-header:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--radius-row);
+}
+
 .question-number {
     flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    margin-top: 1px;
+    margin-top: 3px;
     font-family: var(--font-mono);
-    font-size: 11.5px;
+    font-size: var(--text-small);
     font-weight: 500;
-    color: var(--accent-hover);
-    background: var(--accent-light);
-    border-radius: 50%;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
 }
 
 .question-text {
     flex: 1 1 auto;
-    font-size: 15px;
-    font-weight: 550;
+    font-size: var(--text-body);
+    font-weight: 600;
     line-height: 1.5;
     color: var(--text-primary);
 }
@@ -509,32 +494,163 @@
    because a must-know question and a must-know chapter mean the same thing and
    a reader moving between the two modes should not have to relearn a colour. */
 
+/* One signal, not two. The coloured left edge said exactly what the badge said,
+   and together they made a list of 135 questions read as a warning log. The edge
+   is gone; the badge softened into a filled chip with a rank dot, which carries
+   the same three-step meaning without the alarm. Outlined red and amber read as
+   error and warning — they are neither. */
+
 .question-importance {
     flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     margin-top: 2px;
-    padding: 3px 9px;
-    font-size: 10.5px;
-    font-weight: 700;
+    padding: 5px 11px;
+    font-size: var(--text-micro);
+    font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     white-space: nowrap;
-    border-radius: 999px;
-    color: var(--importance-good);
-    background: var(--bg-glass);
-    border: 1px solid currentColor;
+    border: none;
+    border-radius: var(--radius-pill);
+    color: var(--tier-good-ink);
+    background: var(--tier-good-bg);
 }
 
-.question-importance.importance-must   { color: var(--importance-must); }
-.question-importance.importance-should { color: var(--importance-should); }
-
-/* The card's left edge repeats the tier, so a scan down a long topic reads as
-   a stripe rather than as a column of badges to be individually read. */
-.question-card {
-    border-left: 3px solid var(--importance-good);
+.question-importance::before {
+    content: '';
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--tier-good-dot);
 }
 
-.question-card.importance-must   { border-left-color: var(--importance-must); }
-.question-card.importance-should { border-left-color: var(--importance-should); }
+.question-importance.importance-must {
+    color: var(--tier-must-ink);
+    background: var(--tier-must-bg);
+}
+
+.question-importance.importance-must::before { background: var(--tier-must-dot); }
+
+.question-importance.importance-should {
+    color: var(--tier-should-ink);
+    background: var(--tier-should-bg);
+}
+
+.question-importance.importance-should::before { background: var(--tier-should-dot); }
+
+/* --------------------------------------------------------------------------
+   Progress checkbox
+
+   The space the left edge gave up goes here. A real checkbox, styled rather
+   than replaced, so it keeps its own keyboard behaviour and its own semantics.
+   -------------------------------------------------------------------------- */
+
+.question-check {
+    flex: 0 0 auto;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin: -8px 0 -8px -8px;
+    cursor: pointer;
+}
+
+.question-check input {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    background: transparent;
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-input);
+    cursor: pointer;
+    transition: background var(--transition-hover), border-color var(--transition-hover);
+}
+
+.question-check input:hover {
+    border-color: var(--accent-color);
+}
+
+.question-check input:checked {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.question-check input:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+/* Drawn rather than a glyph, so it inherits the tick's size and never falls
+   back to a font that does not have it. */
+.question-check svg {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    color: var(--ds-canvas);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-hover);
+}
+
+.question-check input:checked + svg {
+    opacity: 1;
+}
+
+/* A finished row recedes. Until now a question you had answered looked exactly
+   like one you had never opened, which is the same as not recording it. */
+.question-card.is-done {
+    background: transparent;
+    border-color: var(--border-subtle);
+}
+
+.question-card.is-done .question-text {
+    color: var(--text-secondary);
+}
+
+.question-card.is-done .question-number,
+.question-card.is-done .question-importance {
+    opacity: 0.55;
+}
+
+.question-card.is-done:hover {
+    border-color: var(--border-color);
+    box-shadow: none;
+}
+
+/* --------------------------------------------------------------------------
+   Row metadata
+   -------------------------------------------------------------------------- */
+
+.question-meta {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: 4px;
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    color: var(--text-muted);
+}
+
+/* Says so before you open it — a question with code is a different kind of
+   preparation from one without. */
+.question-flag-code {
+    padding: 2px 7px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-input);
+}
+
+.question-flag-review {
+    color: var(--warning-color);
+    white-space: nowrap;
+}
 
 /* Below roughly a phone's width the badge and the question fight for the same
    line, and the question wins. */
@@ -542,6 +658,135 @@
     .question-importance {
         display: none;
     }
+}
+
+/* --------------------------------------------------------------------------
+   Row actions
+   -------------------------------------------------------------------------- */
+
+.answer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-5);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border-subtle);
+}
+
+.answer-action {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 40px;
+    padding: 0 var(--space-4);
+    font-family: inherit;
+    font-size: var(--text-small);
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+    background: var(--bg-card-hover);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-input);
+    cursor: pointer;
+    transition: color var(--transition-hover), background var(--transition-hover),
+                border-color var(--transition-hover);
+}
+
+.answer-action:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-color);
+}
+
+.answer-action:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.answer-action.is-active {
+    color: var(--accent-hover);
+    background: var(--accent-light);
+    border-color: var(--accent-color);
+}
+
+/* --------------------------------------------------------------------------
+   Code block — filename bar, copy, line numbers
+   -------------------------------------------------------------------------- */
+
+.code-block-filename {
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    color: var(--text-muted);
+}
+
+.code-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px;
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-input);
+    cursor: pointer;
+    transition: color var(--transition-hover), border-color var(--transition-hover);
+}
+
+.code-copy:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-color);
+}
+
+.code-copy:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.code-copy.is-copied {
+    color: var(--success-color);
+    border-color: var(--success-color);
+}
+
+/* The gutter is its own column of elements rather than markup woven into the
+   highlighted source. The highlighter matches block comments and raw strings in
+   one alternation, so its spans cross newlines by design — splitting its output
+   on \n to number the lines would tear that markup in half. */
+.code-block-scroll {
+    display: flex;
+    align-items: flex-start;
+    overflow-x: auto;
+}
+
+.code-gutter {
+    flex: 0 0 auto;
+    position: sticky;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    padding: var(--code-pad-y) var(--space-3) var(--code-pad-y) 16px;
+    margin-right: var(--space-3);
+    border-right: 1px solid var(--border-subtle);
+    /* Same size, same leading, same vertical padding as the source it counts.
+       Anything else and the numbers walk out of step with the lines. */
+    font-family: var(--font-mono);
+    font-size: var(--code-size);
+    line-height: var(--code-leading);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--text-muted);
+    opacity: 0.55;
+    user-select: none;
+    background: var(--bg-code);
+}
+
+.code-block-scroll pre {
+    padding-left: 0;
+}
+
+.code-block-scroll pre {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .question-chevron {
@@ -578,8 +823,13 @@
    Answer content
    -------------------------------------------------------------------------- */
 
+/* Answers are read, not scanned. The measure caps at 72ch and the line height
+   goes up to match — the two only work as a pair, and 14.5px was a size chosen
+   before either existed. */
 .answer-content {
-    font-size: 14.5px;
+    max-width: var(--measure);
+    font-size: var(--text-body);
+    line-height: var(--leading-answer);
     color: var(--text-secondary);
 }
 
@@ -713,15 +963,23 @@
     overflow: hidden;
 }
 
+/* The metrics go on the <pre>, not only on the <code> inside it. An inline
+   <code> cannot shrink a line box below the block's own strut, so setting the
+   leading on the code alone left every line rendering at the pre's inherited
+   24.75px while computing as 21.25px — which is precisely the half-line the
+   gutter beside it kept drifting by. */
 .code-block pre {
     margin: 0;
-    padding: 14px 16px;
+    padding: var(--code-pad-y) 16px;
+    font-family: var(--font-mono);
+    font-size: var(--code-size);
+    line-height: var(--code-leading);
 }
 
 .code-block code {
     font-family: var(--font-mono);
-    font-size: 12.5px;
-    line-height: 1.7;
+    font-size: var(--code-size);
+    line-height: var(--code-leading);
     color: var(--text-code);
     white-space: pre;
     tab-size: 4;
@@ -936,19 +1194,26 @@
     background: var(--accent-hover);
 }
 
-/* A tier badge is an annotation on the result, not its identity the way the
-   Theory badge is, so it is outlined rather than filled — the filled badge
-   stays the strongest mark in the row. */
+/* The same soft chip the question rows carry. A tier means one thing, so it
+   should not be outlined here and filled there — the Theory badge stays the
+   strongest mark in the row by being the accent, not by being the only fill. */
 .search-result-badge.importance-must,
 .search-result-badge.importance-should,
 .search-result-badge.importance-good {
-    color: var(--importance-good);
-    background: transparent;
-    border: 1px solid currentColor;
+    border: none;
+    color: var(--tier-good-ink);
+    background: var(--tier-good-bg);
 }
 
-.search-result-badge.importance-must   { color: var(--importance-must); }
-.search-result-badge.importance-should { color: var(--importance-should); }
+.search-result-badge.importance-must {
+    color: var(--tier-must-ink);
+    background: var(--tier-must-bg);
+}
+
+.search-result-badge.importance-should {
+    color: var(--tier-should-ink);
+    background: var(--tier-should-bg);
+}
 
 .search-result-chapter .search-result-topic {
     color: var(--text-secondary);
