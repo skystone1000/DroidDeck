@@ -103,6 +103,158 @@ function renderProgressBar(done, total) {
 }
 
 /* --------------------------------------------------------------------------
+   Glossary terms in prose
+
+   Terms are marked up after the chapter is rendered, by walking its TEXT NODES
+   and splitting them — never by rewriting the stored HTML. Two reasons. The
+   corpus is validated against a fixed subset of allowed tags, so injecting
+   markup into authored fields would put the validators and the renderer in
+   disagreement. And a regex over an HTML string cannot tell a word in prose
+   from the same word inside an attribute or a code span; a text-node walk
+   cannot see either, which is exactly the discrimination we need.
+   -------------------------------------------------------------------------- */
+
+const GLOSSARY_SKIP = new Set(['CODE', 'PRE', 'A', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+    'BUTTON', 'SCRIPT', 'STYLE', 'TEXTAREA']);
+
+let glossaryTermIndex = null;
+
+function glossaryIndex() {
+    if (!glossaryTermIndex) {
+        glossaryTermIndex = new Map();
+        collectGlossaryEntries().forEach((entry) => {
+            const key = entry.term.toLowerCase();
+            if (!glossaryTermIndex.has(key)) glossaryTermIndex.set(key, entry);
+        });
+    }
+    return glossaryTermIndex;
+}
+
+function linkGlossaryTerms(root) {
+    const index = glossaryIndex();
+    if (!index.size) return;
+
+    // Longest first, so "coroutine scope" wins over "coroutine".
+    const terms = [...index.keys()].sort((a, b) => b.length - a.length);
+    const pattern = new RegExp(`\\b(${terms.map(escapeRegExp).join('|')})\\b`, 'i');
+
+    // Once per term per page. "Main thread" appears in seven paragraphs of the
+    // threading module, and underlining all seven teaches nothing the first one
+    // did not — it just makes the prose look like a minefield.
+    const seen = new Set();
+    root.querySelectorAll('.theory-prose, .theory-chapter-body p, .theory-chapter-body li')
+        .forEach((node) => markTermsIn(node, pattern, index, seen));
+}
+
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** One term per element: enough to teach the word, short of underlining prose. */
+function markTermsIn(element, pattern, index, seen) {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+            let parent = node.parentElement;
+            while (parent && parent !== element.parentElement) {
+                if (GLOSSARY_SKIP.has(parent.tagName)) return NodeFilter.FILTER_REJECT;
+                if (parent.classList.contains('glossary-term')) return NodeFilter.FILTER_REJECT;
+                parent = parent.parentElement;
+            }
+            return pattern.test(node.textContent)
+                ? NodeFilter.FILTER_ACCEPT
+                : NodeFilter.FILTER_REJECT;
+        }
+    });
+
+    const target = walker.nextNode();
+    if (!target) return;
+
+    const match = pattern.exec(target.textContent);
+    if (!match) return;
+
+    const key = match[0].toLowerCase();
+    if (seen.has(key)) return;
+
+    const entry = index.get(key);
+    if (!entry) return;
+    seen.add(key);
+
+    const after = target.splitText(match.index);
+    after.splitText(match[0].length);
+
+    const mark = document.createElement('span');
+    mark.className = 'glossary-term';
+    mark.tabIndex = 0;
+    mark.textContent = after.textContent;
+    mark.appendChild(renderTermPopover(entry));
+    after.replaceWith(mark);
+}
+
+/* Hover opens it; focus opens it; Escape closes it. The last one is the reason
+   this is a class rather than pure :hover — a keyboard reader needs a way out
+   that is not "move the mouse". */
+document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    document.querySelectorAll('.glossary-term.is-open').forEach((node) => {
+        node.classList.remove('is-open');
+    });
+});
+
+/* A popover anchored to the left of its term runs off the page when the term is
+   near the right edge, which is most of them in a 72ch column. Measured on open
+   rather than guessed, because the term's position depends on where the line
+   happened to wrap. */
+function placePopover(term) {
+    const popover = term.querySelector('.glossary-popover');
+    if (!popover) return;
+
+    term.classList.remove('align-right');
+
+    // Measure the TERM, not the popover. The popover is display:none until it
+    // opens, and a hidden element reports a zero-sized rect — so measuring it
+    // here always concluded that it fitted, which is why it kept running off
+    // the page. Its widest possible box is its max-width, which is enough to
+    // decide the side it should hang from.
+    const width = parseFloat(getComputedStyle(popover).maxWidth) || 320;
+    const rect = term.getBoundingClientRect();
+    if (rect.left + width > window.innerWidth - 16) term.classList.add('align-right');
+}
+
+document.addEventListener('mouseover', (event) => {
+    const term = event.target.closest && event.target.closest('.glossary-term');
+    if (term) placePopover(term);
+});
+
+document.addEventListener('focusin', (event) => {
+    document.querySelectorAll('.glossary-term.is-open').forEach((node) => {
+        if (!node.contains(event.target)) node.classList.remove('is-open');
+    });
+    const term = event.target.closest && event.target.closest('.glossary-term');
+    if (term) {
+        term.classList.add('is-open');
+        placePopover(term);
+    }
+});
+
+function renderTermPopover(entry) {
+    const popover = document.createElement('span');
+    popover.className = 'glossary-popover';
+    popover.setAttribute('role', 'tooltip');
+
+    const term = document.createElement('span');
+    term.className = 'glossary-popover-term';
+    term.textContent = entry.term;
+
+    const body = document.createElement('span');
+    body.className = 'glossary-popover-body';
+    body.innerHTML = entry.html;
+
+    popover.appendChild(term);
+    popover.appendChild(body);
+    return popover;
+}
+
+/* --------------------------------------------------------------------------
    Curriculum overview — #theory
    -------------------------------------------------------------------------- */
 
@@ -577,6 +729,7 @@ function renderTheoryModule(moduleId, scrollToChapter) {
         });
 
         container.classList.remove('topic-transitioning');
+        linkGlossaryTerms(container);
 
         if (typeof setActiveTheory === 'function') setActiveTheory(mod.id);
         history.replaceState(null, '', generateTheoryHash(mod.id, scrollToChapter));

@@ -426,10 +426,20 @@ body {
    Accessibility
    -------------------------------------------------------------------------- */
 
+/* One ring, everywhere. The 2px outline it replaces sat too tight to read
+   against a card border and changed shape depending on what it landed on. */
 :focus-visible {
-    outline: 2px solid var(--accent-color);
-    outline-offset: 2px;
-    border-radius: 4px;
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--radius-input);
+}
+
+/* Anything genuinely unavailable says so the same way. */
+button:disabled,
+.btn:disabled,
+[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: default;
 }
 
 .visually-hidden {

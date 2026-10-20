@@ -38,6 +38,7 @@ function renderTopic(topicId, scrollToSubsection) {
     if (!topic) return;
 
     container.classList.add('topic-transitioning');
+    renderSkeletons(container);
 
     setTimeout(() => {
         container.innerHTML = '';
@@ -61,7 +62,12 @@ function renderTopic(topicId, scrollToSubsection) {
             container.classList.toggle(`show-${key}`, questionTiers.includes(key));
         });
 
-        if (topic.subsections && topic.subsections.length) {
+        // A filter can narrow a topic to nothing. That used to render as a
+        // blank page under a filter bar, which reads as a broken page rather
+        // than as an answer to what was asked.
+        if (!questionsInTiers(topic.questions || [], questionTiers).length) {
+            container.appendChild(renderEmptyState(topic));
+        } else if (topic.subsections && topic.subsections.length) {
             renderGroupedQuestions(container, topic);
         } else {
             (topic.questions || []).forEach((question, i) => {
@@ -84,6 +90,54 @@ function renderTopic(topicId, scrollToSubsection) {
         }
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, TOPIC_TRANSITION_MS);
+}
+
+/* Placeholders for the length of the topic transition. The content is already
+   in memory, so this is not hiding a fetch — it is keeping the page changing
+   from something to something instead of blinking through empty. */
+function renderSkeletons(container) {
+    container.innerHTML = '';
+    for (let i = 0; i < 4; i += 1) {
+        const row = document.createElement('div');
+        row.className = 'skeleton-row';
+        row.setAttribute('aria-hidden', 'true');
+        container.appendChild(row);
+    }
+}
+
+function renderEmptyState(topic) {
+    const state = document.createElement('div');
+    state.className = 'state-empty';
+
+    const title = document.createElement('p');
+    title.className = 'state-empty-title';
+    title.textContent = 'Nothing left here';
+
+    const body = document.createElement('p');
+    body.className = 'state-empty-body';
+    const selected = questionTiers
+        .map((key) => IMPORTANCE[TIER_KEYS[key]].label.toLowerCase())
+        .join(' or ');
+    body.textContent = questionTiers.length
+        ? `${topic.title} has no ${selected} questions. Widen the filter to see the rest.`
+        : `${topic.title} has no questions yet.`;
+
+    state.appendChild(title);
+    state.appendChild(body);
+
+    if (questionTiers.length) {
+        const clear = document.createElement('button');
+        clear.type = 'button';
+        clear.className = 'btn btn-secondary';
+        clear.textContent = 'Show all questions';
+        clear.addEventListener('click', () => {
+            const route = parseHash(window.location.hash);
+            window.location.hash = generateHash(route.topicId, route.subsectionId, []);
+        });
+        state.appendChild(clear);
+    }
+
+    return state;
 }
 
 function renderTopicHeader(topic) {

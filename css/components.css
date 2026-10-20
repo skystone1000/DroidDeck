@@ -4,6 +4,140 @@
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
+   Buttons
+
+   The system's six specimens: primary, its hover, secondary, ghost, the focus
+   ring and disabled. Everything clickable in the app is one of these or is
+   built from the same three tokens — size, radius, ring.
+   -------------------------------------------------------------------------- */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: 40px;
+    padding: 0 var(--space-4);
+    font-family: inherit;
+    font-size: var(--text-small);
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius-input);
+    cursor: pointer;
+    transition: background var(--transition-hover), color var(--transition-hover),
+                border-color var(--transition-hover);
+}
+
+.btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.btn-primary {
+    color: var(--ds-canvas);
+    background: var(--accent-500);
+}
+
+.btn-primary:hover {
+    background: var(--accent-600);
+}
+
+.btn-secondary {
+    color: var(--text-primary);
+    background: var(--bg-card-hover);
+    border-color: var(--border-color);
+}
+
+.btn-secondary:hover {
+    border-color: var(--accent-color);
+}
+
+.btn-ghost {
+    color: var(--text-secondary);
+    background: transparent;
+}
+
+.btn-ghost:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+    color: var(--text-muted);
+    background: var(--bg-glass);
+    border-color: var(--border-subtle);
+    cursor: default;
+}
+
+.btn:disabled:hover,
+.btn[aria-disabled="true"]:hover {
+    background: var(--bg-glass);
+    border-color: var(--border-subtle);
+}
+
+/* --------------------------------------------------------------------------
+   Empty and loading states
+   -------------------------------------------------------------------------- */
+
+/* The filter can already empty a topic, and until now that rendered as a blank
+   page below a filter bar — which reads as a bug rather than as an answer. */
+.state-empty {
+    max-width: 46ch;
+    margin: var(--space-7) auto;
+    padding: var(--space-6) var(--space-5);
+    text-align: center;
+}
+
+.state-empty-title {
+    font-family: var(--font-display);
+    font-size: var(--text-h2);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.state-empty-body {
+    margin-top: var(--space-3);
+    font-size: var(--text-small);
+    line-height: var(--leading-body);
+    color: var(--text-muted);
+}
+
+.state-empty .btn {
+    margin-top: var(--space-5);
+}
+
+/* Shown for the length of the topic transition, so the page changes from
+   something to something rather than from content to nothing and back. */
+.skeleton-row {
+    height: 72px;
+    margin-bottom: var(--space-4);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-row);
+    overflow: hidden;
+    position: relative;
+}
+
+.skeleton-row::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, var(--bg-hover), transparent);
+    transform: translateX(-100%);
+    animation: skeletonSweep 1.2s ease-in-out infinite;
+}
+
+@keyframes skeletonSweep {
+    to { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .skeleton-row::after { animation: none; }
+}
+
+/* --------------------------------------------------------------------------
    Sidebar navigation
    -------------------------------------------------------------------------- */
 

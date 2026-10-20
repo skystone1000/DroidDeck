@@ -977,3 +977,70 @@
     line-height: 1.5;
     color: var(--text-muted);
 }
+
+
+/* --------------------------------------------------------------------------
+   Glossary terms in prose
+
+   A dashed underline rather than a solid one: the word is annotated, not
+   linked, and clicking it does not take you anywhere.
+   -------------------------------------------------------------------------- */
+
+.glossary-term {
+    position: relative;
+    color: var(--accent-hover);
+    border-bottom: 1px dashed var(--accent-light);
+    cursor: help;
+}
+
+.glossary-term:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--radius-input);
+}
+
+.glossary-popover {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 8px);
+    z-index: 1200;
+    display: none;
+    width: max-content;
+    max-width: 320px;
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    background: var(--bg-card-hover);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-row);
+    box-shadow: var(--shadow-lg);
+}
+
+.glossary-term:hover .glossary-popover,
+.glossary-term.is-open .glossary-popover {
+    display: block;
+}
+
+.glossary-popover-term {
+    display: block;
+    margin-bottom: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-small);
+    color: var(--accent-hover);
+}
+
+.glossary-popover-body {
+    display: block;
+    font-size: var(--text-small);
+    line-height: var(--leading-body);
+    color: var(--text-secondary);
+}
+
+.glossary-popover-body p {
+    margin: 0;
+}
+
+/* Set by placePopover when the measured box would cross the viewport edge. */
+.glossary-term.align-right .glossary-popover {
+    left: auto;
+    right: 0;
+}
