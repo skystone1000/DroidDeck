@@ -1319,7 +1319,7 @@ function renderDrillBlock(block) {
 
     const clock = document.createElement('span');
     clock.className = 'theory-drill-clock';
-    clock.textContent = `⏱ ${block.minutes} min`;
+    clock.textContent = `${block.minutes} min`;
 
     head.appendChild(tier);
     head.appendChild(title);
