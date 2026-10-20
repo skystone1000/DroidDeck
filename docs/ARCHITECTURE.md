@@ -26,6 +26,7 @@ data/theory/index.js               (assembles them into `theoryModules`/`theoryT
 js/code-highlight.js               (no dependencies)
 js/diagrams.js                     (no dependencies)
 js/theme.js                        (no dependencies)
+js/progress.js                     (no dependencies)
 js/three-bg.js                     (optional: THREE)
 js/navigation.js                   (calls renderTopic from app.js at runtime)
 js/theory.js                       (uses renderCodeBlock, renderDiagram)

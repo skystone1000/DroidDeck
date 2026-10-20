@@ -1,0 +1,182 @@
+/* ==========================================================================
+   Progress — what has been answered, what is coming back, what has been read.
+
+   Theory has tracked read state since it was written; the question bank never
+   has. That is the gap this file closes, and it deliberately reuses theory's
+   posture rather than inventing a second one: localStorage is wrapped because
+   it throws on file:// in some browsers and in private mode, and progress is a
+   convenience that is not worth breaking the page over.
+
+   Question keys are `topicId:questionId`, never the id alone. Question ids are
+   unique *within* a topic only — tools/validate-questions.js asserts exactly
+   one known cross-topic collision and fails on a second — so a store keyed on
+   the bare id would silently mark two questions done at once.
+   ========================================================================== */
+
+const DONE_STORAGE_KEY = 'droiddeck:questions:done';
+const LATER_STORAGE_KEY = 'droiddeck:questions:later';
+const CHAPTER_STORAGE_KEY = 'droiddeck:theory:chapters';
+
+/* Every mutation announces itself here. The checkbox, the sidebar counts and
+   the header bar all read the same store, and all three have to move together
+   when one row is ticked — re-rendering the topic to achieve that would throw
+   away every expanded row on the page. */
+const PROGRESS_EVENT = 'droiddeck:progress';
+
+function questionKey(topicId, questionId) {
+    return `${topicId}:${questionId}`;
+}
+
+/* --------------------------------------------------------------------------
+   Storage
+   -------------------------------------------------------------------------- */
+
+function readSet(key) {
+    try {
+        const raw = window.localStorage.getItem(key);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return new Set(Array.isArray(parsed) ? parsed : []);
+    } catch (error) {
+        return new Set();
+    }
+}
+
+function writeSet(key, set) {
+    try {
+        window.localStorage.setItem(key, JSON.stringify([...set]));
+    } catch (error) {
+        /* Progress is a convenience; losing it is not worth an error. */
+    }
+}
+
+/* `Review later` keeps a date, not a flag, because the row reports it as
+   "reviewed 2d ago" — a bare set could only say "yes". */
+function readMap(key) {
+    try {
+        const raw = window.localStorage.getItem(key);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+    } catch (error) {
+        return {};
+    }
+}
+
+function writeMap(key, map) {
+    try {
+        window.localStorage.setItem(key, JSON.stringify(map));
+    } catch (error) {
+        /* As above. */
+    }
+}
+
+function announceProgress(detail) {
+    document.dispatchEvent(new CustomEvent(PROGRESS_EVENT, { detail }));
+}
+
+/* --------------------------------------------------------------------------
+   Questions — done
+   -------------------------------------------------------------------------- */
+
+function doneQuestions() {
+    return readSet(DONE_STORAGE_KEY);
+}
+
+function isQuestionDone(topicId, questionId) {
+    return doneQuestions().has(questionKey(topicId, questionId));
+}
+
+function setQuestionDone(topicId, questionId, done) {
+    const current = doneQuestions();
+    const key = questionKey(topicId, questionId);
+    if (done) current.add(key); else current.delete(key);
+    writeSet(DONE_STORAGE_KEY, current);
+    announceProgress({ kind: 'done', topicId, questionId, done });
+    return current;
+}
+
+/* --------------------------------------------------------------------------
+   Questions — review later
+   -------------------------------------------------------------------------- */
+
+function laterQuestions() {
+    return readMap(LATER_STORAGE_KEY);
+}
+
+function questionReviewedAt(topicId, questionId) {
+    const stamp = laterQuestions()[questionKey(topicId, questionId)];
+    return stamp ? new Date(stamp) : null;
+}
+
+function setQuestionReviewLater(topicId, questionId, flagged) {
+    const current = laterQuestions();
+    const key = questionKey(topicId, questionId);
+    if (flagged) current[key] = new Date().toISOString();
+    else delete current[key];
+    writeMap(LATER_STORAGE_KEY, current);
+    announceProgress({ kind: 'later', topicId, questionId, flagged });
+    return current;
+}
+
+/** "2d ago", "just now" — the row has one line for this, so it stays coarse. */
+function relativeDay(date) {
+    if (!date) return '';
+    const days = Math.floor((Date.now() - date.getTime()) / 86400000);
+    if (days <= 0) return 'today';
+    if (days === 1) return '1d ago';
+    return `${days}d ago`;
+}
+
+/* --------------------------------------------------------------------------
+   Theory — chapters
+
+   Written now, read in the theory phase. The unit is the chapter rather than
+   the module because a card that says "3 of 5 chapters" cannot be derived from
+   a set of module ids, and a card reading "0 of 5" after four chapters were
+   read is worse than the bare count it replaced.
+   -------------------------------------------------------------------------- */
+
+function chapterKey(moduleId, chapterId) {
+    return `${moduleId}:${chapterId}`;
+}
+
+function readChapters() {
+    return readSet(CHAPTER_STORAGE_KEY);
+}
+
+function setChapterRead(moduleId, chapterId, read) {
+    const current = readChapters();
+    const key = chapterKey(moduleId, chapterId);
+    if (read) current.add(key); else current.delete(key);
+    writeSet(CHAPTER_STORAGE_KEY, current);
+    announceProgress({ kind: 'chapter', moduleId, chapterId, read });
+    return current;
+}
+
+/* --------------------------------------------------------------------------
+   Counts
+
+   Every counter in the UI — sidebar sub-item, sidebar group, page header bar —
+   comes from one of these, so they cannot drift apart.
+   -------------------------------------------------------------------------- */
+
+function countDone(topicId, questions) {
+    const done = doneQuestions();
+    return (questions || []).filter((q) => done.has(questionKey(topicId, q.id))).length;
+}
+
+function topicProgress(topic) {
+    const questions = (topic && topic.questions) || [];
+    return { done: countDone(topic.id, questions), total: questions.length };
+}
+
+function subsectionProgress(topic, subsectionId) {
+    const questions = ((topic && topic.questions) || [])
+        .filter((q) => q.subsection === subsectionId);
+    return { done: countDone(topic.id, questions), total: questions.length };
+}
+
+/** 0–100, and 0 rather than NaN for an empty set. */
+function progressPercent(done, total) {
+    if (!total) return 0;
+    return Math.round((done / total) * 100);
+}
