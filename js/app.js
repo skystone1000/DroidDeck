@@ -147,6 +147,15 @@ function paintTopicProgress(bar, topic) {
     bar.setAttribute('aria-label', `${done} of ${total} questions marked done`);
 }
 
+const KEY_TOPICS_SHOWN = 6;
+
+/**
+ * Six chips, then a count of the rest. Kotlin carries thirty-seven of these and
+ * Coroutines twenty; at that size the panel stops being a summary of the topic
+ * and becomes a wall that pushes the first question below the fold. The
+ * expansion is deliberately not remembered — a summary should be a summary on
+ * every arrival, not on the first one only.
+ */
 function renderKeyTopics(keyTopics) {
     const section = document.createElement('section');
     section.className = 'key-topics-section';
@@ -157,15 +166,35 @@ function renderKeyTopics(keyTopics) {
 
     const grid = document.createElement('div');
     grid.className = 'key-topics-grid';
-    keyTopics.forEach((topic) => {
+
+    keyTopics.forEach((topic, index) => {
         const pill = document.createElement('span');
         pill.className = 'key-topic-pill';
+        if (index >= KEY_TOPICS_SHOWN) pill.classList.add('is-overflow');
         pill.textContent = topic;
         grid.appendChild(pill);
     });
 
     section.appendChild(title);
     section.appendChild(grid);
+
+    const hidden = keyTopics.length - KEY_TOPICS_SHOWN;
+    if (hidden > 0) {
+        const more = document.createElement('button');
+        more.type = 'button';
+        more.className = 'key-topics-more';
+        more.setAttribute('aria-expanded', 'false');
+        more.textContent = `+${hidden} more`;
+
+        more.addEventListener('click', () => {
+            const expanded = section.classList.toggle('is-expanded');
+            more.setAttribute('aria-expanded', String(expanded));
+            more.textContent = expanded ? 'Show fewer' : `+${hidden} more`;
+        });
+
+        grid.appendChild(more);
+    }
+
     return section;
 }
 
@@ -229,10 +258,14 @@ function renderTierFilter(topic) {
         window.location.hash = generateHash(route.topicId, route.subsectionId, tiers);
     };
 
-    const makeButton = ({ label, count, active, pressed, onClick, disabled }) => {
+    const makeButton = ({ label, count, active, pressed, onClick, disabled, tier }) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'tier-filter-option';
+        // The dot is the same mark the row chip carries, so the filter and the
+        // badge share one visual language instead of two. "All" has no tier and
+        // therefore no dot — it is the absence of a filter, not a fourth one.
+        if (tier) button.classList.add(`tier-${tier}`);
         button.classList.toggle('active', active);
         if (pressed !== undefined) button.setAttribute('aria-pressed', String(pressed));
 
@@ -272,6 +305,7 @@ function renderTierFilter(topic) {
         makeButton({
             label: IMPORTANCE[TIER_KEYS[key]].label,
             count,
+            tier: key,
             active: selected,
             pressed: selected,
             disabled: !count,
