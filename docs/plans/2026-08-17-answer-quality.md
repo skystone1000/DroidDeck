@@ -1,6 +1,7 @@
 # Plan — Answer Quality and Triage
 
-**Status:** proposed
+**Status:** built — Phases 0–6 complete. 465 questions tiered, 272 snippet
+output panes, 15 vendored figures, 15 claims corrected against primary sources
 **Date:** 2026-08-17
 **Scope:** five changes to the question bank — importance tiers with a filter,
 verified answers, plainer wording, real code output, and official documentation
