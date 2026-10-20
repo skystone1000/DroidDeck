@@ -94,25 +94,57 @@ function renderTopicHeader(topic) {
     stats.className = 'topic-stats';
 
     const questionCount = (topic.questions || []).length;
-    stats.appendChild(makeStat('❓', `${questionCount} question${questionCount === 1 ? '' : 's'}`));
+    stats.appendChild(makeStat(`${questionCount} question${questionCount === 1 ? '' : 's'}`));
 
     if (topic.subsections && topic.subsections.length) {
-        stats.appendChild(makeStat('📂', `${topic.subsections.length} sections`));
+        stats.appendChild(makeStat(`${topic.subsections.length} sections`));
     }
 
     const withCode = (topic.questions || []).filter((q) => (q.codeSnippets || []).length).length;
-    if (withCode) stats.appendChild(makeStat('💻', `${withCode} with code`));
+    if (withCode) stats.appendChild(makeStat(`${withCode} with code`));
+
+    const progress = topicProgress(topic);
+    stats.appendChild(makeStat(`${progress.done} done`, 'is-progress'));
 
     header.appendChild(title);
     header.appendChild(stats);
+    header.appendChild(renderTopicProgressBar(topic));
     return header;
 }
 
-function makeStat(icon, label) {
+function makeStat(label, modifier) {
     const stat = document.createElement('span');
-    stat.className = 'topic-stat';
-    stat.textContent = `${icon} ${label}`;
+    stat.className = modifier ? `topic-stat ${modifier}` : 'topic-stat';
+    stat.textContent = label;
     return stat;
+}
+
+/* Replaces the decorative rule under the header. A prep tool without a sense of
+   position is a PDF, and the bar is the one place that answers "how far in am
+   I" without being read. Tinted with the topic's own hue, so the answer is
+   attached to a place rather than floating free. */
+function renderTopicProgressBar(topic) {
+    const bar = document.createElement('div');
+    bar.className = 'topic-progress';
+    bar.dataset.topicId = topic.id;
+
+    const fill = document.createElement('span');
+    fill.className = 'topic-progress-fill';
+
+    bar.appendChild(fill);
+    paintTopicProgress(bar, topic);
+    return bar;
+}
+
+function paintTopicProgress(bar, topic) {
+    const { done, total } = topicProgress(topic);
+    const fill = bar.querySelector('.topic-progress-fill');
+    if (fill) fill.style.width = `${progressPercent(done, total)}%`;
+    bar.setAttribute('role', 'progressbar');
+    bar.setAttribute('aria-valuemin', '0');
+    bar.setAttribute('aria-valuemax', String(total));
+    bar.setAttribute('aria-valuenow', String(done));
+    bar.setAttribute('aria-label', `${done} of ${total} questions marked done`);
 }
 
 function renderKeyTopics(keyTopics) {

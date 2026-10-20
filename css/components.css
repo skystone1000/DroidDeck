@@ -128,35 +128,70 @@
    -------------------------------------------------------------------------- */
 
 .topic-header {
-    margin-bottom: 28px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-5);
 }
 
 .topic-title {
-    font-size: 34px;
-    font-weight: 700;
-    letter-spacing: -0.03em;
+    font-family: var(--font-display);
+    font-size: var(--text-h1);
+    font-weight: 600;
+    letter-spacing: -0.02em;
     line-height: 1.2;
-    background: var(--gradient-accent);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
 }
 
 .topic-stats {
     display: flex;
     flex-wrap: wrap;
-    gap: 16px;
-    margin-top: 10px;
-    font-size: 13px;
+    gap: var(--space-4);
+    margin-top: var(--space-3);
+    font-size: var(--text-small);
     color: var(--text-muted);
 }
 
 .topic-stat {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-2);
+}
+
+/* Each stat is separated by a dot rather than by an emoji. The glyphs the
+   emoji supplied — a question mark, a folder, a laptop — restated the word
+   that followed them and rendered differently on every OS. */
+.topic-stat + .topic-stat::before {
+    content: '';
+    width: 3px;
+    height: 3px;
+    margin-right: var(--space-2);
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.5;
+}
+
+.topic-stat.is-progress {
+    color: var(--topic-hue-ink, var(--accent-color));
+}
+
+/* --------------------------------------------------------------------------
+   Topic progress
+   -------------------------------------------------------------------------- */
+
+.topic-progress {
+    height: 4px;
+    margin-top: var(--space-4);
+    background: var(--bg-hover);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+}
+
+.topic-progress-fill {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: inherit;
+    background: var(--topic-hue-ink, var(--accent-color));
+    transition: width var(--transition-panel);
 }
 
 /* --------------------------------------------------------------------------

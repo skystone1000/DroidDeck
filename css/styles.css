@@ -86,12 +86,23 @@ body {
     z-index: 1000;
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 0 24px;
+    gap: var(--space-4);
+    padding: 0 var(--space-5);
     background: var(--bg-header);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border-bottom: 1px solid var(--border-color);
+}
+
+/* Search belongs beside the wordmark, not at the far right. On a wide display
+   the old field sat a metre from the list it filters, which is a long way to
+   move your eyes to narrow something you are already looking at. */
+.header-lead {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .header-brand {
@@ -103,31 +114,38 @@ body {
 .brand-logo {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-3);
+    text-decoration: none;
+    border-radius: var(--radius-input);
 }
 
-.logo-icon {
-    font-size: 22px;
-    line-height: 1;
-    filter: drop-shadow(0 0 8px var(--accent-glow));
+.brand-logo:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.brand-mark {
+    flex-shrink: 0;
 }
 
 .header-title {
-    font-size: 19px;
+    font-family: var(--font-display);
+    font-size: 20px;
     font-weight: 700;
     letter-spacing: -0.02em;
-    background: var(--gradient-accent);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
     white-space: nowrap;
+}
+
+.header-title-accent {
+    color: var(--accent-color);
 }
 
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-left: auto;
+    gap: var(--space-3);
+    flex: 0 0 auto;
 }
 
 /* --------------------------------------------------------------------------
@@ -138,6 +156,9 @@ body {
     position: relative;
     display: flex;
     align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: 520px;
 }
 
 .search-icon {
@@ -153,18 +174,18 @@ body {
 }
 
 .search-input {
-    width: 260px;
-    height: 38px;
-    padding: 0 38px 0 38px;
+    width: 100%;
+    height: 40px;
+    padding: 0 38px;
     font-family: inherit;
-    font-size: 14px;
+    font-size: var(--text-small);
     color: var(--text-primary);
     background: var(--bg-input);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-input);
     outline: none;
-    transition: width var(--transition-base), border-color var(--transition-fast),
-                background var(--transition-fast), box-shadow var(--transition-fast);
+    transition: border-color var(--transition-hover),
+                background var(--transition-hover), box-shadow var(--transition-hover);
 }
 
 .search-input::placeholder {
@@ -172,10 +193,9 @@ body {
 }
 
 .search-input:focus {
-    width: 320px;
     border-color: var(--accent-color);
     background: var(--bg-hover);
-    box-shadow: 0 0 0 3px var(--accent-light);
+    box-shadow: var(--focus-ring);
 }
 
 .search-input::-webkit-search-cancel-button {
@@ -207,8 +227,9 @@ body {
 .search-results {
     position: absolute;
     top: calc(100% + 8px);
-    right: 0;
-    width: 420px;
+    left: 0;
+    width: 100%;
+    min-width: 420px;
     max-width: calc(100vw - 32px);
     max-height: 400px;
     overflow-y: auto;
@@ -230,30 +251,68 @@ body {
    Theme toggle & hamburger
    -------------------------------------------------------------------------- */
 
-.theme-toggle {
+/* Two states, both visible, current one filled. A moon that becomes a sun tells
+   you what will happen only after you have learnt the convention. */
+.theme-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-pill);
+}
+
+.theme-switch-option {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 38px;
-    height: 38px;
-    font-size: 16px;
-    line-height: 1;
-    background: var(--bg-input);
-    border: 1px solid var(--border-color);
-    border-radius: 50%;
+    gap: var(--space-2);
+    height: 34px;
+    padding: 0 var(--space-3);
+    font-family: inherit;
+    font-size: var(--text-small);
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    border-radius: var(--radius-pill);
     cursor: pointer;
-    transition: background var(--transition-fast), border-color var(--transition-fast),
-                transform var(--transition-fast);
+    white-space: nowrap;
+    transition: background var(--transition-hover), color var(--transition-hover);
 }
 
-.theme-toggle:hover {
-    background: var(--bg-hover);
-    border-color: var(--accent-color);
-    transform: rotate(15deg);
+.theme-switch-option:hover {
+    color: var(--text-primary);
 }
 
-[data-theme="dark"] .theme-icon-light { display: none; }
-[data-theme="light"] .theme-icon-dark { display: none; }
+.theme-switch-option[aria-checked="true"] {
+    color: var(--text-primary);
+    background: var(--bg-card-hover);
+}
+
+.theme-switch-option:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+/* 34px is a comfortable target for a mouse and a poor one for a thumb. The
+   floor is about touch, so it is asked about touch rather than about width —
+   a narrow window on a desktop is still being clicked. */
+@media (pointer: coarse) {
+    .theme-switch-option { height: 40px; }
+}
+
+/* The theme swap is instant by design: no cross-fade, no flash. Every
+   transition in the document is zeroed for the one frame the attribute is
+   present, which is cheaper and more reliable than auditing each property that
+   might animate a colour. */
+[data-theme-switching] *,
+[data-theme-switching] *::before,
+[data-theme-switching] *::after {
+    transition: none !important;
+    animation: none !important;
+}
 
 .hamburger-btn {
     display: none;
@@ -386,11 +445,14 @@ body {
    Responsive
    -------------------------------------------------------------------------- */
 
+/* The search field no longer has a width of its own at any breakpoint — it
+   fills the lead group up to its 520px cap and shrinks with it. What changes as
+   the bar narrows is how much company it keeps. */
+
 @media (max-width: 1024px) {
     .sidebar { width: 260px; }
     .main-content { margin-left: 260px; padding: 28px 28px 80px; }
-    .search-input { width: 200px; }
-    .search-input:focus { width: 260px; }
+    .header-lead { gap: var(--space-4); }
 }
 
 @media (max-width: 768px) {
@@ -399,18 +461,21 @@ body {
     .sidebar.open { transform: translateX(0); }
     .sidebar-overlay.active { display: block; }
     .main-content { margin-left: 0; padding: 24px 16px 80px; }
-    .header { padding: 0 12px; gap: 8px; }
+    .header { padding: 0 12px; gap: var(--space-2); }
+    .header-lead { gap: var(--space-3); }
     .header-title { font-size: 17px; }
-    .search-input { width: 150px; }
-    .search-input:focus { width: 190px; }
+    /* There is no keyboard to press it on. */
     .search-shortcut { display: none; }
-    .search-results { width: calc(100vw - 24px); right: -44px; }
+    .search-results { width: calc(100vw - 24px); min-width: 0; left: auto; right: -44px; }
+    /* Labels go, icons stay, and each option keeps a 40px square to be hit. */
+    .theme-switch-option { width: 40px; padding: 0; }
+    .theme-switch-option span { display: none; }
 }
 
 @media (max-width: 480px) {
     .main-content { padding: 18px 12px 72px; }
+    /* The mark survives on its own; the wordmark is what gives way, because at
+       this width the search field needs every pixel it can take. */
     .header-title { display: none; }
-    .search-input { width: 130px; padding-right: 12px; }
-    .search-input:focus { width: 170px; }
     .back-to-top { right: 16px; bottom: 16px; }
 }
