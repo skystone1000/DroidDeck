@@ -24,6 +24,13 @@
 
    Exits 1 if any snippet's real output differs from what is recorded.
 
+   Both corpora are covered. For a long time only the question bank could be --
+   the theory layer's `syntax` block has no `output` field and never had one, so
+   there was nothing there to falsify. The `predict` block introduced by
+   docs/plans/2026-08-19-output-prediction.md does have one, and a section whose
+   entire premise is "here is what this prints" is worth nothing if what it
+   prints is an author's belief. So this walks theory too.
+
    Nothing here runs in the browser. The site serves the recorded text as static
    content; this script is the reason that text can be trusted.
    ========================================================================== */
@@ -294,6 +301,37 @@ function stdoutSnippets(topics) {
     return out;
 }
 
+/**
+ * Predict blocks claiming stdout, from the theory corpus.
+ *
+ * The `snippet` is assembled from the block rather than the block being passed
+ * through whole, so everything downstream — the runners, the diff, the report —
+ * keeps taking exactly one shape and never learns that a second corpus exists.
+ *
+ * `trace` blocks are skipped here as they are in the question bank, but they
+ * mean something narrower: validate-theory.js already refuses a `trace` on a
+ * predict block in a runnable language, so anything skipped at this line is a
+ * Composable or a lifecycle callback that no toolchain here could have run.
+ */
+function predictSnippets(modules) {
+    const out = [];
+    for (const mod of modules || []) {
+        for (const chapter of mod.chapters || []) {
+            for (const block of chapter.blocks || []) {
+                if (block.type !== 'predict') continue;
+                const output = block.output;
+                if (!output || output.kind !== 'stdout') continue;
+                out.push({
+                    label: `${mod.id} › ${chapter.id} › predict:${block.id}`,
+                    snippet: { language: block.language, code: block.code },
+                    expected: output.lines || []
+                });
+            }
+        }
+    }
+    return out;
+}
+
 /* --------------------------------------------------------------------------
    Self-test
 
@@ -420,7 +458,10 @@ function main() {
 
     if (selftest) process.exit(runSelftest(tools));
 
-    const targets = stdoutSnippets(loadCorpus().topics);
+    const corpus = loadCorpus();
+    const fromBank = stdoutSnippets(corpus.topics);
+    const fromTheory = predictSnippets(corpus.theoryModules);
+    const targets = [...fromBank, ...fromTheory];
 
     if (!targets.length) {
         console.log('No snippets carry output of kind "stdout" yet — nothing to verify.');
@@ -428,7 +469,12 @@ function main() {
         return;
     }
 
-    console.log(`Verifying ${targets.length} snippet(s) against their recorded output.\n`);
+    // Broken out because the two numbers move independently and a single total
+    // would hide a theory walk that silently found nothing.
+    console.log(
+        `Verifying ${targets.length} snippet(s) against their recorded output ` +
+        `— ${fromBank.length} from the question bank, ${fromTheory.length} from theory.\n`
+    );
 
     const failures = [];
     for (const target of targets) {
@@ -466,4 +512,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { javaEntry, resolveToolchain, runKotlin, runJava };
+module.exports = { javaEntry, resolveToolchain, runKotlin, runJava, predictSnippets };
