@@ -66,7 +66,14 @@ const PREDICT_IDS = [
     'async-starts-eagerly', 'await-immediately-is-sequential',
     'await-after-both-is-concurrent', 'job-join-returns-unit',
     'lazy-does-not-start-itself', 'runblocking-blocks-its-thread',
-    'withcontext-returns-last-expression'
+    'withcontext-returns-last-expression',
+    // M52 — cancellation and exceptions
+    'cancel-does-not-stop-a-cpu-loop', 'ensure-active-makes-it-cooperative',
+    'catching-exception-swallows-cancellation', 'finally-needs-noncancellable',
+    'job-lets-a-sibling-kill-a-sibling', 'supervisorjob-isolates-siblings',
+    'child-failure-cancels-the-parent', 'async-exception-surfaces-at-await',
+    'async-in-supervisorscope-still-throws', 'handler-ignored-by-async',
+    'withtimeout-throws-ortimeoutornull-does-not', 'launch-in-a-cancelled-scope'
 ];
 
 const errors = [];
