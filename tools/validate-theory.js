@@ -90,7 +90,14 @@ const PREDICT_IDS = [
     'list-is-read-only-not-immutable', 'sequence-interleaves-list-does-not',
     'extension-functions-dispatch-statically', 'lateinit-before-assignment',
     'smart-cast-fails-on-a-mutable-property', 'default-arguments-evaluate-per-call',
-    'equals-against-referential-equality', 'elvis-evaluates-lazily'
+    'equals-against-referential-equality', 'elvis-evaluates-lazily',
+    // M55 — Java semantics
+    'integer-cache-127-against-128', 'string-literal-against-new-string',
+    'finally-overrides-a-return', 'finally-runs-after-a-caught-throw',
+    'static-then-instance-then-constructor', 'pass-by-value-of-a-reference',
+    'ternary-unboxes-and-npes', 'char-plus-int-is-arithmetic',
+    'integer-division-truncates', 'array-covariance-throws-at-runtime',
+    'overload-binds-statically-override-dynamically', 'mutating-a-hashmap-key'
 ];
 
 const errors = [];
