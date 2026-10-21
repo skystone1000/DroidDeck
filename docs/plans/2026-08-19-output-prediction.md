@@ -481,12 +481,12 @@ Beyond the tools, per phase, in both themes:
 | `await-immediately-is-sequential` | must | `await` at each call site serialises two 1s waits into 2s |
 | `await-after-both-is-concurrent` | must | The same work, both started first, takes 1s |
 | `job-join-returns-unit` | should | `join()` waits but yields nothing; `await()` yields the value |
-| `lazy-start-never-runs` | should | `CoroutineStart.LAZY` without `start()` or `await()` |
+| `lazy-does-not-start-itself` | should | `CoroutineStart.LAZY` sits in the *new* state; `isActive` is false |
 | `nested-launch-completes-last` | must | A parent is not complete until its children are |
 | `launches-print-in-delay-order` | must | Three `launch`es with descending delays |
 | `withcontext-returns-last-expression` | should | `withContext` is a value, not a side effect |
 | `runblocking-blocks-its-thread` | must | Why it belongs in `main()` and tests, not in an app |
-| `delay-zero-still-yields` | good | `delay(0)` is a suspension point; `yield()` and dispatch order |
+| `delay-zero-does-not-yield` | good | `delay(0)` returns without suspending; `yield()` against it |
 
 ### M52 — Cancellation and exceptions (12, all `[s]`)
 

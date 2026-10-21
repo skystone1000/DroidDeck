@@ -74,7 +74,8 @@ const theoryModules = [
     featureDrillsModule,
     utilityDrillsModule,
     systemDesignModule,
-    theRestOfTheLoopModule
+    theRestOfTheLoopModule,
+    predictCoroutineBuildersModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {

@@ -60,6 +60,13 @@ const DRILL_IDS = [
    during authoring should be a number this script reports, not one nobody
    notices. Filled in per phase as each module lands. */
 const PREDICT_IDS = [
+    // M51 — builders and ordering
+    'launch-does-not-wait', 'launches-print-in-delay-order',
+    'nested-launch-completes-last', 'delay-zero-does-not-yield',
+    'async-starts-eagerly', 'await-immediately-is-sequential',
+    'await-after-both-is-concurrent', 'job-join-returns-unit',
+    'lazy-does-not-start-itself', 'runblocking-blocks-its-thread',
+    'withcontext-returns-last-expression'
 ];
 
 const errors = [];
@@ -221,6 +228,20 @@ function checkChapters(theoryModules, questionIndex) {
             const blocks = chapter.blocks || [];
             if (!blocks.length) error(at, 'has no blocks');
             blocks.forEach((block, b) => checkBlock(block, `${at} block[${b}]`));
+
+            // 18 — cram mode filters chapters *and* predict blocks, so a
+            // must-know puzzle inside a should-know chapter is invisible in
+            // the exact mode it was written for: the chapter is hidden before
+            // the block rule is ever consulted. Caught here rather than left
+            // to be noticed, because it is invisible by definition.
+            blocks.forEach((block, b) => {
+                if (block.type !== 'predict') return;
+                if (TIERS.indexOf(block.importance) < TIERS.indexOf(chapter.importance)) {
+                    error(`${at} block[${b}]`,
+                        `is ${block.importance} inside a ${chapter.importance} chapter — ` +
+                        'cram mode hides the chapter, so the block could never be seen in it');
+                }
+            });
         });
     }
 }
