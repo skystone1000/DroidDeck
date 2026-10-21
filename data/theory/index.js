@@ -79,7 +79,9 @@ const theoryModules = [
     predictCoroutineFailureModule,
     predictFlowModule,
     predictKotlinModule,
-    predictJavaModule
+    predictJavaModule,
+    predictComposeModule,
+    predictLifecycleModule
 ];
 
 const theoryByModuleId = theoryModules.reduce((map, mod) => {

@@ -97,7 +97,20 @@ const PREDICT_IDS = [
     'static-then-instance-then-constructor', 'pass-by-value-of-a-reference',
     'ternary-unboxes-and-npes', 'char-plus-int-is-arithmetic',
     'integer-division-truncates', 'array-covariance-throws-at-runtime',
-    'overload-binds-statically-override-dynamically', 'mutating-a-hashmap-key'
+    'overload-binds-statically-override-dynamically', 'mutating-a-hashmap-key',
+    // M56 — Compose recomposition (trace; no Compose compiler here)
+    'state-without-remember-resets', 'remember-against-remembersaveable',
+    'mutablestateof-a-list-misses-mutation',
+    'launchedeffect-unit-runs-once-per-enter', 'changing-the-key-cancels-and-restarts',
+    'sideeffect-runs-every-successful-composition',
+    'disposableeffect-disposes-before-it-restarts',
+    'where-you-read-state-decides-what-recomposes',
+    'derivedstateof-cuts-the-recomposition-count',
+    // M57 — lifecycle and launch modes (trace; no device here)
+    'rotation-callback-order', 'a-to-b-callbacks-interleave', 'back-against-home',
+    'a-dialog-does-not-stop-the-activity', 'singletop-delivers-onnewintent',
+    'singletask-clears-what-is-above-it', 'fragment-view-outlives-nothing',
+    'viewmodel-survives-rotation-not-finish'
 ];
 
 const errors = [];
@@ -109,6 +122,11 @@ const drillsSeen = new Map();
 /* Likewise for predict ids, which are unique corpus-wide rather than per
    module because js/progress.js keys reveal state on the bare id. */
 const predictionsSeen = new Map();
+
+/* predict id -> why it cannot be verified. Reported every run, because the
+   fraction of the section that is reasoned rather than proved is the single
+   number a reader of this validator most needs to not lose track of. */
+const exempt = new Map();
 
 function error(where, message) { errors.push(`${where}: ${message}`); }
 function warn(where, message) { warnings.push(`${where}: ${message}`); }
@@ -393,16 +411,30 @@ function checkBlock(block, at) {
             }
             if (output.explain) checkHtml(String(output.explain), `${at} output.explain`);
 
-            // 17 — no dodging. In the question bank a `trace` is a fair choice
-            // for an Activity or a Composable, which no toolchain here can run.
-            // In a predict block it is only ever a choice, and choosing it for
-            // a language run-snippets.js could have compiled is choosing not to
-            // be checked. The section's entire value is that its answers are
-            // verified, so this is an error rather than a warning.
-            if (output.kind === 'trace' && RUNNABLE_LANGUAGES.includes(block.language)) {
+            // 17 — no silent dodging. Choosing `trace` for a snippet
+            // run-snippets.js could have compiled is choosing not to be
+            // checked, and the section's whole value is that its answers are
+            // verified. But the language alone cannot decide this: a Composable
+            // and an Activity are both Kotlin, and no toolchain here can run
+            // either. So the exemption exists and has to be *stated* — an
+            // `unrunnable` reason on the block — rather than obtained for free
+            // by picking a kind. Declared exemptions are reviewable; silent
+            // ones are not.
+            const runnable = RUNNABLE_LANGUAGES.includes(block.language);
+            if (output.kind === 'trace' && runnable && !block.unrunnable) {
                 error(at, `output.kind is "trace" but language "${block.language}" is runnable — ` +
-                          'a predict block that could be verified must claim "stdout"');
+                          'either record real output as "stdout", or say why it cannot be run ' +
+                          'by giving the block an `unrunnable` reason');
             }
+            if (block.unrunnable && output.kind === 'stdout') {
+                error(at, 'declares `unrunnable` but claims "stdout" — a block cannot both ' +
+                          'be unrunnable and carry output that was produced by running it');
+            }
+            if (block.unrunnable && !runnable) {
+                error(at, `declares \`unrunnable\` but "${block.language}" was never runnable — ` +
+                          'the exemption says nothing and should be removed');
+            }
+            if (block.unrunnable) exempt.set(block.id, String(block.unrunnable));
         }
     }
 
@@ -501,6 +533,14 @@ function checkPredictCatalogue() {
     const missing = PREDICT_IDS.filter((id) => !predictionsSeen.has(id));
     if (missing.length) {
         warn('predictions', `${predictionsSeen.size}/${PREDICT_IDS.length} written; missing: ${missing.join(', ')}`);
+    }
+
+    /* Not a problem to be fixed — some subjects genuinely cannot be run here.
+       It is reported so that the unverified share of the section is a number
+       printed on every commit rather than something nobody is counting. */
+    if (exempt.size) {
+        const reasons = [...new Set(exempt.values())].join('; ');
+        warn('predictions', `${exempt.size}/${predictionsSeen.size} are exempt from run-snippets.js — ${reasons}`);
     }
 }
 
