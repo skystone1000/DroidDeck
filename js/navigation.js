@@ -43,7 +43,8 @@ const trackMarks = {
     data:         { monogram: 'Da', hue: 'amber' },
     architecture: { monogram: 'Ar', hue: 'indigo' },
     quality:      { monogram: 'Te', hue: 'rose' },
-    synthesis:    { monogram: 'Sy', hue: 'fuchsia' }
+    synthesis:    { monogram: 'Sy', hue: 'fuchsia' },
+    output:       { monogram: 'Po', hue: 'teal' }
 };
 
 const GLOSSARY_MARK = { monogram: 'Gl', hue: 'slate' };

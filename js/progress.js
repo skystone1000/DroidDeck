@@ -223,6 +223,65 @@ function migrateModuleProgress(modules) {
 }
 
 /* --------------------------------------------------------------------------
+   Theory — predicted outputs
+
+   A predict block hides its answer until the reader commits to one. Which
+   blocks have been revealed is progress in the same sense a read chapter is,
+   and it is stored the same way.
+
+   Keyed on the block id alone, with no module or chapter prefix, because
+   tools/validate-theory.js holds a catalogue of every predict id and rejects a
+   duplicate anywhere in the corpus. That is the opposite of the question bank,
+   whose ids collide across topics by design and therefore need a composite
+   key. Both keys are as short as their uniqueness guarantee allows.
+   -------------------------------------------------------------------------- */
+
+const PREDICT_STORAGE_KEY = 'droiddeck:predict:revealed';
+
+function revealedPredictions() {
+    return readSet(PREDICT_STORAGE_KEY);
+}
+
+function isPredictionRevealed(blockId) {
+    return revealedPredictions().has(blockId);
+}
+
+function setPredictionRevealed(blockId, revealed) {
+    const current = revealedPredictions();
+    if (revealed) current.add(blockId); else current.delete(blockId);
+    writeSet(PREDICT_STORAGE_KEY, current);
+    announceProgress({ kind: 'predict', blockId, revealed });
+    return current;
+}
+
+/** Every predict block in a module, in reading order. */
+function predictBlocks(mod) {
+    const found = [];
+    ((mod && mod.chapters) || []).forEach((chapter) => {
+        (chapter.blocks || []).forEach((block) => {
+            if (block.type === 'predict') found.push(block);
+        });
+    });
+    return found;
+}
+
+/**
+ * Attempted against total, for a module of puzzles.
+ *
+ * A module whose chapters hold no predict blocks reports a total of 0, which
+ * `progressPercent` already answers with 0 rather than NaN — so this is safe to
+ * call on any module, not only the ones in the output track.
+ */
+function predictProgress(mod) {
+    const revealed = revealedPredictions();
+    const blocks = predictBlocks(mod);
+    return {
+        done: blocks.filter((block) => revealed.has(block.id)).length,
+        total: blocks.length
+    };
+}
+
+/* --------------------------------------------------------------------------
    Counts
 
    Every counter in the UI — sidebar sub-item, sidebar group, page header bar —

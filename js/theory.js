@@ -1091,6 +1091,7 @@ function renderBlock(block) {
         case 'tip':        return renderCalloutBlock(block, 'tip', 'Saying it well');
         case 'diagram':    return renderDiagramBlock(block);
         case 'drill':      return renderDrillBlock(block);
+        case 'predict':    return renderPredictBlock(block);
         default:           return null;
     }
 }
@@ -1361,6 +1362,87 @@ function renderDrillBlock(block) {
         node.appendChild(sketch);
     }
 
+    return node;
+}
+
+/**
+ * A puzzle: prompt, code, and nothing else until the reader commits.
+ *
+ * The snippet is handed to renderCodeBlock **without** its `output`, because
+ * renderCodeBlock paints an output pane directly under the code — which is the
+ * one thing this block exists to prevent. The answer is built here instead and
+ * hidden behind a class, so revealing costs no render. That matters for more
+ * than speed: a revealed block survives a cram toggle and a re-filter, both of
+ * which move classes around and neither of which rebuilds the block.
+ */
+function renderPredictBlock(block) {
+    const tier = IMPORTANCE[block.importance] || IMPORTANCE['good-to-know'];
+    const stdout = block.output && block.output.kind === 'stdout';
+
+    const node = document.createElement('div');
+    node.className = `theory-predict importance-${tier.modifier}`;
+    node.id = `predict-${block.id}`;
+
+    const head = document.createElement('div');
+    head.className = 'theory-predict-head';
+
+    const label = document.createElement('span');
+    label.className = 'theory-predict-label';
+    // A verified snippet asks what it prints; a reasoned one asks what happens,
+    // because it has no console to be right about.
+    label.textContent = stdout ? 'Predict the output' : 'Predict what happens';
+
+    head.appendChild(label);
+    head.appendChild(renderImportanceBadge(block.importance));
+    node.appendChild(head);
+
+    const prompt = document.createElement('div');
+    prompt.className = 'theory-predict-prompt';
+    prompt.innerHTML = block.prompt || '';
+    node.appendChild(prompt);
+
+    node.appendChild(renderCodeBlock({
+        language: block.language,
+        title: block.title || 'The code',
+        code: block.code
+    }));
+
+    const answer = document.createElement('div');
+    answer.className = 'theory-predict-answer';
+    answer.id = `predict-answer-${block.id}`;
+    answer.appendChild(renderCodeOutput(block.output));
+
+    // Naming the wrong answer is the part that teaches. "You got it wrong" is
+    // not feedback; "you probably thought the body ran where it was written"
+    // is, and it is the only thing here a worked example could not have said.
+    if (block.distractor) {
+        const miss = document.createElement('div');
+        miss.className = 'theory-predict-distractor';
+        miss.innerHTML = block.distractor;
+        answer.appendChild(miss);
+    }
+
+    const reveal = document.createElement('button');
+    reveal.type = 'button';
+    reveal.className = 'theory-predict-reveal';
+    reveal.setAttribute('aria-controls', answer.id);
+
+    const paint = (revealed) => {
+        node.classList.toggle('revealed', revealed);
+        reveal.setAttribute('aria-expanded', String(revealed));
+        reveal.textContent = revealed ? 'Hide the answer' : 'Reveal the answer';
+    };
+
+    paint(isPredictionRevealed(block.id));
+
+    reveal.addEventListener('click', () => {
+        const next = !node.classList.contains('revealed');
+        setPredictionRevealed(block.id, next);
+        paint(next);
+    });
+
+    node.appendChild(reveal);
+    node.appendChild(answer);
     return node;
 }
 

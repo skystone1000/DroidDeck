@@ -19,7 +19,8 @@ const theoryTracks = [
     { id: 'data',         title: 'Data & Background Work',         order: 5 },
     { id: 'architecture', title: 'Architecture & Design',          order: 6 },
     { id: 'quality',      title: 'Testing, Performance & Tooling', order: 7 },
-    { id: 'synthesis',    title: 'Interview Synthesis',            order: 8 }
+    { id: 'synthesis',    title: 'Interview Synthesis',            order: 8 },
+    { id: 'output',       title: 'Predict the Output',             order: 9 }
 ];
 
 /* Ordered by the reading path. Appended to as each module is authored. */

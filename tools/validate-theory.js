@@ -13,7 +13,9 @@
    ========================================================================== */
 
 const { loadCorpus, allQuestions } = require('./load-corpus');
-const { TIERS, LANGUAGES, DIAGRAM_TYPES, KEBAB, htmlIssues } = require('./schema');
+const {
+    TIERS, LANGUAGES, DIAGRAM_TYPES, OUTPUT_KINDS, RUNNABLE_LANGUAGES, KEBAB, htmlIssues
+} = require('./schema');
 
 /* Theory-only vocabulary. The rest lives in schema.js, shared with the
    question validator. */
@@ -30,7 +32,8 @@ const BLOCK_FIELDS = {
     pitfall:    ['html'],
     tip:        ['html'],
     diagram:    ['diagramType', 'diagramConfig'],
-    drill:      ['id', 'tier', 'title', 'minutes', 'prompt', 'watchFor']
+    drill:      ['id', 'tier', 'title', 'minutes', 'prompt', 'watchFor'],
+    predict:    ['id', 'importance', 'language', 'prompt', 'code', 'output']
 };
 
 /* The drill catalogue, from docs/plans/2026-08-15-machine-coding-drills.md
@@ -52,11 +55,22 @@ const DRILL_IDS = [
     'review-this-diff'
 ];
 
+/* The predict catalogue, from docs/plans/2026-08-19-output-prediction.md
+   Appendix A. Held here for the same reason DRILL_IDS is: a puzzle dropped
+   during authoring should be a number this script reports, not one nobody
+   notices. Filled in per phase as each module lands. */
+const PREDICT_IDS = [
+];
+
 const errors = [];
 const warnings = [];
 
 /* drill id -> where it was found, so check 15 can report the duplicate's home. */
 const drillsSeen = new Map();
+
+/* Likewise for predict ids, which are unique corpus-wide rather than per
+   module because js/progress.js keys reveal state on the bare id. */
+const predictionsSeen = new Map();
 
 function error(where, message) { errors.push(`${where}: ${message}`); }
 function warn(where, message) { warnings.push(`${where}: ${message}`); }
@@ -294,6 +308,52 @@ function checkBlock(block, at) {
         }
     }
 
+    /* 16 — predict shape. The whole section is a claim about what code prints,
+       so the fields that carry the claim are the ones checked hardest. */
+    if (block.type === 'predict') {
+        if (!PREDICT_IDS.includes(block.id)) {
+            error(at, `predict id "${block.id}" is not in the catalogue (Appendix A)`);
+        } else if (predictionsSeen.has(block.id)) {
+            error(at, `predict "${block.id}" already appears at ${predictionsSeen.get(block.id)}`);
+        } else {
+            predictionsSeen.set(block.id, at);
+        }
+
+        if (!TIERS.includes(block.importance)) {
+            error(at, `importance "${block.importance}" is not one of ${TIERS.join(', ')}`);
+        }
+        if (!LANGUAGES.includes(block.language)) {
+            error(at, `language "${block.language}" is not one of ${LANGUAGES.join(', ')}`);
+        }
+        if (typeof block.prompt === 'string') checkHtml(block.prompt, `${at} prompt`);
+        if (block.distractor) checkHtml(String(block.distractor), `${at} distractor`);
+
+        const output = block.output;
+        if (!output || typeof output !== 'object') {
+            error(at, 'output must be an object');
+        } else {
+            if (!OUTPUT_KINDS.includes(output.kind)) {
+                error(at, `output.kind "${output.kind}" is not one of ${OUTPUT_KINDS.join(', ')}`);
+            }
+            if (!Array.isArray(output.lines) || !output.lines.length ||
+                output.lines.some((l) => typeof l !== 'string')) {
+                error(at, 'output.lines must be a non-empty array of strings');
+            }
+            if (output.explain) checkHtml(String(output.explain), `${at} output.explain`);
+
+            // 17 — no dodging. In the question bank a `trace` is a fair choice
+            // for an Activity or a Composable, which no toolchain here can run.
+            // In a predict block it is only ever a choice, and choosing it for
+            // a language run-snippets.js could have compiled is choosing not to
+            // be checked. The section's entire value is that its answers are
+            // verified, so this is an error rather than a warning.
+            if (output.kind === 'trace' && RUNNABLE_LANGUAGES.includes(block.language)) {
+                error(at, `output.kind is "trace" but language "${block.language}" is runnable — ` +
+                          'a predict block that could be verified must claim "stdout"');
+            }
+        }
+    }
+
     if (block.type === 'types') {
         (block.items || []).forEach((item, i) => {
             if (!item || !item.name || !item.html) {
@@ -380,6 +440,18 @@ function checkDrillCatalogue() {
     }
 }
 
+/* 16 (continued) — the same accounting for predictions. Reported even when
+   nothing has been written yet, unlike the drill check: the catalogue lands in
+   Phase 0 and the modules follow one per phase, so "0/80 written" is the
+   progress bar for the rest of the plan rather than noise. */
+function checkPredictCatalogue() {
+    if (!PREDICT_IDS.length) return;
+    const missing = PREDICT_IDS.filter((id) => !predictionsSeen.has(id));
+    if (missing.length) {
+        warn('predictions', `${predictionsSeen.size}/${PREDICT_IDS.length} written; missing: ${missing.join(', ')}`);
+    }
+}
+
 /* --------------------------------------------------------------------------
    Run
    -------------------------------------------------------------------------- */
@@ -408,6 +480,7 @@ function main() {
     checkChapters(theoryModules, questionIndex);
     checkCoverage(topics, theoryModules);
     checkDrillCatalogue();
+    checkPredictCatalogue();
 
     const chapterCount = theoryModules.reduce((n, m) => n + (m.chapters || []).length, 0);
     console.log(
