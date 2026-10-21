@@ -73,7 +73,15 @@ const PREDICT_IDS = [
     'job-lets-a-sibling-kill-a-sibling', 'supervisorjob-isolates-siblings',
     'child-failure-cancels-the-parent', 'async-exception-surfaces-at-await',
     'async-in-supervisorscope-still-throws', 'handler-ignored-by-async',
-    'withtimeout-throws-ortimeoutornull-does-not', 'launch-in-a-cancelled-scope'
+    'withtimeout-throws-ortimeoutornull-does-not', 'launch-in-a-cancelled-scope',
+    // M53 — Flow, hot and cold
+    'flow-builder-does-not-run', 'collecting-twice-runs-it-twice',
+    'operator-order-changes-output', 'take-cancels-upstream',
+    'collectlatest-drops-in-flight-work', 'conflate-skips-intermediates',
+    'buffer-changes-the-timing', 'flowon-affects-upstream-only',
+    'stateflow-drops-an-equal-value', 'stateflow-replays-the-current-value',
+    'sharedflow-loses-what-it-missed', 'sharedflow-replay-one-changes-the-answer',
+    'zip-against-combine'
 ];
 
 const errors = [];
