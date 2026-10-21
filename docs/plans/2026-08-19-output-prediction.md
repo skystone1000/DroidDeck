@@ -1,6 +1,7 @@
 # Plan — Predict the Output
 
-**Status:** planned
+**Status:** built — Phases 0–8 complete. 80 puzzles across 7 modules, 63 of them
+compiled and run on every check
 **Date:** 2026-08-19
 **Scope:** a ninth theory track of code snippets that ask the reader what the
 program prints, categorised by topic, with the answer hidden until they commit —
@@ -464,6 +465,85 @@ Beyond the tools, per phase, in both themes:
   space, and carries `aria-expanded`.
 - A `stdout` pane and a `trace` pane are visibly different things, because one
   is a console dump and the other is an ordered argument.
+
+---
+
+---
+
+## 11. Where this plan turned out to be wrong
+
+Eight things. Two are design mistakes the plan made, three are Kotlin behaving
+differently from how the author predicted, and three are smaller.
+
+**§4.4's no-dodging rule was unimplementable as written.** It said a predict
+block in a runnable language may not carry `trace`, on the reasoning that
+choosing `trace` for something the compiler could check is choosing not to be
+checked. The intent was right and the mechanism was not: a Composable and an
+Activity are both Kotlin, and Kotlin is runnable, so the rule made Phase 7
+impossible. Every way around it was worse — declaring the snippets as `text`
+would have cost syntax highlighting and lied about the language. The rule now
+asks for the exemption to be **stated** rather than taken: a block that cannot
+be run carries an `unrunnable` reason, and the validator reports *17/80 are
+exempt* with those reasons on every run. Silence was the thing worth
+preventing, not the exemption.
+
+**Cram mode filters the chapter before it ever reaches the block.** §10 asked
+for cram to hide non-must-know blocks, and it does — but a must-know puzzle
+inside a should-know *chapter* is hidden with the chapter and can never be seen
+in the mode it was written for. Found by rendering M51, whose third chapter was
+tiered below a block it contained. The data was fixed and, more usefully, a
+check was added: a predict block more important than its chapter is now an
+error. That failure is invisible by definition, and there were sixty-nine more
+blocks still to write.
+
+**`tier` became `importance`.** §4.2's data model named the field `tier`, which
+already exists on `drill` meaning a difficulty from 1 to 4. A second block type
+using the same name for one of three strings is a trap for whoever writes the
+eleventh. `importance` also matches what chapters already call it.
+
+**§4.5 said cram filtering would work "exactly as it does for drills".** It does
+not — drills are only ever filtered with their chapter. Predict blocks are
+filtered individually, which is a genuine improvement the plan claimed as
+parity.
+
+**`delay(0)` does not yield.** The catalogue entry was
+`delay-zero-still-yields`, which asserted the wrong answer in its own id.
+`kotlinx` returns immediately for any non-positive duration, so two coroutines
+run straight through under `delay(0)` and interleave only under `yield()`. This
+is the single best block in M51 and it exists because the verifier landed a
+phase before the content.
+
+**An implicit receiver loses to a local of the same name.** Inside `apply`, a
+bare reference to a name that is both a local variable and a property of the
+receiver resolves to the local. The catalogue entry
+`also-and-apply-differ-only-in-it-and-this` asserted a difference the snippet
+does not show; it is now `a-local-shadows-the-apply-receiver`, and it quietly
+removes most of `apply`'s advantage over `also` in any function with a
+colliding local.
+
+**`isInitialized` is only reachable from inside the declaring class**, so the
+`lateinit` snippet needed a member function rather than a call from `main`.
+That is deliberate language design and is now explained in the block instead of
+worked around.
+
+**Six `relatedQuestions` ids were guessed wrong** while authoring — three in
+M53 and three in M56. None could have reached `main`: the validator resolves
+every one against the question bank. Worth recording only because it is the
+check earning its keep rather than sitting there.
+
+### What the plan got right
+
+The phase order. §8 insisted the verifier reach the theory corpus in Phase 1,
+before a single puzzle was authored, on the argument that writing eighty
+expected outputs by hand and wiring the check afterwards means never finding out
+which were wrong. Three of them were wrong, and all three are now the most
+useful blocks in their modules.
+
+And §9's first risk. Every snippet was run three times before its output was
+recorded, because an intermittently-failing verifier gets switched off and a
+timed cancellation is exactly the shape that would do it. All of them were
+stable — but that is a measurement, not an assumption, and the margins were
+widened during authoring to make it one.
 
 ---
 

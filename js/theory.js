@@ -381,6 +381,23 @@ function renderTrackSection(track, modules, read) {
     return section;
 }
 
+/**
+ * What "progress" means for a module, and the words for it.
+ *
+ * For a reading module it is chapters read. For a module of puzzles it is
+ * puzzles attempted — "2 of 3 chapters" on a page of eleven questions reports
+ * a grouping the reader did not come for. The bar, the CTA and the two stat
+ * lines all read from here so they cannot disagree.
+ */
+function moduleReadout(mod) {
+    const puzzles = predictProgress(mod);
+    if (puzzles.total) {
+        return { done: puzzles.done, total: puzzles.total, noun: 'attempted' };
+    }
+    const chapters = moduleProgress(mod);
+    return { done: chapters.done, total: chapters.total, noun: 'chapters' };
+}
+
 function renderModuleCard(mod, read) {
     const tier = IMPORTANCE[moduleImportance(mod)] || IMPORTANCE['good-to-know'];
     const isRead = Boolean(read && read.has(mod.id));
@@ -428,10 +445,10 @@ function renderModuleCard(mod, read) {
     /* "5 chapters · 30 min" told you nothing you would act on. Position in the
        module is the thing you come back wanting to know, so it leads and the
        duration drops behind it. */
-    const progress = moduleProgress(mod);
+    const progress = moduleReadout(mod);
     const meta = document.createElement('div');
     meta.className = 'theory-module-meta';
-    meta.appendChild(makeStat(`${progress.done} of ${progress.total} chapters`, 'is-progress'));
+    meta.appendChild(makeStat(`${progress.done} of ${progress.total} ${progress.noun}`, 'is-progress'));
     meta.appendChild(makeStat(`${mod.estimatedMinutes} min`));
     meta.appendChild(renderImportanceBadge(moduleImportance(mod)));
 
@@ -461,11 +478,12 @@ function renderModuleProgressBar(progress) {
 /** Start, continue, or done — the card says which of the three it is. */
 function renderModuleCta(progress) {
     const cta = document.createElement('span');
+    const puzzles = progress.noun === 'attempted';
     cta.className = 'theory-module-cta';
-    if (!progress.total) cta.textContent = 'Read';
+    if (!progress.total) cta.textContent = puzzles ? 'Try' : 'Read';
     else if (progress.done === progress.total) cta.textContent = 'Review';
     else if (progress.done) cta.textContent = 'Continue';
-    else cta.textContent = 'Start';
+    else cta.textContent = puzzles ? 'Try' : 'Start';
     return cta;
 }
 
@@ -762,10 +780,16 @@ function renderModuleHeader(mod) {
     tagline.className = 'theory-module-tagline theory-module-tagline-large';
     tagline.textContent = mod.tagline || '';
 
-    const progress = moduleProgress(mod);
+    const progress = moduleReadout(mod);
     const stats = document.createElement('div');
     stats.className = 'topic-stats';
-    stats.appendChild(makeStat(`${progress.done} of ${progress.total} chapters`, 'is-progress'));
+
+    // Tagged rather than found by position, because revealing an answer has to
+    // update this line and must not re-render the page to do it — a re-render
+    // would collapse every block the reader has already opened.
+    const readout = makeStat(`${progress.done} of ${progress.total} ${progress.noun}`, 'is-progress');
+    readout.dataset.moduleReadout = mod.id;
+    stats.appendChild(readout);
     stats.appendChild(makeStat(`${mod.estimatedMinutes} min`));
 
     header.appendChild(eyebrow);
@@ -1456,3 +1480,25 @@ function renderDiagramBlock(block) {
     }, 100);
     return node;
 }
+
+/* --------------------------------------------------------------------------
+   Repainting
+
+   Revealing an answer is a state change the header has to show, and re-rendering
+   the module to show it would close every block already open. So the one line
+   that changes is rewritten in place, exactly as the question bank's checkbox
+   already does for its topic.
+   -------------------------------------------------------------------------- */
+
+document.addEventListener('droiddeck:progress', (event) => {
+    if (!event.detail || event.detail.kind !== 'predict') return;
+
+    const readout = document.querySelector('[data-module-readout]');
+    if (!readout) return;
+
+    const mod = lookupModule(readout.dataset.moduleReadout);
+    if (!mod) return;
+
+    const progress = moduleReadout(mod);
+    readout.textContent = `${progress.done} of ${progress.total} ${progress.noun}`;
+});

@@ -21,7 +21,7 @@ declaration:
 three.js, gsap, ScrollTrigger      (CDN, all optional)
 data/*.js                          (14 topic files, each declaring one global)
 data/index.js                      (assembles them into `topics`)
-data/theory/*.js                   (46 module files, each declaring one global)
+data/theory/*.js                   (57 module files, each declaring one global)
 data/theory/index.js               (assembles them into `theoryModules`/`theoryTracks`)
 js/code-highlight.js               (no dependencies)
 js/diagrams.js                     (no dependencies)
@@ -69,9 +69,14 @@ tints the tile, the heading, the progress bar and the count beneath it together.
 
 The app holds two bodies of content with different shapes and different
 purposes. **Questions** are organised for lookup: fourteen topics, each a place
-to file a question. **Theory** is organised for comprehension: eight tracks of
-50 modules of 179 chapters, in one reading order where each idea arrives after
+to file a question. **Theory** is organised for comprehension: nine tracks of
+57 modules of 203 chapters, in one reading order where each idea arrives after
 the ideas it depends on.
+
+The ninth track is not a subject but an exercise. *Predict the Output* holds 80
+snippets that ask what the code prints and withhold the answer until the reader
+commits; 63 of them are compiled and run on every check, and the 17 that cannot
+be run say so in the data rather than by choosing a quieter kind.
 
 Neither is a view of the other. They are cross-linked — a chapter lists
 questions to test yourself against, and search covers both — but they are
@@ -90,7 +95,10 @@ commit that touches either corpus:
 
 - `validate-theory.js` enforces the theory schema — importance tiers, block
   shapes, unique ids, prerequisites that resolve to *earlier* modules, and the
-  HTML subset authored content is allowed to use. Its most valuable check
+  HTML subset authored content is allowed to use. It also holds the two
+  catalogues, of drills and of predictions, so a dropped item is an error
+  rather than a smaller number nobody notices, and it refuses a predict block
+  that declines verification without saying why. Its most valuable check
   resolves every `relatedQuestions` reference against the question corpus, so
   renaming a question breaks the build rather than a link.
 - `validate-questions.js` does the same for the question bank, which went
@@ -112,7 +120,10 @@ Two more are slower and run per phase rather than per commit:
   over.
 - `run-snippets.js` compiles and runs every snippet whose output is recorded as
   `stdout` and diffs the real output against what the corpus claims, so an
-  "Output" pane is a re-checkable assertion rather than a guess.
+  "Output" pane is a re-checkable assertion rather than a guess. It walks
+  **both** corpora — 106 snippets in the question bank and 63 predict blocks in
+  theory. Theory was invisible to it until the predict block existed, because
+  nothing on that side could carry an output to be wrong about.
 
 All four read the data layer through `load-corpus.js`, which concatenates the
 data files in `index.html` order and evaluates them as one script in a `vm`
@@ -152,6 +163,7 @@ failure costs the reader a single question.
 | Cram filter | the same hash, as `?cram` | so a filtered revision session is shareable |
 | Theme | `localStorage.theme` | falls back to `prefers-color-scheme` |
 | Read modules | `localStorage['droiddeck:theory:read']` | explicit marks only; wrapped in try/catch |
+| Revealed answers | `localStorage['droiddeck:predict:revealed']` | keyed on the bare block id, which the validator keeps unique corpus-wide |
 
 Everything else is derived. There is no store, no observable, no cache of
 rendered output. `renderTopic()` clears its container and rebuilds from the data
@@ -192,15 +204,21 @@ the next.
 
 The theory renderers reuse the question bank's `renderCodeBlock()` and
 `renderDiagram()` wholesale, so a snippet looks and behaves identically in both
-modes. The ten block types are one `switch` in `renderBlock()`; a new block
+modes. The eleven block types are one `switch` in `renderBlock()`; a new block
 type is a case there plus a CSS rule, and nothing else in the app learns about
 it.
 
-The tenth type, `drill`, is the only one that is not prose in a costume: it
-carries a task, a timebox and a solution sketch, and the validator holds the
-catalogue of which drills must exist. Drills are countable and filterable
-because the section needs both — cram mode reduces 24 of them to the 5 that
-carry the round.
+Two of the eleven are not prose in a costume. `drill` carries a task, a timebox
+and a solution sketch, and the validator holds the catalogue of which drills
+must exist. Drills are countable and filterable because the section needs both —
+cram mode reduces 24 of them to the 5 that carry the round.
+
+`predict` is the other, and the only block type that **withholds** something. It
+hands its snippet to `renderCodeBlock()` deliberately *without* the `output`
+field, because that function paints an output pane directly under the code — the
+one thing the block exists to prevent. The answer is built alongside and hidden
+behind a class, so revealing is a class toggle rather than a render, and a
+revealed block survives a cram toggle and a re-filter.
 
 The glossary is **harvested at render time** from every `definition` block
 rather than authored. A hand-maintained list would drift from the chapters
