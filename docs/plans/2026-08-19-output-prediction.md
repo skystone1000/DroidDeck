@@ -528,7 +528,7 @@ Beyond the tools, per phase, in both themes:
 | id | Tier | Tests |
 |---|---|---|
 | `let-returns-the-lambda-apply-returns-the-receiver` | must | The one distinction that decides all five |
-| `also-and-apply-differ-only-in-it-and-this` | should | Receiver against argument |
+| `a-local-shadows-the-apply-receiver` | should | An implicit receiver loses to a local of the same name |
 | `run-against-with` | good | Extension against parameter |
 | `safe-call-let-skips-on-null` | must | The whole block is skipped, not the body |
 | `data-class-equals-ignores-the-body` | must | Properties declared in the body are excluded |

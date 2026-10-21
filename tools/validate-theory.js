@@ -81,7 +81,16 @@ const PREDICT_IDS = [
     'buffer-changes-the-timing', 'flowon-affects-upstream-only',
     'stateflow-drops-an-equal-value', 'stateflow-replays-the-current-value',
     'sharedflow-loses-what-it-missed', 'sharedflow-replay-one-changes-the-answer',
-    'zip-against-combine'
+    'zip-against-combine',
+    // M54 — Kotlin language semantics
+    'let-returns-the-lambda-apply-returns-the-receiver',
+    'a-local-shadows-the-apply-receiver', 'run-against-with',
+    'safe-call-let-skips-on-null', 'data-class-equals-ignores-the-body',
+    'copy-is-shallow', 'initialisers-run-in-declaration-order',
+    'list-is-read-only-not-immutable', 'sequence-interleaves-list-does-not',
+    'extension-functions-dispatch-statically', 'lateinit-before-assignment',
+    'smart-cast-fails-on-a-mutable-property', 'default-arguments-evaluate-per-call',
+    'equals-against-referential-equality', 'elvis-evaluates-lazily'
 ];
 
 const errors = [];
