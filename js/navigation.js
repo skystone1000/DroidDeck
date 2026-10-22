@@ -99,8 +99,6 @@ function renderSidebar(topicsList) {
     if (!nav) return;
     nav.innerHTML = '';
 
-    nav.appendChild(buildModeSwitch());
-
     if (sidebarMode === 'theory') {
         buildTheoryNav(nav);
     } else {
@@ -118,40 +116,6 @@ function setSidebarMode(mode) {
     sidebarMode = shape;
     renderSidebar();
     return true;
-}
-
-function buildModeSwitch() {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'mode-switch';
-    wrapper.setAttribute('role', 'tablist');
-
-    const modes = [
-        { id: 'questions', label: 'Questions' },
-        { id: 'theory', label: 'Theory' }
-    ];
-
-    modes.forEach((mode) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'mode-switch-option';
-        button.textContent = mode.label;
-        button.setAttribute('role', 'tab');
-        button.setAttribute('aria-selected', String(sidebarMode === mode.id));
-        if (sidebarMode === mode.id) button.classList.add('active');
-
-        button.addEventListener('click', () => {
-            if (sidebarMode === mode.id) return;
-            // Navigating is what flips the mode — the hash stays the source of
-            // truth, so the switch and the back button never disagree.
-            window.location.hash = mode.id === 'theory'
-                ? generateTheoryHash(null)
-                : generateHash(sidebarTopics.length ? sidebarTopics[0].id : '');
-        });
-
-        wrapper.appendChild(button);
-    });
-
-    return wrapper;
 }
 
 /** Questions the selected tiers let through. An empty selection means all. */
@@ -637,6 +601,8 @@ function handleRouteChange() {
     // generateTheoryHash and generateHash, which read these.
     setTheoryCramMode(route.mode === 'theory' && route.cram);
     const tierChanged = setQuestionTiers(route.mode === 'questions' ? route.tiers : []);
+    setActiveMode(route.mode);
+    rememberMode(route);
     const modeChanged = setSidebarMode(route.mode);
 
     // Sidebar counts are per-tier, so a filter change has to redraw them. Mode

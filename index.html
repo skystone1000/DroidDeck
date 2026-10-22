@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="css/themes.css">
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/rail.css">
     <link rel="stylesheet" href="css/theory.css">
     <link rel="stylesheet" href="css/animations.css">
 </head>
@@ -19,59 +20,77 @@
     <canvas id="bgCanvas" class="bg-canvas"></canvas>
     <a href="#mainContent" class="skip-link">Skip to main content</a>
 
-    <header class="header" role="banner">
-        <button class="hamburger-btn" id="hamburgerBtn" aria-label="Toggle navigation menu" aria-expanded="false">
+    <nav class="rail" id="rail" role="tablist" aria-label="Mode" aria-orientation="vertical">
+        <a class="rail-brand" href="#questions" aria-label="DroidDeck home">
+            <!-- A deck of cards with a face on the top card. Two dots, two
+                 rounded squares — it reads at 16px in a browser tab, which
+                 the emoji mascot it replaced did not. -->
+            <svg class="brand-mark" width="30" height="28" viewBox="0 0 30 28" fill="none" aria-hidden="true" focusable="false">
+                <rect x="6.5" y="0.5" width="23" height="23" rx="7.4" fill="var(--accent-wash)" transform="rotate(-9 18 12)"/>
+                <rect x="0.5" y="4" width="23" height="23" rx="7.4" fill="var(--accent)"/>
+                <circle cx="8.3" cy="15.5" r="1.9" fill="var(--ds-canvas)"/>
+                <circle cx="15.7" cy="15.5" r="1.9" fill="var(--ds-canvas)"/>
+            </svg>
+        </a>
+
+        <!-- Five items and one divider, all built from data/modes.js. -->
+        <div class="rail-items" id="railItems"></div>
+
+        <div class="rail-spacer"></div>
+
+        <!-- Per mode, never a total across the five: they count five different
+             things and a combined number would be true of none of them. -->
+        <div class="rail-meter" id="railMeter" aria-hidden="true">
+            <div class="rail-meter-fill" id="railMeterFill"></div>
+        </div>
+        <div class="rail-meter-label" id="railMeterLabel"></div>
+
+        <!-- Two explicit states rather than one button whose icon you have to
+             decode. A radiogroup, because the choice is exclusive and the
+             reader should be able to see which one is current. -->
+        <div class="theme-switch" id="themeSwitch" role="radiogroup" aria-label="Colour theme">
+            <button type="button" class="theme-switch-option" data-theme-value="dark" role="radio" aria-checked="true" title="Dark">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
+                </svg>
+                <span>Dark</span>
+            </button>
+            <button type="button" class="theme-switch-option" data-theme-value="light" role="radio" aria-checked="false" title="Light">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4.2"/>
+                    <path d="M12 2.6v2.2M12 19.2v2.2M4.4 4.4l1.6 1.6M18 18l1.6 1.6M2.6 12h2.2M19.2 12h2.2M4.4 19.6 6 18M18 6l1.6-1.6"/>
+                </svg>
+                <span>Light</span>
+            </button>
+        </div>
+    </nav>
+
+    <header class="mode-header" role="banner">
+        <button class="hamburger-btn" id="hamburgerBtn" aria-label="Toggle section list" aria-expanded="false">
             <span class="hamburger-line"></span>
             <span class="hamburger-line"></span>
             <span class="hamburger-line"></span>
         </button>
-        <div class="header-lead">
-            <div class="header-brand">
-                <a class="brand-logo" href="#" aria-label="DroidDeck home">
-                    <!-- A deck of cards with a face on the top card. Two dots, two
-                         rounded squares — it reads at 16px in a browser tab, which
-                         the emoji mascot it replaced did not. -->
-                    <svg class="brand-mark" width="30" height="28" viewBox="0 0 30 28" fill="none" aria-hidden="true" focusable="false">
-                        <rect x="6.5" y="0.5" width="23" height="23" rx="7.4" fill="var(--accent-wash)" transform="rotate(-9 18 12)"/>
-                        <rect x="0.5" y="4" width="23" height="23" rx="7.4" fill="var(--accent)"/>
-                        <circle cx="8.3" cy="15.5" r="1.9" fill="var(--ds-canvas)"/>
-                        <circle cx="15.7" cy="15.5" r="1.9" fill="var(--ds-canvas)"/>
-                    </svg>
-                    <h1 class="header-title">Droid<span class="header-title-accent">Deck</span></h1>
-                </a>
-            </div>
-            <div class="search-container" role="search">
-                <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                </svg>
-                <input type="search" id="searchInput" class="search-input" placeholder="Search questions, theory and terms" aria-label="Search questions and theory">
-                <kbd class="search-shortcut">/</kbd>
-                <div id="searchResults" class="search-results" role="listbox" hidden></div>
-            </div>
+        <div class="mode-header-title" id="modeTitle"></div>
+        <div class="mode-header-rule"></div>
+        <div class="mode-header-meta" id="modeMeta"></div>
+        <div class="mode-header-spacer"></div>
+        <div class="mode-header-progress">
+            <span class="mode-header-progress-label" id="modeProgressLabel"></span>
+            <div class="mode-header-meter"><div class="mode-header-meter-fill" id="modeProgressFill"></div></div>
         </div>
-        <div class="header-actions">
-            <!-- Two explicit states rather than one button whose icon you have to
-                 decode. A radiogroup, because the choice is exclusive and the
-                 reader should be able to see which one is current. -->
-            <div class="theme-switch" id="themeSwitch" role="radiogroup" aria-label="Colour theme">
-                <button type="button" class="theme-switch-option" data-theme-value="dark" role="radio" aria-checked="true">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
-                    </svg>
-                    <span>Dark</span>
-                </button>
-                <button type="button" class="theme-switch-option" data-theme-value="light" role="radio" aria-checked="false">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <circle cx="12" cy="12" r="4.2"/>
-                        <path d="M12 2.6v2.2M12 19.2v2.2M4.4 4.4l1.6 1.6M18 18l1.6 1.6M2.6 12h2.2M19.2 12h2.2M4.4 19.6 6 18M18 6l1.6-1.6"/>
-                    </svg>
-                    <span>Light</span>
-                </button>
-            </div>
+        <div class="mode-header-rule"></div>
+        <div class="search-container" role="search">
+            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input type="search" id="searchInput" class="search-input" placeholder="Search all five modes" aria-label="Search all five modes">
+            <kbd class="search-shortcut">/</kbd>
+            <div id="searchResults" class="search-results" role="listbox" hidden></div>
         </div>
     </header>
 
-    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Topic navigation">
+    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Section navigation">
         <nav class="sidebar-nav" id="sidebarNav"></nav>
     </aside>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -178,6 +197,7 @@
     <script src="js/progress.js"></script>
     <script src="js/three-bg.js"></script>
     <script src="js/navigation.js"></script>
+    <script src="js/rail.js"></script>
     <script src="js/theory.js"></script>
     <script src="js/search.js"></script>
     <script src="js/app.js"></script>

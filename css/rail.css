@@ -1,0 +1,304 @@
+/* ==========================================================================
+   The mode rail, and the mode header beside it.
+
+   Fixed 84px, full height, and it never scrolls — the sidebar to its right
+   does. Every fixed-width element here carries flex-shrink: 0 and every label
+   carries white-space: nowrap; the layout bugs the reference build hit at
+   narrow widths all came from omitting one of the two.
+
+   Accent is passed down as --rail-accent, set per item in JS from the mode's
+   accentVar. That is what lets one attribute paint the icon box and the meter
+   together without either learning the mode's name.
+   ========================================================================== */
+
+.rail {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 84px;
+    flex-shrink: 0;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+    padding: 17px 0;
+    background: var(--rail-bg);
+    border-right: 1px solid var(--ds-border);
+}
+
+.rail-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 46px;
+    height: 34px;
+}
+
+.rail-items {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+/* Two study modes, then this, then three drill modes. It says the three below
+   are places to be tested rather than places to read, and removing it makes
+   five equal siblings out of two groups that are not alike. */
+.rail-divider {
+    width: 46px;
+    height: 1px;
+    flex-shrink: 0;
+    background: var(--ds-border);
+    margin: 6px 0;
+}
+
+.rail-item {
+    width: 68px;
+    min-height: 40px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 0 7px;
+    border: 0;
+    background: transparent;
+    border-radius: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background var(--transition-hover);
+}
+
+.rail-item:hover { background: var(--ds-surface); }
+.rail-item.active { background: var(--rail-item-active); }
+
+.rail-item:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.rail-icon {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    border: 1.5px solid var(--rail-icon-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1;
+    color: var(--ds-muted);
+    transition: color var(--transition-hover), border-color var(--transition-hover);
+}
+
+.rail-item.active .rail-icon {
+    color: var(--rail-accent);
+    background: color-mix(in srgb, var(--rail-accent) 16%, transparent);
+    border: 1px solid color-mix(in srgb, var(--rail-accent) 30%, transparent);
+}
+
+.rail-label {
+    font-size: 11px;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+    color: var(--ds-muted);
+}
+
+.rail-item.active .rail-label {
+    color: var(--ds-text);
+    font-weight: 600;
+}
+
+.rail-spacer { flex: 1; }
+
+.rail-meter {
+    width: 46px;
+    height: 4px;
+    flex-shrink: 0;
+    border-radius: 3px;
+    background: var(--ds-raised);
+    overflow: hidden;
+}
+
+.rail-meter-fill {
+    height: 100%;
+    background: var(--rail-accent);
+    transition: width var(--transition-panel);
+}
+
+.rail-meter-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ds-faint);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* The theme switch stacks in the rail rather than sitting in a row. */
+.rail .theme-switch {
+    flex-shrink: 0;
+    flex-direction: column;
+    gap: 2px;
+}
+.rail .theme-switch-option span { display: none; }
+.rail .theme-switch-option { padding: 6px; }
+
+/* --------------------------------------------------------------------------
+   Mode header — one row, 64px, right of the rail
+   -------------------------------------------------------------------------- */
+
+.mode-header {
+    position: fixed;
+    top: 0;
+    left: 84px;
+    right: 0;
+    height: 64px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: 0 var(--space-5);
+    background: var(--ds-veil);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid var(--ds-border);
+}
+
+.mode-header-title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--ds-text);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.mode-header-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ds-faint);
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.mode-header-rule {
+    width: 1px;
+    height: 20px;
+    flex-shrink: 0;
+    background: var(--ds-border);
+}
+
+.mode-header-spacer { flex: 1; }
+
+.mode-header-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.mode-header-progress-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--ds-muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.mode-header-meter {
+    width: 88px;
+    height: 4px;
+    flex-shrink: 0;
+    border-radius: 3px;
+    background: var(--ds-raised);
+    overflow: hidden;
+}
+
+.mode-header-meter-fill {
+    height: 100%;
+    background: var(--rail-accent);
+    transition: width var(--transition-panel);
+}
+
+/* Flexible, never fixed. A hard 340px clips the field below about 990px, which
+   is what the reference build hit; only the placeholder area may compress, so
+   the icon and the shortcut chip keep flex-shrink: 0. */
+.mode-header .search-container {
+    flex: 1;
+    max-width: 340px;
+    min-width: 170px;
+}
+.mode-header .search-icon,
+.mode-header .search-shortcut { flex-shrink: 0; }
+
+/* --------------------------------------------------------------------------
+   Narrow
+   -------------------------------------------------------------------------- */
+
+/* Below 1100 the sidebar becomes a drawer. The rail stays: it is the thing
+   that tells you which of five places you are in, and losing that first would
+   be losing the most. */
+@media (max-width: 1100px) {
+    .mode-header-meta,
+    .mode-header-progress + .mode-header-rule { display: none; }
+}
+
+/* Below 720 the rail becomes a bottom bar — same five items, same order, same
+   divider in the same position. */
+@media (max-width: 720px) {
+    .rail {
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        height: 62px;
+        flex-direction: row;
+        justify-content: space-around;
+        align-items: center;
+        gap: 0;
+        padding: 6px 8px;
+        border-right: 0;
+        border-top: 1px solid var(--ds-border);
+    }
+
+    .rail-brand,
+    .rail-spacer,
+    .rail-meter,
+    .rail-meter-label,
+    .rail .theme-switch { display: none; }
+
+    .rail-items {
+        flex-direction: row;
+        flex: 1;
+        justify-content: space-around;
+        gap: 2px;
+    }
+
+    .rail-divider {
+        width: 1px;
+        height: 28px;
+        margin: 0 4px;
+        align-self: center;
+    }
+
+    .rail-item {
+        width: auto;
+        min-width: 56px;
+        padding: 6px 4px;
+    }
+
+    .mode-header { left: 0; }
+    .mode-header-title { font-size: 17px; }
+    .mode-header-progress { display: none; }
+}

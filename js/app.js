@@ -19,6 +19,7 @@ function initApp() {
     // chapters, and this expands what the old one held so nobody arrives to
     // find their read history gone.
     migrateModuleProgress(typeof theoryModules === 'undefined' ? [] : theoryModules);
+    renderRail();
     renderSidebar(topics);
     setupSearch(topics, typeof theoryModules === 'undefined' ? [] : theoryModules);
     setupEventListeners();
@@ -985,6 +986,10 @@ function setupEventListeners() {
     // throw away every expanded row on the page, so the store announces the
     // change instead and the two counters outside the row repaint themselves.
     document.addEventListener('droiddeck:progress', (event) => {
+        // Every kind of progress moves the rail meter and the mode header,
+        // because both are per-mode totals and any tick changes one of them.
+        if (typeof paintRail === 'function') paintRail();
+
         if (!event.detail || event.detail.kind !== 'done') return;
         const { topicId, questionId } = event.detail;
 

@@ -77,39 +77,10 @@ body {
    Header
    -------------------------------------------------------------------------- */
 
-.header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 64px;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-    padding: 0 var(--space-5);
-    background: var(--ds-veil);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-bottom: 1px solid var(--ds-border);
-}
-
-/* Search belongs beside the wordmark, not at the far right. On a wide display
-   the old field sat a metre from the list it filters, which is a long way to
-   move your eyes to narrow something you are already looking at. */
-.header-lead {
-    display: flex;
-    align-items: center;
-    gap: var(--space-5);
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.header-brand {
-    display: flex;
-    align-items: center;
-    flex: 0 0 auto;
-}
+/* The app bar became the mode header and moved to css/rail.css, which owns
+   everything right of the rail. What stays here is the brand mark and the
+   search field, because both outlived the bar they used to sit in: the mark
+   moved into the rail, and the field into the mode header. */
 
 .brand-logo {
     display: flex;
@@ -126,26 +97,6 @@ body {
 
 .brand-mark {
     flex-shrink: 0;
-}
-
-.header-title {
-    font-family: var(--font-display);
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--ds-text);
-    white-space: nowrap;
-}
-
-.header-title-accent {
-    color: var(--accent);
-}
-
-.header-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    flex: 0 0 auto;
 }
 
 /* --------------------------------------------------------------------------
@@ -343,9 +294,9 @@ body {
 .sidebar {
     position: fixed;
     top: 64px;
-    left: 0;
+    left: 84px;
     bottom: 0;
-    width: 280px;
+    width: 272px;
     z-index: 900;
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -378,7 +329,7 @@ body {
 .main-content {
     position: relative;
     z-index: 1;
-    margin-left: 280px;
+    margin-left: 356px;
     margin-top: 64px;
     padding: 32px 40px 96px;
     min-height: calc(100vh - 64px);
@@ -459,21 +410,21 @@ button:disabled,
    fills the lead group up to its 520px cap and shrinks with it. What changes as
    the bar narrows is how much company it keeps. */
 
-@media (max-width: 1024px) {
-    .sidebar { width: 260px; }
-    .main-content { margin-left: 260px; padding: 28px 28px 80px; }
-    .header-lead { gap: var(--space-4); }
+/* Below 1100 the sidebar becomes a drawer and the rail keeps its column. The
+   old 1024 breakpoint was chosen when the sidebar was the only fixed column;
+   with the rail beside it the content well runs out 76px sooner. */
+@media (max-width: 1100px) {
+    .hamburger-btn { display: flex; }
+    /* left: 0 as well as the transform. The sidebar sits 84px right of the
+       viewport edge on wide screens, and translating a column that starts at
+       84px by its own width leaves exactly 84px of it on screen. */
+    .sidebar { left: 0; transform: translateX(-100%); width: 300px; z-index: 1001; }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-overlay.active { display: block; }
+    .main-content { margin-left: 84px; padding: 24px 20px 80px; }
 }
 
 @media (max-width: 768px) {
-    .hamburger-btn { display: flex; }
-    .sidebar { transform: translateX(-100%); width: 300px; z-index: 1001; }
-    .sidebar.open { transform: translateX(0); }
-    .sidebar-overlay.active { display: block; }
-    .main-content { margin-left: 0; padding: 24px 16px 80px; }
-    .header { padding: 0 12px; gap: var(--space-2); }
-    .header-lead { gap: var(--space-3); }
-    .header-title { font-size: 17px; }
     /* There is no keyboard to press it on. */
     .search-shortcut { display: none; }
     .search-results { width: calc(100vw - 24px); min-width: 0; left: auto; right: -44px; }
@@ -482,10 +433,14 @@ button:disabled,
     .theme-switch-option span { display: none; }
 }
 
+/* The rail is a bottom bar from here down, so the sidebar drawer stops above
+   it and the content well leaves room for it. */
+@media (max-width: 720px) {
+    .sidebar { top: 64px; bottom: 62px; }
+    .main-content { margin-left: 0; padding: 20px 14px 92px; }
+}
+
 @media (max-width: 480px) {
-    .main-content { padding: 18px 12px 72px; }
-    /* The mark survives on its own; the wordmark is what gives way, because at
-       this width the search field needs every pixel it can take. */
-    .header-title { display: none; }
-    .back-to-top { right: 16px; bottom: 16px; }
+    .main-content { padding: 18px 12px 84px; }
+    .back-to-top { right: 16px; bottom: 76px; }
 }

@@ -153,6 +153,22 @@
     --success-color: var(--hue-teal-ink);
     --warning-color: var(--hue-amber-ink);
 
+    /* --- Rail ---
+       The rail is chrome, not content, so it takes surfaces rather than hues.
+       Declared here because this file is the only one allowed a literal, and
+       because the light theme needs its own answer — the navigation
+       specification only gave the dark one.
+
+       Two of the three are deliberate substitutions. The rail's active row is
+       specified as #1F1B2E, which sits between --ds-raised and --accent-wash
+       and is in neither; it takes --ds-raised. The inactive icon border is
+       specified as #4A4162, which does appear in this file — twice, in the
+       light block — and is not a dark-theme value at all; it takes the border
+       colour the system already declares. */
+    --rail-bg: var(--ds-canvas);
+    --rail-item-active: var(--ds-raised);
+    --rail-icon-border: var(--ds-border);
+
     /* Syntax. The system does not specify a code theme, so it is composed from
        the sanctioned category hues rather than invented. */
     --keyword-color: var(--accent-300);
@@ -236,6 +252,15 @@
     --shadow-glow: 0 0 0 1px rgba(124, 58, 237, 0.14);
     --success-color: var(--hue-teal-ink);
     --warning-color: var(--hue-amber-ink);
+
+    /* --- Rail ---
+       See the dark block for why these three exist. On light the rail sits on
+       the canvas like everything else, and the active row takes the sunken
+       surface rather than a raised one — a raised row on a white page reads as
+       a card rather than as a selection. */
+    --rail-bg: var(--ds-canvas);
+    --rail-item-active: var(--ds-sunken);
+    --rail-icon-border: var(--ds-border);
 
     /* Syntax. The system does not specify a code theme, so it is composed from
        the sanctioned category hues rather than invented. */
