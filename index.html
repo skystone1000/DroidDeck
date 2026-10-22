@@ -6,6 +6,36 @@
     <meta name="description" content="DroidDeck - Comprehensive Android Interview Questions and Answers - Kotlin, Coroutines, Jetpack Compose, Architecture, System Design and more">
     <title>DroidDeck — Android Interview Questions &amp; Answers</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=&apos;http://www.w3.org/2000/svg&apos; viewBox=&apos;0 0 30 28&apos;%3E%3Crect x=&apos;6.5&apos; y=&apos;0.5&apos; width=&apos;23&apos; height=&apos;23&apos; rx=&apos;7.4&apos; fill=&apos;%232A2340&apos; transform=&apos;rotate(-9 18 12)&apos;/%3E%3Crect x=&apos;0.5&apos; y=&apos;4&apos; width=&apos;23&apos; height=&apos;23&apos; rx=&apos;7.4&apos; fill=&apos;%238B5CF6&apos;/%3E%3Ccircle cx=&apos;8.3&apos; cy=&apos;15.5&apos; r=&apos;1.9&apos; fill=&apos;%230A0910&apos;/%3E%3Ccircle cx=&apos;15.7&apos; cy=&apos;15.5&apos; r=&apos;1.9&apos; fill=&apos;%230A0910&apos;/%3E%3C/svg%3E">
+    <script>
+    /* Runs before the first byte of body is parsed, which is the whole point:
+       everything below reads document.documentElement, and a mode or a theme
+       applied after first paint is a flash the reader sees.
+
+       Deliberately inline rather than in js/. A script at the foot of the body
+       is by definition too late to prevent a flash, and these few lines are not
+       worth a blocking request of their own. */
+    (function () {
+        try {
+            var theme = localStorage.getItem('theme');
+            if (theme === 'dark' || theme === 'light') {
+                document.documentElement.setAttribute('data-theme', theme);
+            }
+
+            var mode = localStorage.getItem('droiddeck:mode');
+            if (mode) document.documentElement.dataset.mode = mode;
+
+            // Only when there is no hash to honour. A shared link always wins
+            // over where this browser happened to be last.
+            if (!location.hash && mode) {
+                var last = JSON.parse(localStorage.getItem('droiddeck:mode:last') || '{}');
+                location.replace(last[mode] || ('#' + mode));
+            }
+        } catch (e) {
+            /* Private mode, file://, a hand-edited value: the defaults are fine. */
+        }
+    })();
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
