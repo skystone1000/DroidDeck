@@ -249,6 +249,42 @@ function checkDrillExtras(theoryModules) {
 }
 
 /* --------------------------------------------------------------------------
+   Glossary backlinks
+
+   Every term links back to the chapter that defines it, and that link is a
+   property of the data rather than something an author writes: entries are
+   harvested from inside a chapter, so the chapter is always known.
+
+   Which makes this a check against a future refactor rather than against an
+   author. A definition that ends up somewhere a chapter id cannot be read from
+   would produce a term with nowhere to go, and the specification is explicit
+   that such a term is a content bug.
+   -------------------------------------------------------------------------- */
+
+function checkGlossaryBacklinks(theoryModules) {
+    theoryModules.forEach((mod) => {
+        (mod.chapters || []).forEach((chapter) => {
+            (chapter.blocks || []).forEach((block) => {
+                if (block.type !== 'definition') return;
+
+                if (!block.term || !String(block.term).trim()) {
+                    fail(`definition in ${mod.id}/${chapter.id}`, 'has no term');
+                    return;
+                }
+                if (!mod.id || !chapter.id) {
+                    fail(`term ${block.term}`,
+                        'has no owning chapter — every term needs a THEORY › backlink');
+                }
+                if (!mod.trackId) {
+                    fail(`term ${block.term}`,
+                        `is in module ${mod.id}, which has no trackId — the glossary filters by track`);
+                }
+            });
+        });
+    });
+}
+
+/* --------------------------------------------------------------------------
    Wiring
    -------------------------------------------------------------------------- */
 
@@ -260,6 +296,7 @@ function main() {
     checkModes(appModes || [], topics, theoryModules);
     checkTotals(topics, theoryModules, theoryTracks);
     checkDrillExtras(theoryModules);
+    checkGlossaryBacklinks(theoryModules);
 
     if (errors.length) {
         console.error(`\n${errors.length} problem(s):\n`);

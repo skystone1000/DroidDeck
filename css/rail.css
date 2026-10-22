@@ -781,3 +781,45 @@
 
 .predict-set-card { display: flex; flex-direction: column; gap: var(--space-3); }
 .predict-mini-strip { padding: 0; }
+
+/* ==========================================================================
+   Glossary
+   ========================================================================== */
+
+/* auto-fill rather than auto-fit: a letter with one term keeps a card the size
+   of every other card, instead of stretching it across the row. */
+.theory-track .theory-glossary-entry { margin: 0; }
+
+.glossary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    gap: var(--space-4);
+    margin-top: var(--space-4);
+}
+
+.glossary-asked {
+    display: inline-flex;
+    align-items: center;
+    margin-left: var(--space-3);
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--tier-must-ink);
+    background: var(--tier-must-bg);
+    vertical-align: middle;
+}
+
+.theory-glossary-source {
+    display: inline-flex;
+    align-items: center;
+    margin-top: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    color: var(--ds-faint);
+    transition: color var(--transition-hover);
+}
+.theory-glossary-source:hover { color: var(--ds-text); }

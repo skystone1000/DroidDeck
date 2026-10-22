@@ -343,7 +343,7 @@ function handleRouteChange() {
 
     switch (route.mode) {
         case 'glossary':
-            renderTheoryGlossary();
+            renderGlossary(route.letter, route.trackFilter);
             return;
         case 'synthesis':
             if (route.moduleId) renderSynthesisPrompt(route.moduleId, route.itemId);
