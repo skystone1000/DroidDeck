@@ -349,32 +349,17 @@ function handleRouteChange() {
             if (route.moduleId) renderSynthesisPrompt(route.moduleId, route.itemId);
             else renderSynthesisOverview();
             return;
-        // Predict has its address but not yet its screen. Until that lands its
-        // modules render through the theory renderer they have always used —
-        // the route is new, the page is the one that works.
         case 'predict':
+            if (route.moduleId) renderPredictSnippet(route.moduleId, route.itemId);
+            else renderPredictOverview();
+            return;
         case 'theory':
             if (route.moduleId) renderTheoryModule(route.moduleId, route.chapterId);
-            else if (route.mode === 'theory') renderTheoryOverview();
-            else renderModeOverviewPlaceholder(route.mode);
+            else renderTheoryOverview();
             return;
         default:
             renderTopic(route.topicId, route.subsectionId);
     }
-}
-
-/* The bare `#synthesis` and `#predict` routes have no overview yet. Sending
-   them to the theory overview would be a lie about where they are, so they go
-   to the first module in their track — the same place their overview will
-   eventually put a reader who clicks the first card. */
-function renderModeOverviewPlaceholder(modeId) {
-    const mode = modeById[modeId];
-    const first = (typeof modulesInTrack === 'function') ? modulesInTrack(mode.trackId)[0] : null;
-    if (first) {
-        window.location.replace(generateModeHash(modeId, first.id));
-        return;
-    }
-    renderTheoryOverview();
 }
 
 /* --------------------------------------------------------------------------
