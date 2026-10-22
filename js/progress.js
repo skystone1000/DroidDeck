@@ -309,3 +309,208 @@ function progressPercent(done, total) {
     if (!total) return 0;
     return Math.round((done / total) * 100);
 }
+
+/* --------------------------------------------------------------------------
+   Per-mode progress
+
+   Five modes, five units, and deliberately no total across them. "38 known,
+   11 read, 3 rehearsed, 6 solved, 41 seen" is five facts; a single number
+   averaging them would be a sixth that is not true of anything.
+
+   Each store below is the smallest thing that can answer its mode's question.
+   -------------------------------------------------------------------------- */
+
+const REHEARSED_STORAGE_KEY = 'droiddeck:synthesis:rehearsed';
+const VERDICT_STORAGE_KEY = 'droiddeck:predict:verdicts';
+const SEEN_STORAGE_KEY = 'droiddeck:glossary:seen';
+
+/* A drill is rehearsed when the reader says so. There is nothing to grade —
+   the value of a drill is in having attempted it against the clock, and no
+   store can check that — so this is a set of ids behind a single toggle. */
+function rehearsedDrills() {
+    return readSet(REHEARSED_STORAGE_KEY);
+}
+
+function isDrillRehearsed(drillId) {
+    return rehearsedDrills().has(drillId);
+}
+
+function setDrillRehearsed(drillId, rehearsed) {
+    const current = rehearsedDrills();
+    if (rehearsed) current.add(drillId); else current.delete(drillId);
+    writeSet(REHEARSED_STORAGE_KEY, current);
+    announceProgress({ kind: 'rehearsed', drillId, rehearsed });
+    return current;
+}
+
+/* A snippet has a verdict, not a flag: 'right' or 'wrong'. The sidebar draws a
+   strip of one cell per snippet and it has to distinguish three states, so a
+   set could not carry it.
+
+   Keyed on the bare block id, as the reveal store already is —
+   tools/validate-theory.js holds a catalogue of every predict id and rejects a
+   duplicate anywhere in the corpus, which is what makes the short key safe. */
+function predictVerdicts() {
+    return readMap(VERDICT_STORAGE_KEY);
+}
+
+function predictVerdict(blockId) {
+    return predictVerdicts()[blockId] || null;
+}
+
+function setPredictVerdict(blockId, verdict) {
+    const current = predictVerdicts();
+    if (verdict === 'right' || verdict === 'wrong') current[blockId] = verdict;
+    else delete current[blockId];
+    writeMap(VERDICT_STORAGE_KEY, current);
+    announceProgress({ kind: 'verdict', blockId, verdict });
+    return current;
+}
+
+/* A term is seen once its card has been on screen. That is a weaker claim than
+   "read", and the counter says so — SEEN, not KNOWN — but it is the only claim
+   a glossary can honestly make without asking the reader to tick sixty-eight
+   boxes nobody would tick. */
+function seenTerms() {
+    return readSet(SEEN_STORAGE_KEY);
+}
+
+function markTermSeen(term) {
+    const current = seenTerms();
+    if (current.has(term)) return current;
+    current.add(term);
+    writeSet(SEEN_STORAGE_KEY, current);
+    announceProgress({ kind: 'seen', term });
+    return current;
+}
+
+/* --------------------------------------------------------------------------
+   The flat lists the two promoted modes need
+
+   A track never had to produce one: the theory renderer walks modules and
+   chapters, and a block was only ever reached from inside its chapter. A mode
+   that shows one drill or one snippet per screen needs the whole track as an
+   ordered sequence, so that "next" can cross a module boundary.
+   -------------------------------------------------------------------------- */
+
+function blocksOfTypeInTrack(trackId, type) {
+    const mods = (typeof theoryModules === 'undefined' ? [] : theoryModules)
+        .filter((mod) => mod.trackId === trackId)
+        .sort((a, b) => a.order - b.order);
+
+    const found = [];
+    mods.forEach((mod) => {
+        (mod.chapters || []).forEach((chapter) => {
+            (chapter.blocks || []).forEach((block) => {
+                if (block.type !== type) return;
+                // The block, plus where it came from. Copied rather than
+                // mutated: the corpus is shared, and a renderer that wrote a
+                // moduleId onto a block would be editing the data layer.
+                found.push(Object.assign({}, block, {
+                    moduleId: mod.id,
+                    moduleTitle: mod.title,
+                    moduleOrder: mod.order,
+                    chapterId: chapter.id,
+                    chapterTitle: chapter.title
+                }));
+            });
+        });
+    });
+    return found;
+}
+
+function allDrills() {
+    return blocksOfTypeInTrack('synthesis', 'drill');
+}
+
+function allPredicts() {
+    return blocksOfTypeInTrack('output', 'predict');
+}
+
+/** Modules in the seven tracks the sidebar still lists, in reading order. */
+function subjectTrackModules() {
+    const subjects = (typeof theoryTracks === 'undefined' ? [] : theoryTracks)
+        .filter((track) => track.scope === 'subject')
+        .map((track) => track.id);
+
+    return (typeof theoryModules === 'undefined' ? [] : theoryModules)
+        .filter((mod) => subjects.includes(mod.trackId))
+        .sort((a, b) => a.order - b.order);
+}
+
+/* --------------------------------------------------------------------------
+   The one function every counter reads
+   -------------------------------------------------------------------------- */
+
+/**
+ * `{ done, total, noun }` for a mode — the only shape the rail meter, the mode
+ * header and the rail tooltip know about.
+ *
+ * There is no `allModesProgress()` and there must not be. The five units do not
+ * add up, and a header claiming they did would be lying somewhere the reader
+ * has no way to check.
+ */
+function modeProgress(modeId) {
+    const mode = (typeof modeById === 'undefined') ? null : modeById[modeId];
+    const noun = mode ? mode.progressNoun : '';
+
+    switch (modeId) {
+        case 'questions': {
+            const all = (typeof topics === 'undefined') ? [] : topics;
+            const done = doneQuestions();
+            let d = 0;
+            let t = 0;
+            all.forEach((topic) => {
+                (topic.questions || []).forEach((question) => {
+                    t += 1;
+                    if (done.has(questionKey(topic.id, question.id))) d += 1;
+                });
+            });
+            return { done: d, total: t, noun };
+        }
+
+        case 'theory': {
+            // Subject tracks only. The chapters in the two promoted tracks
+            // belong to Synthesis and Predict and are counted there — counting
+            // them twice would make the two meters disagree about one corpus.
+            const read = readChapters();
+            let d = 0;
+            let t = 0;
+            subjectTrackModules().forEach((mod) => {
+                (mod.chapters || []).forEach((chapter) => {
+                    t += 1;
+                    if (read.has(chapterKey(mod.id, chapter.id))) d += 1;
+                });
+            });
+            return { done: d, total: t, noun };
+        }
+
+        case 'synthesis': {
+            const drills = allDrills();
+            const done = rehearsedDrills();
+            return { done: drills.filter((b) => done.has(b.id)).length, total: drills.length, noun };
+        }
+
+        case 'predict': {
+            const blocks = allPredicts();
+            const verdicts = predictVerdicts();
+            return { done: blocks.filter((b) => verdicts[b.id]).length, total: blocks.length, noun };
+        }
+
+        case 'glossary': {
+            const entries = (typeof collectGlossaryEntries === 'function')
+                ? collectGlossaryEntries() : [];
+            const seen = seenTerms();
+            return { done: entries.filter((e) => seen.has(e.term)).length, total: entries.length, noun };
+        }
+
+        default:
+            return { done: 0, total: 0, noun: '' };
+    }
+}
+
+/** `38 / 465 KNOWN` — the mode header's long form, built in exactly one place. */
+function modeProgressLabel(modeId) {
+    const { done, total, noun } = modeProgress(modeId);
+    return `${done} / ${total} ${noun}`;
+}

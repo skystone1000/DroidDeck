@@ -142,6 +142,49 @@ function checkModes(appModes, topics, theoryModules) {
 }
 
 /* --------------------------------------------------------------------------
+   The five totals the mode header prints
+
+   Hard numbers, because a navigation refactor that quietly halves the Predict
+   total is exactly the failure this file exists to catch, and "some number
+   appeared" is not a check. Update them deliberately when the corpus grows.
+   -------------------------------------------------------------------------- */
+
+const EXPECTED_TOTALS = {
+    questions: 465,   // questions across all fourteen topics
+    theory: 154,      // chapters in the seven subject tracks
+    synthesis: 24,    // drill blocks
+    predict: 80,      // predict blocks
+    glossary: 68      // definition blocks
+};
+
+function checkTotals(topics, theoryModules, theoryTracks) {
+    const subjects = theoryTracks.filter((t) => t.scope === SUBJECT).map((t) => t.id);
+
+    const blocksIn = (trackId, type) => theoryModules
+        .filter((m) => m.trackId === trackId)
+        .reduce((n, m) => n + (m.chapters || []).reduce(
+            (k, c) => k + (c.blocks || []).filter((b) => b.type === type).length, 0), 0);
+
+    const actual = {
+        questions: topics.reduce((n, t) => n + (t.questions || []).length, 0),
+        theory: theoryModules
+            .filter((m) => subjects.includes(m.trackId))
+            .reduce((n, m) => n + (m.chapters || []).length, 0),
+        synthesis: blocksIn('synthesis', 'drill'),
+        predict: blocksIn('output', 'predict'),
+        glossary: theoryModules.reduce((n, m) => n + (m.chapters || []).reduce(
+            (k, c) => k + (c.blocks || []).filter((b) => b.type === 'definition').length, 0), 0)
+    };
+
+    Object.keys(EXPECTED_TOTALS).forEach((id) => {
+        if (actual[id] !== EXPECTED_TOTALS[id]) {
+            fail(`mode ${id}`, `total is ${actual[id]}, expected ${EXPECTED_TOTALS[id]} — ` +
+                'if the corpus grew on purpose, update EXPECTED_TOTALS in tools/validate-nav.js');
+        }
+    });
+}
+
+/* --------------------------------------------------------------------------
    Wiring
    -------------------------------------------------------------------------- */
 
@@ -151,6 +194,7 @@ function main() {
     checkTrackScope(theoryTracks);
     checkTopicTracks(topics, theoryTracks, topicTracks || {});
     checkModes(appModes || [], topics, theoryModules);
+    checkTotals(topics, theoryModules, theoryTracks);
 
     if (errors.length) {
         console.error(`\n${errors.length} problem(s):\n`);
