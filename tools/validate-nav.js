@@ -83,14 +83,74 @@ function checkTopicTracks(topics, theoryTracks, topicTracks) {
 }
 
 /* --------------------------------------------------------------------------
+   The mode registry
+   -------------------------------------------------------------------------- */
+
+const RESERVED = ['questions', 'theory', 'synthesis', 'predict', 'glossary'];
+const SIDEBAR_KINDS = ['tracks', 'rounds', 'sets', 'alphabet'];
+const GROUPS = ['study', 'drill'];
+
+function checkModes(appModes, topics, theoryModules) {
+    if (appModes.length !== 5) {
+        fail('modes', `expected 5 modes, found ${appModes.length}`);
+        return;
+    }
+
+    const seenId = new Set();
+    const seenKey = new Set();
+
+    appModes.forEach((mode, i) => {
+        const where = `mode ${mode.id || i}`;
+
+        if (seenId.has(mode.id)) fail(where, 'duplicate id');
+        seenId.add(mode.id);
+
+        if (!RESERVED.includes(mode.route)) {
+            fail(where, `route '${mode.route}' is not one of the reserved segments (${RESERVED.join(', ')})`);
+        }
+        if (topics.some((t) => t.id === mode.route)) {
+            fail(where, `route '${mode.route}' collides with a topic id`);
+        }
+        if (theoryModules.some((m) => m.id === mode.route)) {
+            fail(where, `route '${mode.route}' collides with a module id`);
+        }
+
+        if (mode.railOrder !== i + 1) fail(where, `railOrder must be ${i + 1}, got ${mode.railOrder}`);
+        if (String(mode.key) !== String(i + 1)) fail(where, `key must be '${i + 1}', got '${mode.key}'`);
+        if (seenKey.has(mode.key)) fail(where, 'duplicate keyboard digit');
+        seenKey.add(mode.key);
+
+        if (!SIDEBAR_KINDS.includes(mode.sidebar)) {
+            fail(where, `sidebar must be one of ${SIDEBAR_KINDS.join(', ')}, got '${mode.sidebar}'`);
+        }
+        if (!GROUPS.includes(mode.group)) {
+            fail(where, `group must be 'study' or 'drill', got '${mode.group}'`);
+        }
+        if (!/^--[a-z0-9-]+$/.test(mode.accentVar || '')) {
+            fail(where, `accentVar must be a CSS custom property name, got '${mode.accentVar}'`);
+        }
+        if (!mode.title || !mode.shortLabel) fail(where, 'needs both title and shortLabel');
+        if (!mode.progressNoun) fail(where, 'needs a progressNoun');
+    });
+
+    // The divider in the rail separates study from drill, and the handoff says
+    // not to remove it. It only means anything if the groups are contiguous.
+    const groups = appModes.map((m) => m.group);
+    if (groups.join(',') !== 'study,study,drill,drill,drill') {
+        fail('modes', `rail order must be study,study,drill,drill,drill — got ${groups.join(',')}`);
+    }
+}
+
+/* --------------------------------------------------------------------------
    Wiring
    -------------------------------------------------------------------------- */
 
 function main() {
-    const { topics, topicTracks, theoryTracks } = loadCorpus();
+    const { topics, topicTracks, theoryTracks, theoryModules, appModes } = loadCorpus();
 
     checkTrackScope(theoryTracks);
     checkTopicTracks(topics, theoryTracks, topicTracks || {});
+    checkModes(appModes || [], topics, theoryModules);
 
     if (errors.length) {
         console.error(`\n${errors.length} problem(s):\n`);

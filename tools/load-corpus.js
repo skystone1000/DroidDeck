@@ -40,7 +40,8 @@ function loadCorpus() {
             topics:        typeof topics        === 'undefined' ? [] : topics,
             topicTracks:   typeof topicTracks    === 'undefined' ? {} : topicTracks,
             theoryTracks:  typeof theoryTracks  === 'undefined' ? [] : theoryTracks,
-            theoryModules: typeof theoryModules === 'undefined' ? [] : theoryModules
+            theoryModules: typeof theoryModules === 'undefined' ? [] : theoryModules,
+            appModes:      typeof appModes      === 'undefined' ? [] : appModes
         })
     `;
 
