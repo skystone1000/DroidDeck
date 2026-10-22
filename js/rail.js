@@ -29,6 +29,7 @@ function setActiveMode(modeId) {
     }
     activeMode = next;
     document.documentElement.dataset.mode = next;
+    renderSidebar();
     paintRail();
     return true;
 }

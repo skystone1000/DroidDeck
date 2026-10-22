@@ -302,3 +302,169 @@
     .mode-header-title { font-size: 17px; }
     .mode-header-progress { display: none; }
 }
+
+/* ==========================================================================
+   The contextual sidebar
+
+   Four shapes share one column. What follows is only what the two original
+   shapes did not already have — the eyebrow, the round ordinal, the set
+   readout, the verdict strip and the alphabet grid.
+   ========================================================================== */
+
+.nav-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-3) var(--space-2);
+}
+
+.nav-heading-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ds-faint);
+    white-space: nowrap;
+}
+
+.nav-heading-count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ds-faint);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+/* A block that is about the active thing rather than a way to reach another
+   one. The rule above it is what says so. */
+.nav-aside {
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--ds-border);
+}
+
+/* --- rounds --- */
+
+.nav-round { gap: var(--space-3); }
+
+.nav-ordinal {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ds-faint);
+    font-variant-numeric: tabular-nums;
+}
+
+.nav-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 var(--space-3) var(--space-3);
+}
+
+.nav-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 0 10px;
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    text-decoration: none;
+    white-space: nowrap;
+    /* Tinted by track, the same way a category tile is — one attribute, the
+       per-hue rules below, and no colour written at the call site. */
+    color: var(--hue-slate-ink);
+    background: var(--hue-slate-bg);
+}
+
+.nav-chip[data-hue="violet"]  { background: var(--hue-violet-bg);  color: var(--hue-violet-ink); }
+.nav-chip[data-hue="sky"]     { background: var(--hue-sky-bg);     color: var(--hue-sky-ink); }
+.nav-chip[data-hue="teal"]    { background: var(--hue-teal-bg);    color: var(--hue-teal-ink); }
+.nav-chip[data-hue="lime"]    { background: var(--hue-lime-bg);    color: var(--hue-lime-ink); }
+.nav-chip[data-hue="pink"]    { background: var(--hue-pink-bg);    color: var(--hue-pink-ink); }
+.nav-chip[data-hue="amber"]   { background: var(--hue-amber-bg);   color: var(--hue-amber-ink); }
+.nav-chip[data-hue="indigo"]  { background: var(--hue-indigo-bg);  color: var(--hue-indigo-ink); }
+.nav-chip[data-hue="rose"]    { background: var(--hue-rose-bg);    color: var(--hue-rose-ink); }
+.nav-chip[data-hue="fuchsia"] { background: var(--hue-fuchsia-bg); color: var(--hue-fuchsia-ink); }
+
+/* --- sets --- */
+
+.nav-set { align-items: flex-start; }
+
+.nav-set-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.nav-set-readout {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--ds-faint);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* One cell per snippet, in reading order. Three states, which is exactly why
+   the verdict store is a map and not a set. */
+.nav-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 0 var(--space-3);
+}
+
+.nav-strip-cell {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    border-radius: 4px;
+    background: var(--ds-raised);
+    border: 1px solid var(--ds-border);
+}
+.nav-strip-cell.is-right { background: var(--hue-teal-bg); border-color: var(--hue-teal-ink); }
+.nav-strip-cell.is-wrong { background: var(--tier-must-bg); border-color: var(--tier-must-dot); }
+
+.nav-strip-caption {
+    padding: var(--space-3) var(--space-3) 0;
+    font-size: 12px;
+    color: var(--ds-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- alphabet --- */
+
+.nav-alphabet {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+    padding: 0 var(--space-3);
+}
+
+.nav-letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    border-radius: var(--radius-input);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    text-decoration: none;
+    color: var(--ds-muted);
+    background: var(--ds-surface);
+    transition: background var(--transition-hover), color var(--transition-hover);
+}
+.nav-letter:hover { background: var(--accent-wash); color: var(--ds-text); }
+.nav-letter.active { background: var(--accent-wash); color: var(--ds-text); font-weight: 600; }
+
+/* Dimmed rather than removed. A grid that changes shape as the corpus grows is
+   harder to aim at than one whose twenty-six cells stay put. */
+.nav-letter.is-empty {
+    color: var(--ds-faint);
+    background: transparent;
+    opacity: 0.45;
+}

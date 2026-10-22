@@ -1,8 +1,19 @@
 /* ==========================================================================
-   Navigation — sidebar rendering, hash routing and the mobile drawer.
+   Navigation — hash routing, the category marks, and the mobile drawer.
 
-   The URL hash is the single source of truth for what is on screen:
-   `#topic-id` or `#topic-id/subsection-id`.
+   The URL hash is the single source of truth for what is on screen. Five
+   reserved first segments, one per mode, declared in data/modes.js:
+
+       #questions/<topicId>[/<subsectionId>][?tier=...]
+       #theory/<moduleId>[/<chapterId>][?cram]
+       #synthesis/<moduleId>[/<drillId>]
+       #predict/<moduleId>[/<snippetId>]
+       #glossary[?letter=K][?track=async]
+
+   Sidebar rendering moved to js/sidebar.js when the sidebar stopped belonging
+   to the app and started belonging to whichever mode is active. What is left
+   here decides *what* is on screen; that file decides how to get to the rest
+   of it.
    ========================================================================== */
 
 /* Category marks.
@@ -81,284 +92,6 @@ function topicHue(topicId) {
 const CHEVRON_SVG =
     '<svg class="nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" ' +
     'stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>';
-
-/* --------------------------------------------------------------------------
-   Sidebar
-   -------------------------------------------------------------------------- */
-
-/* The sidebar shows one mode at a time. Which one is derived from the hash, so
-   arriving on a theory deep link puts the sidebar in theory mode without the
-   reader having to flip anything. */
-let sidebarMode = 'questions';
-let sidebarTopics = [];
-
-function renderSidebar(topicsList) {
-    if (topicsList) sidebarTopics = topicsList;
-
-    const nav = document.getElementById('sidebarNav');
-    if (!nav) return;
-    nav.innerHTML = '';
-
-    if (sidebarMode === 'theory') {
-        buildTheoryNav(nav);
-    } else {
-        buildQuestionNav(nav);
-    }
-}
-
-/* The sidebar still has two shapes, and the three promoted modes are theory
-   content until their own sidebars land. Mapping here rather than at each call
-   site means the router already speaks in five modes while the sidebar still
-   speaks in two. */
-function setSidebarMode(mode) {
-    const shape = (mode === 'questions') ? 'questions' : 'theory';
-    if (shape === sidebarMode) return false;
-    sidebarMode = shape;
-    renderSidebar();
-    return true;
-}
-
-/** Questions the selected tiers let through. An empty selection means all. */
-function questionsInTiers(questions, keys) {
-    if (!keys || !keys.length) return questions;
-    const wanted = keys.map((key) => TIER_KEYS[key]);
-    return questions.filter((q) => wanted.includes(q.importance));
-}
-
-function buildQuestionNav(nav) {
-    sidebarTopics.forEach((topic) => {
-        const mark = topicMarks[topic.id];
-        // The count follows the filter, so the sidebar answers "how much is
-        // left to revise" rather than "how much exists".
-        const count = questionsInTiers(topic.questions || [], questionTiers).length;
-
-        if (topic.subsections && topic.subsections.length) {
-            nav.appendChild(buildTopicGroup(topic, mark, count));
-        } else {
-            nav.appendChild(buildTopicLink(topic, mark, count));
-        }
-    });
-}
-
-/* Tracks map onto the group/subsection markup the question sidebar already
-   uses, which is why modules are sized the way they are — no third level. */
-function buildTheoryNav(nav) {
-    const tracks = (typeof theoryTracks === 'undefined') ? [] : theoryTracks;
-    const modules = (typeof theoryModules === 'undefined') ? [] : theoryModules;
-
-    tracks
-        .slice()
-        .sort((a, b) => a.order - b.order)
-        .forEach((track) => {
-            const inTrack = modules
-                .filter((mod) => mod.trackId === track.id)
-                .sort((a, b) => a.order - b.order);
-            nav.appendChild(buildTrackGroup(track, inTrack));
-        });
-
-    // Sits below the tracks because it is a reference, not a step on the path.
-    const glossary = document.createElement('a');
-    glossary.className = 'nav-item';
-    glossary.href = generateGlossaryHash(null, null);
-    glossary.dataset.moduleId = GLOSSARY_ROUTE;
-    glossary.dataset.hue = GLOSSARY_MARK.hue;
-    glossary.innerHTML =
-        markTile(GLOSSARY_MARK, GLOSSARY_MARK.hue) +
-        '<span class="nav-label">Glossary</span>' +
-        `<span class="nav-count">${collectGlossaryEntries().length}</span>`;
-    glossary.addEventListener('click', closeMobileMenu);
-    nav.appendChild(glossary);
-}
-
-function buildTrackGroup(track, modules) {
-    const group = document.createElement('div');
-    group.className = 'nav-item-group';
-    group.dataset.trackId = track.id;
-
-    const parent = document.createElement('button');
-    parent.type = 'button';
-    parent.className = 'nav-item nav-item-parent';
-    parent.dataset.trackId = track.id;
-    parent.setAttribute('aria-expanded', 'false');
-    parent.dataset.hue = trackHue(track.id);
-    parent.innerHTML =
-        markTile(trackMarks[track.id], trackHue(track.id)) +
-        `<span class="nav-label">${escapeAttr(track.title)}</span>` +
-        `<span class="nav-count">${modules.length}</span>` +
-        CHEVRON_SVG;
-
-    parent.addEventListener('click', () => {
-        const expanded = group.classList.toggle('expanded');
-        parent.setAttribute('aria-expanded', String(expanded));
-    });
-
-    const list = document.createElement('div');
-    list.className = 'nav-subsections';
-
-    if (!modules.length) {
-        const empty = document.createElement('span');
-        empty.className = 'nav-subsection nav-subsection-empty';
-        empty.textContent = 'Not written yet';
-        list.appendChild(empty);
-    }
-
-    modules.forEach((mod) => {
-        const link = document.createElement('a');
-        link.className = 'nav-subsection';
-        link.href = generateTheoryHash(mod.id);
-        link.dataset.moduleId = mod.id;
-        link.textContent = `${mod.order}. ${mod.title}`;
-        link.addEventListener('click', closeMobileMenu);
-        list.appendChild(link);
-    });
-
-    group.appendChild(parent);
-    group.appendChild(list);
-    return group;
-}
-
-/** Highlights the open module and keeps only its track expanded. */
-function setActiveTheory(moduleId) {
-    document.querySelectorAll('.nav-item, .nav-subsection').forEach((node) => {
-        node.classList.remove('active');
-    });
-
-    // Matches both a module inside a track group and the flat glossary entry,
-    // which is why this queries by data attribute rather than by class.
-    if (moduleId) {
-        const link = document.querySelector(`[data-module-id="${moduleId}"]`);
-        if (link) link.classList.add('active');
-    }
-
-    const mod = moduleId && typeof theoryModules !== 'undefined'
-        ? theoryModules.find((m) => m.id === moduleId)
-        : null;
-
-    document.querySelectorAll('.nav-item-group[data-track-id]').forEach((group) => {
-        const isActive = Boolean(mod) && group.dataset.trackId === mod.trackId;
-        group.classList.toggle('expanded', isActive);
-        const parent = group.querySelector('.nav-item-parent');
-        if (parent) parent.setAttribute('aria-expanded', String(isActive));
-    });
-}
-
-function buildTopicLink(topic, mark, count) {
-    const link = document.createElement('a');
-    link.className = 'nav-item';
-    link.href = generateHash(topic.id);
-    link.dataset.topicId = topic.id;
-    link.dataset.hue = topicHue(topic.id);
-    link.innerHTML =
-        markTile(mark, topicHue(topic.id)) +
-        `<span class="nav-label">${escapeAttr(topic.title)}</span>` +
-        `<span class="nav-count">${count}</span>`;
-    link.addEventListener('click', closeMobileMenu);
-    return link;
-}
-
-function buildTopicGroup(topic, mark, count) {
-    const group = document.createElement('div');
-    group.className = 'nav-item-group';
-    group.dataset.topicId = topic.id;
-
-    const parent = document.createElement('button');
-    parent.type = 'button';
-    parent.className = 'nav-item nav-item-parent';
-    parent.dataset.topicId = topic.id;
-    parent.dataset.hue = topicHue(topic.id);
-    parent.setAttribute('aria-expanded', 'false');
-    parent.innerHTML =
-        markTile(mark, topicHue(topic.id)) +
-        `<span class="nav-label">${escapeAttr(topic.title)}</span>` +
-        `<span class="nav-count">${count}</span>` +
-        CHEVRON_SVG;
-
-    // Tapping the row both navigates to the topic and opens its subsections.
-    parent.addEventListener('click', () => {
-        toggleSubsections(topic.id);
-        window.location.hash = generateHash(topic.id);
-        closeMobileMenu();
-    });
-
-    const list = document.createElement('div');
-    list.className = 'nav-subsections';
-    topic.subsections.forEach((sub) => {
-        // A section the filter has emptied is hidden in the page, so listing it
-        // here would be a link to nothing.
-        const inSection = (topic.questions || []).filter((q) => q.subsection === sub.id);
-        if (!questionsInTiers(inSection, questionTiers).length) return;
-
-        const link = document.createElement('a');
-        link.className = 'nav-subsection';
-        link.href = generateHash(topic.id, sub.id);
-        link.dataset.topicId = topic.id;
-        link.dataset.subsectionId = sub.id;
-
-        const label = document.createElement('span');
-        label.className = 'nav-subsection-label';
-        label.textContent = sub.title;
-
-        // Sub-items carried nothing at all before this. "Where was I?" is the
-        // single most common question a reader returns with, and until now the
-        // sidebar had no answer to it.
-        const progress = subsectionProgress(topic, sub.id);
-        const count = document.createElement('span');
-        count.className = 'nav-subsection-count';
-        count.textContent = `${progress.done}/${progress.total}`;
-        if (progress.total && progress.done === progress.total) {
-            count.classList.add('is-complete');
-        }
-
-        link.appendChild(label);
-        link.appendChild(count);
-        link.addEventListener('click', closeMobileMenu);
-        list.appendChild(link);
-    });
-
-    group.appendChild(parent);
-    group.appendChild(list);
-    return group;
-}
-
-function escapeAttr(value) {
-    return String(value == null ? '' : value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-}
-
-function toggleSubsections(topicId) {
-    const group = document.querySelector(`.nav-item-group[data-topic-id="${topicId}"]`);
-    if (!group) return;
-    const expanded = group.classList.toggle('expanded');
-    const parent = group.querySelector('.nav-item-parent');
-    if (parent) parent.setAttribute('aria-expanded', String(expanded));
-}
-
-function setActiveTopic(topicId, subsectionId) {
-    document.querySelectorAll('.nav-item, .nav-subsection').forEach((node) => {
-        node.classList.remove('active');
-    });
-
-    const topicNode = document.querySelector(`.nav-item[data-topic-id="${topicId}"]`);
-    if (topicNode) topicNode.classList.add('active');
-
-    if (subsectionId) {
-        const subNode = document.querySelector(
-            `.nav-subsection[data-topic-id="${topicId}"][data-subsection-id="${subsectionId}"]`
-        );
-        if (subNode) subNode.classList.add('active');
-    }
-
-    // Only the active group stays open, so the sidebar does not accumulate
-    // expanded sections as the user moves around.
-    document.querySelectorAll('.nav-item-group').forEach((group) => {
-        const isActive = group.dataset.topicId === topicId;
-        group.classList.toggle('expanded', isActive);
-        const parent = group.querySelector('.nav-item-parent');
-        if (parent) parent.setAttribute('aria-expanded', String(isActive));
-    });
-}
 
 /* --------------------------------------------------------------------------
    Routing
@@ -601,12 +334,11 @@ function handleRouteChange() {
     // generateTheoryHash and generateHash, which read these.
     setTheoryCramMode(route.mode === 'theory' && route.cram);
     const tierChanged = setQuestionTiers(route.mode === 'questions' ? route.tiers : []);
-    setActiveMode(route.mode);
+    const modeChanged = setActiveMode(route.mode);
     rememberMode(route);
-    const modeChanged = setSidebarMode(route.mode);
 
-    // Sidebar counts are per-tier, so a filter change has to redraw them. Mode
-    // changes already redraw, and doing both would render the sidebar twice.
+    // Sidebar counts are per-tier, so a filter change has to redraw them. A
+    // mode change already redraws, and doing both would render it twice.
     if (tierChanged && !modeChanged) renderSidebar();
 
     switch (route.mode) {

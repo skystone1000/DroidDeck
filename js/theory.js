@@ -544,6 +544,9 @@ function collectGlossaryEntries() {
                     moduleId: mod.id,
                     moduleOrder: mod.order,
                     moduleTitle: mod.title,
+                    // Carried so the sidebar can filter by track without every
+                    // consumer re-resolving the module it came from.
+                    trackId: mod.trackId,
                     chapterId: chapter.id,
                     chapterTitle: chapter.title
                 });
