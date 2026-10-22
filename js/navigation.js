@@ -345,10 +345,13 @@ function handleRouteChange() {
         case 'glossary':
             renderTheoryGlossary();
             return;
-        // Synthesis and Predict have their addresses but not yet their screens.
-        // Until those land, the modules render through the theory renderer they
-        // have always used — the route is new, the page is the one that works.
         case 'synthesis':
+            if (route.moduleId) renderSynthesisPrompt(route.moduleId, route.itemId);
+            else renderSynthesisOverview();
+            return;
+        // Predict has its address but not yet its screen. Until that lands its
+        // modules render through the theory renderer they have always used —
+        // the route is new, the page is the one that works.
         case 'predict':
         case 'theory':
             if (route.moduleId) renderTheoryModule(route.moduleId, route.chapterId);

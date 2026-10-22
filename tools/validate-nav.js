@@ -185,6 +185,70 @@ function checkTotals(topics, theoryModules, theoryTracks) {
 }
 
 /* --------------------------------------------------------------------------
+   The optional fields the promoted modes render
+
+   None of these is required. Interview Synthesis ships against the drill
+   fields that already exist — title, minutes, prompt, watchFor, sketch — and
+   renders the richer blocks only where an author has written one.
+
+   But a half-written spine is worse than no spine, so anything present is
+   checked as strictly as a required field would be.
+   -------------------------------------------------------------------------- */
+
+function checkDrillExtras(theoryModules) {
+    const moduleIds = theoryModules.map((m) => m.id);
+    const chapterIds = new Set();
+    theoryModules.forEach((m) => (m.chapters || []).forEach((c) => chapterIds.add(`${m.id}:${c.id}`)));
+
+    theoryModules.forEach((mod) => {
+        (mod.chapters || []).forEach((chapter) => {
+            (chapter.blocks || []).forEach((block) => {
+                if (block.type !== 'drill') return;
+                const where = `drill ${block.id}`;
+
+                if (block.spine !== undefined) {
+                    if (!Array.isArray(block.spine) || !block.spine.length) {
+                        fail(where, 'spine must be a non-empty array');
+                    } else {
+                        block.spine.forEach((step, i) => {
+                            if (!step || typeof step.do !== 'string' || !step.do.trim()) {
+                                fail(where, `spine[${i}] needs a 'do' string — one line of instruction`);
+                            }
+                            if (!step || typeof step.nuance !== 'string' || !step.nuance.trim()) {
+                                fail(where, `spine[${i}] needs a 'nuance' string — one line of why`);
+                            }
+                        });
+                    }
+                }
+
+                (block.pullsFrom || []).forEach((ref, i) => {
+                    if (!moduleIds.includes(ref.moduleId)) {
+                        fail(where, `pullsFrom[${i}] names module '${ref.moduleId}', which does not exist`);
+                    } else if (ref.chapterId && !chapterIds.has(`${ref.moduleId}:${ref.chapterId}`)) {
+                        fail(where, `pullsFrom[${i}] names chapter '${ref.chapterId}', which is not in ${ref.moduleId}`);
+                    }
+                });
+
+                (block.followUps || []).forEach((ref, i) => {
+                    if (!ref.question || !String(ref.question).trim()) {
+                        fail(where, `followUps[${i}] needs a question`);
+                    }
+                    if (!moduleIds.includes(ref.moduleId)) {
+                        fail(where, `followUps[${i}] names module '${ref.moduleId}', which does not exist`);
+                    }
+                });
+
+                // The screen gives this panel a heading of its own. Zero
+                // entries means a heading over nothing.
+                if (!(block.watchFor || []).length) {
+                    fail(where, 'has no watchFor entries — the "Where candidates lose it" panel would be empty');
+                }
+            });
+        });
+    });
+}
+
+/* --------------------------------------------------------------------------
    Wiring
    -------------------------------------------------------------------------- */
 
@@ -195,6 +259,7 @@ function main() {
     checkTopicTracks(topics, theoryTracks, topicTracks || {});
     checkModes(appModes || [], topics, theoryModules);
     checkTotals(topics, theoryModules, theoryTracks);
+    checkDrillExtras(theoryModules);
 
     if (errors.length) {
         console.error(`\n${errors.length} problem(s):\n`);

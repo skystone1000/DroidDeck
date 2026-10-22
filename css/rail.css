@@ -468,3 +468,211 @@
     background: transparent;
     opacity: 0.45;
 }
+
+/* ==========================================================================
+   Interview Synthesis — one prompt per screen
+   ========================================================================== */
+
+.panel-heading {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ds-faint);
+    margin-bottom: var(--space-3);
+}
+
+.synthesis-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hue-fuchsia-ink);
+    margin-bottom: var(--space-3);
+}
+
+/* The question, at the size of a question rather than of body copy. Capped at
+   the same reading measure as an answer, because it is prose to be read once
+   and understood, not scanned. */
+.synthesis-question {
+    font-size: 17px;
+    line-height: 1.65;
+    color: var(--ds-muted);
+    max-width: 72ch;
+    margin: var(--space-4) 0 var(--space-6);
+}
+
+.synthesis-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: var(--space-5);
+    align-items: start;
+}
+
+.synthesis-panel {
+    padding: var(--space-5);
+    background: var(--ds-surface);
+    border: 1px solid var(--ds-border);
+    border-radius: var(--radius-card);
+}
+
+.synthesis-aside {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+/* --- the spine --- */
+
+.synthesis-spine-list {
+    list-style: none;
+    counter-reset: spine;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin: 0;
+    padding: 0;
+}
+
+.synthesis-spine-list li {
+    counter-increment: spine;
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: var(--space-3);
+}
+
+.synthesis-spine-list li::before {
+    content: counter(spine);
+    grid-row: span 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--hue-fuchsia-ink);
+    background: var(--hue-fuchsia-bg);
+}
+
+/* One line of instruction, one of nuance. The weight difference is what makes
+   the list readable as a spine rather than as eight sentences. */
+.synthesis-spine-do {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ds-text);
+}
+
+.synthesis-spine-nuance {
+    grid-column: 2;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ds-muted);
+}
+
+/* --- pulls from --- */
+
+.synthesis-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.synthesis-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 4px 12px 4px 6px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--ds-border);
+    background: var(--ds-raised);
+    font-size: 13px;
+    color: var(--ds-text);
+    text-decoration: none;
+    transition: border-color var(--transition-hover);
+}
+.synthesis-chip:hover { border-color: var(--ds-faint); }
+.synthesis-chip .cat-tile { width: 24px; height: 24px; }
+
+/* --- where candidates lose it --- */
+
+.synthesis-loses ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+}
+
+.synthesis-loses li {
+    position: relative;
+    padding-left: var(--space-4);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ds-muted);
+}
+
+.synthesis-loses li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 9px;
+    width: 5px;
+    height: 5px;
+    border-radius: var(--radius-pill);
+    background: var(--tier-must-dot);
+}
+
+/* --- follow-ups --- */
+
+.synthesis-followups { margin-top: var(--space-6); }
+
+.synthesis-followup-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--space-4);
+    margin-top: var(--space-4);
+}
+
+.synthesis-followup {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    border: 1px solid var(--ds-border);
+    border-radius: var(--radius-card);
+    background: var(--ds-surface);
+    text-decoration: none;
+    transition: border-color var(--transition-hover);
+}
+.synthesis-followup:hover { border-color: var(--ds-faint); }
+
+.synthesis-followup-question {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ds-text);
+}
+
+.synthesis-followup-where {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--ds-faint);
+}
+
+/* --- actions --- */
+
+.synthesis-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-6);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--ds-border);
+}
+
+.synthesis-round-card { display: flex; flex-direction: column; gap: var(--space-2); }
+
+@media (max-width: 900px) {
+    .synthesis-grid { grid-template-columns: minmax(0, 1fr); }
+}

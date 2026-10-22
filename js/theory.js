@@ -77,7 +77,7 @@ function trackProgress(trackId, modules, read) {
     return { done, total: inTrack.length };
 }
 
-function renderProgressBar(done, total) {
+function renderProgressBar(done, total, noun) {
     const wrapper = document.createElement('div');
     wrapper.className = 'theory-progress';
 
@@ -95,7 +95,9 @@ function renderProgressBar(done, total) {
 
     const label = document.createElement('span');
     label.className = 'theory-progress-label';
-    label.textContent = `${done} / ${total} read`;
+    // The noun is a parameter because five modes count five different things
+    // and this bar is drawn in all of them.
+    label.textContent = `${done} / ${total} ${noun || 'read'}`;
 
     wrapper.appendChild(track);
     wrapper.appendChild(label);
