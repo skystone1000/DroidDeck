@@ -47,13 +47,50 @@ function checkTrackScope(theoryTracks) {
 }
 
 /* --------------------------------------------------------------------------
+   Question topics
+   -------------------------------------------------------------------------- */
+
+const EXPECTED_TOPIC_COUNT = 14;
+
+function checkTopicTracks(topics, theoryTracks, topicTracks) {
+    const subjectIds = theoryTracks.filter((t) => t.scope === SUBJECT).map((t) => t.id);
+
+    if (topics.length !== EXPECTED_TOPIC_COUNT) {
+        fail('topics', `expected ${EXPECTED_TOPIC_COUNT} topics, found ${topics.length}`);
+    }
+
+    topics.forEach((topic) => {
+        // `null` is a deliberate, spelled-out answer: the topic renders in the
+        // "Everything else" group. `undefined` is a topic nobody has decided
+        // about, and that is what this check exists to catch.
+        if (!(topic.id in topicTracks)) {
+            fail(`topic ${topic.id}`, 'has no entry in topicTracks — add one, or map it to null');
+            return;
+        }
+        const trackId = topicTracks[topic.id];
+        if (trackId === null) return;
+        if (!subjectIds.includes(trackId)) {
+            fail(`topic ${topic.id}`,
+                `trackId '${trackId}' is not a subject track (${subjectIds.join(', ')})`);
+        }
+    });
+
+    Object.keys(topicTracks).forEach((id) => {
+        if (!topics.some((t) => t.id === id)) {
+            fail('topicTracks', `names '${id}', which is not a topic`);
+        }
+    });
+}
+
+/* --------------------------------------------------------------------------
    Wiring
    -------------------------------------------------------------------------- */
 
 function main() {
-    const { theoryTracks } = loadCorpus();
+    const { topics, topicTracks, theoryTracks } = loadCorpus();
 
     checkTrackScope(theoryTracks);
+    checkTopicTracks(topics, theoryTracks, topicTracks || {});
 
     if (errors.length) {
         console.error(`\n${errors.length} problem(s):\n`);

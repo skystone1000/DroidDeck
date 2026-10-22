@@ -16,22 +16,27 @@
    exhaustion — a topic takes the hue of the theory track its subject belongs
    to. Java sits with Kotlin because both are Language Foundations; Design
    Pattern sits with Architecture because that is where its theory module lives.
-   The monogram, not the hue, is what tells a shared pair apart. */
+   The monogram, not the hue, is what tells a shared pair apart.
+
+   That kinship used to be written down twice: once here as a colour, and once
+   in nobody's file as the reason for the colour. It now lives in `topicTracks`
+   (data/index.js) as a track id, and the hue is derived from it — so these
+   marks carry only the thing that is genuinely per-topic, the monogram. */
 const topicMarks = {
-    'kotlin-coroutines':          { monogram: 'Co', hue: 'sky' },
-    'kotlin-flow-api':            { monogram: 'Fl', hue: 'teal' },
-    'kotlin':                     { monogram: 'Kt', hue: 'violet' },
-    'android':                    { monogram: 'An', hue: 'lime' },
-    'android-libraries':          { monogram: 'Lb', hue: 'amber' },
-    'android-architecture':       { monogram: 'Ar', hue: 'indigo' },
-    'design-pattern':             { monogram: 'Dp', hue: 'indigo' },
-    'android-system-design':      { monogram: 'Sd', hue: 'fuchsia' },
-    'android-unit-testing':       { monogram: 'Ut', hue: 'rose' },
-    'android-tools-technologies': { monogram: 'Tt', hue: 'rose' },
-    'jetpack-compose':            { monogram: 'Jc', hue: 'pink' },
-    'java':                       { monogram: 'Jv', hue: 'violet' },
-    'other-topics':               { monogram: 'Ot', hue: 'slate' },
-    'data-structures-algorithms': { monogram: 'Ds', hue: 'fuchsia' }
+    'kotlin-coroutines':          { monogram: 'Co' },
+    'kotlin-flow-api':            { monogram: 'Fl' },
+    'kotlin':                     { monogram: 'Kt' },
+    'android':                    { monogram: 'An' },
+    'android-libraries':          { monogram: 'Lb' },
+    'android-architecture':       { monogram: 'Ar' },
+    'design-pattern':             { monogram: 'Dp' },
+    'android-system-design':      { monogram: 'Sd' },
+    'android-unit-testing':       { monogram: 'Ut' },
+    'android-tools-technologies': { monogram: 'Tt' },
+    'jetpack-compose':            { monogram: 'Jc' },
+    'java':                       { monogram: 'Jv' },
+    'other-topics':               { monogram: 'Ot' },
+    'data-structures-algorithms': { monogram: 'Ds' }
 };
 
 /* The theory tracks are the set the design system names directly. */
@@ -50,16 +55,27 @@ const trackMarks = {
 const GLOSSARY_MARK = { monogram: 'Gl', hue: 'slate' };
 
 /** 28px, radius 8, monogram in mono 11/500, fill at ~14% alpha of the hue.
-    Hidden from assistive tech: the label beside it already names the thing. */
-function markTile(mark) {
-    const { monogram, hue } = mark || GLOSSARY_MARK;
-    return `<span class="cat-tile" data-hue="${hue}" aria-hidden="true">${monogram}</span>`;
+    Hidden from assistive tech: the label beside it already names the thing.
+
+    Hue arrives as an argument rather than riding on the mark, because a topic's
+    hue is a property of its track and only the caller knows which track is in
+    hand. */
+function markTile(mark, hue) {
+    const monogram = (mark && mark.monogram) || GLOSSARY_MARK.monogram;
+    return `<span class="cat-tile" data-hue="${hue || GLOSSARY_MARK.hue}" aria-hidden="true">${monogram}</span>`;
+}
+
+/** The hue a track paints with — its tile, its heading, its progress bar. */
+function trackHue(trackId) {
+    return (trackMarks[trackId] || GLOSSARY_MARK).hue;
 }
 
 /** The hue a topic paints with, for anything outside the tile itself — the
-    track heading, the progress bar, the count that follows it. */
+    track heading, the progress bar, the count that follows it. Derived from
+    the topic's track, so the colour and the kinship cannot disagree. */
 function topicHue(topicId) {
-    return (topicMarks[topicId] || GLOSSARY_MARK).hue;
+    const trackId = (typeof topicTracks === 'undefined') ? null : topicTracks[topicId];
+    return trackId ? trackHue(trackId) : GLOSSARY_MARK.hue;
 }
 
 const CHEVRON_SVG =
@@ -178,7 +194,7 @@ function buildTheoryNav(nav) {
     glossary.dataset.moduleId = GLOSSARY_ROUTE;
     glossary.dataset.hue = GLOSSARY_MARK.hue;
     glossary.innerHTML =
-        markTile(GLOSSARY_MARK) +
+        markTile(GLOSSARY_MARK, GLOSSARY_MARK.hue) +
         '<span class="nav-label">Glossary</span>' +
         `<span class="nav-count">${collectGlossaryEntries().length}</span>`;
     glossary.addEventListener('click', closeMobileMenu);
@@ -195,9 +211,9 @@ function buildTrackGroup(track, modules) {
     parent.className = 'nav-item nav-item-parent';
     parent.dataset.trackId = track.id;
     parent.setAttribute('aria-expanded', 'false');
-    parent.dataset.hue = (trackMarks[track.id] || GLOSSARY_MARK).hue;
+    parent.dataset.hue = trackHue(track.id);
     parent.innerHTML =
-        markTile(trackMarks[track.id]) +
+        markTile(trackMarks[track.id], trackHue(track.id)) +
         `<span class="nav-label">${escapeAttr(track.title)}</span>` +
         `<span class="nav-count">${modules.length}</span>` +
         CHEVRON_SVG;
@@ -264,7 +280,7 @@ function buildTopicLink(topic, mark, count) {
     link.dataset.topicId = topic.id;
     link.dataset.hue = topicHue(topic.id);
     link.innerHTML =
-        markTile(mark) +
+        markTile(mark, topicHue(topic.id)) +
         `<span class="nav-label">${escapeAttr(topic.title)}</span>` +
         `<span class="nav-count">${count}</span>`;
     link.addEventListener('click', closeMobileMenu);
@@ -283,7 +299,7 @@ function buildTopicGroup(topic, mark, count) {
     parent.dataset.hue = topicHue(topic.id);
     parent.setAttribute('aria-expanded', 'false');
     parent.innerHTML =
-        markTile(mark) +
+        markTile(mark, topicHue(topic.id)) +
         `<span class="nav-label">${escapeAttr(topic.title)}</span>` +
         `<span class="nav-count">${count}</span>` +
         CHEVRON_SVG;

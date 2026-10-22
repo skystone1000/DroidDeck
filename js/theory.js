@@ -336,18 +336,18 @@ function renderTrackSection(track, modules, read) {
     section.className = 'theory-track';
     // On the section rather than only on its heading, so the cards inside it
     // inherit the track's hue for their progress bars too.
-    section.dataset.hue = (trackMarks[track.id] || GLOSSARY_MARK).hue;
+    section.dataset.hue = trackHue(track.id);
 
     const heading = document.createElement('div');
     heading.className = 'subsection-header';
     heading.id = `track-${track.id}`;
     // Hue = track, not decoration: the same one tints the tile here, the bar
     // beside it and the cards below.
-    heading.dataset.hue = (trackMarks[track.id] || GLOSSARY_MARK).hue;
+    heading.dataset.hue = trackHue(track.id);
 
     const title = document.createElement('h3');
     title.className = 'subsection-title';
-    title.innerHTML = markTile(trackMarks[track.id]);
+    title.innerHTML = markTile(trackMarks[track.id], trackHue(track.id));
     title.appendChild(document.createTextNode(track.title));
 
     const rule = document.createElement('span');

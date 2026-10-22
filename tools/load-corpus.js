@@ -38,6 +38,7 @@ function loadCorpus() {
     const source = files.map((f) => fs.readFileSync(f, 'utf8')).join('\n;\n') + `
         ;({
             topics:        typeof topics        === 'undefined' ? [] : topics,
+            topicTracks:   typeof topicTracks    === 'undefined' ? {} : topicTracks,
             theoryTracks:  typeof theoryTracks  === 'undefined' ? [] : theoryTracks,
             theoryModules: typeof theoryModules === 'undefined' ? [] : theoryModules
         })
