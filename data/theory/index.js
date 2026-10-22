@@ -11,17 +11,33 @@
    group, its modules as the entries inside it.
    ========================================================================== */
 
+/* `scope` is what separates a track the sidebar lists from a track that has
+   become a mode of its own. The seven subjects are the organising axis inside
+   Questions and Theory and a filter inside the Glossary; `synthesis` and
+   `output` still own their modules, but the rail addresses them directly and
+   they never appear in a track list again.
+
+   No module is re-tracked by this field. It describes where a track is
+   *shown*, not what it contains — which is why the prerequisite ordering the
+   validator enforces is untouched by the promotion. */
 const theoryTracks = [
-    { id: 'language',     title: 'Language Foundations',           order: 1 },
-    { id: 'async',        title: 'Asynchrony & State',             order: 2 },
-    { id: 'platform',     title: 'The Android Platform',           order: 3 },
-    { id: 'ui',           title: 'Building UI',                    order: 4 },
-    { id: 'data',         title: 'Data & Background Work',         order: 5 },
-    { id: 'architecture', title: 'Architecture & Design',          order: 6 },
-    { id: 'quality',      title: 'Testing, Performance & Tooling', order: 7 },
-    { id: 'synthesis',    title: 'Interview Synthesis',            order: 8 },
-    { id: 'output',       title: 'Predict the Output',             order: 9 }
+    { id: 'language',     title: 'Language Foundations',           order: 1, scope: 'subject' },
+    { id: 'async',        title: 'Asynchrony & State',             order: 2, scope: 'subject' },
+    { id: 'platform',     title: 'The Android Platform',           order: 3, scope: 'subject' },
+    { id: 'ui',           title: 'Building UI',                    order: 4, scope: 'subject' },
+    { id: 'data',         title: 'Data & Background Work',         order: 5, scope: 'subject' },
+    { id: 'architecture', title: 'Architecture & Design',          order: 6, scope: 'subject' },
+    { id: 'quality',      title: 'Testing, Performance & Tooling', order: 7, scope: 'subject' },
+    { id: 'synthesis',    title: 'Interview Synthesis',            order: 8, scope: 'mode' },
+    { id: 'output',       title: 'Predict the Output',             order: 9, scope: 'mode' }
 ];
+
+/** The seven the sidebar lists, in reading order. */
+function subjectTracks() {
+    return theoryTracks
+        .filter((track) => track.scope === 'subject')
+        .sort((a, b) => a.order - b.order);
+}
 
 /* Ordered by the reading path. Appended to as each module is authored. */
 const theoryModules = [
