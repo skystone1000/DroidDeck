@@ -108,9 +108,14 @@ function renderSidebar(topicsList) {
     }
 }
 
+/* The sidebar still has two shapes, and the three promoted modes are theory
+   content until their own sidebars land. Mapping here rather than at each call
+   site means the router already speaks in five modes while the sidebar still
+   speaks in two. */
 function setSidebarMode(mode) {
-    if (mode === sidebarMode) return false;
-    sidebarMode = mode;
+    const shape = (mode === 'questions') ? 'questions' : 'theory';
+    if (shape === sidebarMode) return false;
+    sidebarMode = shape;
     renderSidebar();
     return true;
 }
@@ -190,7 +195,7 @@ function buildTheoryNav(nav) {
     // Sits below the tracks because it is a reference, not a step on the path.
     const glossary = document.createElement('a');
     glossary.className = 'nav-item';
-    glossary.href = generateTheoryHash(GLOSSARY_ROUTE);
+    glossary.href = generateGlossaryHash(null, null);
     glossary.dataset.moduleId = GLOSSARY_ROUTE;
     glossary.dataset.hue = GLOSSARY_MARK.hue;
     glossary.innerHTML =
@@ -395,11 +400,6 @@ function setActiveTopic(topicId, subsectionId) {
    Routing
    -------------------------------------------------------------------------- */
 
-/* `theory` is reserved as the first segment so the two modes cannot collide:
-   `#android/services` is a subsection, `#theory/services` would have been
-   ambiguous if theory were addressed as `#topicId/theory` instead. */
-const THEORY_ROUTE = 'theory';
-
 /* The question bank's importance filter lives in the hash, like theory's cram
    mode and for the same reason: a filter that resets on navigation is useless
    for revision, and a filtered session should be shareable.
@@ -439,8 +439,9 @@ function setQuestionTiers(keys) {
 function generateHash(topicId, subsectionId, tiers) {
     const selected = (tiers === undefined) ? questionTiers : normaliseTiers(tiers);
     const query = selected.length ? `?tier=${selected.join(',')}` : '';
+    const tail = subsectionId ? `/${subsectionId}` : '';
 
-    return subsectionId ? `#${topicId}/${subsectionId}${query}` : `#${topicId}${query}`;
+    return `#questions/${topicId}${tail}${query}`;
 }
 
 /* Cram mode is a property of the route, not of the page, so it survives a
@@ -453,20 +454,68 @@ function setTheoryCramMode(on) {
     theoryCramMode = Boolean(on);
 }
 
+/* The mode a theory module is addressed through. Fourteen of the fifty-seven
+   belong to tracks that became modes, so `#theory/predict-kotlin` is no longer
+   that module's address — `#predict/predict-kotlin` is. Deriving it from the
+   trackId rather than listing the fourteen means a module added to either track
+   is addressed correctly without anybody remembering a table. */
+function modeForModule(moduleId) {
+    const mod = (typeof theoryByModuleId === 'undefined') ? null : theoryByModuleId[moduleId];
+    if (!mod) return modeById.theory;
+    return appModes.find((mode) => mode.trackId === mod.trackId) || modeById.theory;
+}
+
+/**
+ * The canonical hash for a theory module, wherever it now lives.
+ *
+ * Every theory link in the app is built here, which is what lets the three
+ * promoted tracks change address without a single call site learning about it.
+ * Cram mode rides along for the same reason it always has.
+ */
 function generateTheoryHash(moduleId, chapterId, cram) {
     const flag = (cram === undefined) ? theoryCramMode : Boolean(cram);
     const query = flag ? '?cram' : '';
 
-    if (!moduleId) return `#${THEORY_ROUTE}${query}`;
+    if (!moduleId) return `#${modeById.theory.route}${query}`;
+
+    const route = modeForModule(moduleId).route;
     return chapterId
-        ? `#${THEORY_ROUTE}/${moduleId}/${chapterId}${query}`
-        : `#${THEORY_ROUTE}/${moduleId}${query}`;
+        ? `#${route}/${moduleId}/${chapterId}${query}`
+        : `#${route}/${moduleId}${query}`;
 }
 
+/** Synthesis and Predict, addressed directly: `#<route>/<moduleId>/<itemId>`. */
+function generateModeHash(modeId, moduleId, itemId) {
+    const mode = modeById[modeId];
+    if (!mode) return '#';
+    if (!moduleId) return `#${mode.route}`;
+    return itemId ? `#${mode.route}/${moduleId}/${itemId}` : `#${mode.route}/${moduleId}`;
+}
+
+/** The Glossary, with its two optional filters. */
+function generateGlossaryHash(letter, trackId) {
+    const parts = [];
+    if (letter) parts.push(`letter=${letter}`);
+    if (trackId) parts.push(`track=${trackId}`);
+    return parts.length ? `#glossary?${parts.join('&')}` : '#glossary';
+}
+
+/* Five reserved first segments, declared in data/modes.js. A first segment
+   that is not one of them is a question topic, which is what keeps every
+   `#android` link ever shared working — it is normalised to
+   `#questions/android` on arrival rather than being broken.
+
+   None of the five collides with a topic id or a module id; validate-nav.js
+   refuses a registry where one would. */
+
 /**
- * Returns `{ mode, topicId, subsectionId, moduleId, chapterId }`.
- * Question routes parse exactly as they always have; only a leading `theory`
- * segment changes the shape.
+ * Returns `{ mode, topicId, subsectionId, moduleId, chapterId, itemId, tiers,
+ *            cram, letter, trackFilter, legacy }`.
+ *
+ * `legacy` is the canonical hash a caller should redirect to, or null when the
+ * hash already is canonical. Putting it in the parse result rather than in the
+ * router keeps the one place that knows what a hash means as the one place that
+ * knows what it should have been.
  */
 function parseHash(hash) {
     const raw = (hash || '').replace(/^#/, '');
@@ -475,39 +524,115 @@ function parseHash(hash) {
     const [path, query] = raw.split('?');
     const segments = path.split('/').filter(Boolean);
     const cram = /(^|&)cram(=1)?($|&)/.test(query || '');
+    const suffix = query ? `?${query}` : '';
 
-    if (segments[0] === THEORY_ROUTE) {
-        return {
-            mode: 'theory',
-            topicId: null,
-            subsectionId: null,
-            moduleId: segments[1] || null,
-            chapterId: segments[2] || null,
-            cram
-        };
+    const mode = modeForRoute(segments[0] || '');
+
+    if (!mode) {
+        // No reserved segment: a legacy question link, or an empty hash on a
+        // first visit.
+        const topicId = segments[0] || firstTopicId();
+        const tail = segments[1] ? `/${segments[1]}` : '';
+        return Object.assign(emptyRoute(), {
+            mode: 'questions',
+            topicId,
+            subsectionId: segments[1] || null,
+            tiers: parseTiers(query),
+            legacy: `#questions/${topicId}${tail}${suffix}`
+        });
     }
 
-    const fallback = (typeof topics !== 'undefined' && topics.length) ? topics[0].id : null;
-    const tier = /(^|&)tier=([^&]*)/.exec(query || '');
-    // Unknown keys are dropped rather than treated as an error — a hand-edited
-    // or truncated URL should show more than the reader asked for, never less.
-    const tiers = tier
-        ? tier[2].split(',').map((k) => k.trim()).filter((k) => k in TIER_KEYS)
-        : [];
+    if (mode.id === 'questions') {
+        return Object.assign(emptyRoute(), {
+            mode: 'questions',
+            topicId: segments[1] || firstTopicId(),
+            subsectionId: segments[2] || null,
+            tiers: parseTiers(query)
+        });
+    }
 
+    if (mode.id === 'theory') {
+        const moduleId = segments[1] || null;
+
+        // The three that moved out of Theory. Derived from the module's track
+        // rather than listed, so the redirect cannot fall out of step with the
+        // registry.
+        if (moduleId === 'glossary') {
+            return Object.assign(emptyRoute(), { mode: 'glossary', legacy: '#glossary' });
+        }
+        const promoted = moduleId ? modeForModule(moduleId) : modeById.theory;
+        if (promoted.id !== 'theory') {
+            const tail = segments[2] ? `/${segments[2]}` : '';
+            return Object.assign(emptyRoute(), {
+                mode: promoted.id,
+                moduleId,
+                chapterId: segments[2] || null,
+                itemId: segments[2] || null,
+                legacy: `#${promoted.route}/${moduleId}${tail}${suffix}`
+            });
+        }
+
+        return Object.assign(emptyRoute(), {
+            mode: 'theory',
+            moduleId,
+            chapterId: segments[2] || null,
+            cram
+        });
+    }
+
+    if (mode.id === 'glossary') {
+        const letter = /(^|&)letter=([A-Za-z#])/.exec(query || '');
+        const track = /(^|&)track=([a-z-]+)/.exec(query || '');
+        return Object.assign(emptyRoute(), {
+            mode: 'glossary',
+            letter: letter ? letter[2].toUpperCase() : null,
+            trackFilter: track ? track[2] : null
+        });
+    }
+
+    // synthesis | predict — the module, then the drill or snippet inside it.
+    return Object.assign(emptyRoute(), {
+        mode: mode.id,
+        moduleId: segments[1] || null,
+        chapterId: segments[2] || null,
+        itemId: segments[2] || null
+    });
+}
+
+function emptyRoute() {
     return {
-        mode: 'questions',
-        topicId: segments[0] || fallback,
-        subsectionId: segments[1] || null,
-        moduleId: null,
-        chapterId: null,
-        cram: false,
-        tiers: normaliseTiers(tiers)
+        mode: null, topicId: null, subsectionId: null,
+        moduleId: null, chapterId: null, itemId: null,
+        tiers: [], cram: false, letter: null, trackFilter: null, legacy: null
     };
+}
+
+function firstTopicId() {
+    return (typeof topics !== 'undefined' && topics.length) ? topics[0].id : null;
+}
+
+/* Unknown keys are dropped rather than treated as an error — a hand-edited or
+   truncated URL should show more than the reader asked for, never less. */
+function parseTiers(query) {
+    const tier = /(^|&)tier=([^&]*)/.exec(query || '');
+    if (!tier) return [];
+    return normaliseTiers(
+        tier[2].split(',').map((k) => k.trim()).filter((k) => k in TIER_KEYS)
+    );
 }
 
 function handleRouteChange() {
     const route = parseHash(window.location.hash);
+
+    // A legacy URL is rewritten before anything renders, and with replace()
+    // rather than assignment: a reader who arrived on #theory/predict-kotlin
+    // and presses Back should leave the app, not bounce between the old address
+    // and the new one.
+    if (route.legacy && route.legacy !== window.location.hash) {
+        window.location.replace(route.legacy);
+        return;
+    }
+
     // Set before rendering: the renderers build links through
     // generateTheoryHash and generateHash, which read these.
     setTheoryCramMode(route.mode === 'theory' && route.cram);
@@ -518,18 +643,37 @@ function handleRouteChange() {
     // changes already redraw, and doing both would render the sidebar twice.
     if (tierChanged && !modeChanged) renderSidebar();
 
-    if (route.mode === 'theory') {
-        if (route.moduleId === GLOSSARY_ROUTE) {
+    switch (route.mode) {
+        case 'glossary':
             renderTheoryGlossary();
-        } else if (route.moduleId) {
-            renderTheoryModule(route.moduleId, route.chapterId);
-        } else {
-            renderTheoryOverview();
-        }
+            return;
+        // Synthesis and Predict have their addresses but not yet their screens.
+        // Until those land, the modules render through the theory renderer they
+        // have always used — the route is new, the page is the one that works.
+        case 'synthesis':
+        case 'predict':
+        case 'theory':
+            if (route.moduleId) renderTheoryModule(route.moduleId, route.chapterId);
+            else if (route.mode === 'theory') renderTheoryOverview();
+            else renderModeOverviewPlaceholder(route.mode);
+            return;
+        default:
+            renderTopic(route.topicId, route.subsectionId);
+    }
+}
+
+/* The bare `#synthesis` and `#predict` routes have no overview yet. Sending
+   them to the theory overview would be a lie about where they are, so they go
+   to the first module in their track — the same place their overview will
+   eventually put a reader who clicks the first card. */
+function renderModeOverviewPlaceholder(modeId) {
+    const mode = modeById[modeId];
+    const first = (typeof modulesInTrack === 'function') ? modulesInTrack(mode.trackId)[0] : null;
+    if (first) {
+        window.location.replace(generateModeHash(modeId, first.id));
         return;
     }
-
-    renderTopic(route.topicId, route.subsectionId);
+    renderTheoryOverview();
 }
 
 /* --------------------------------------------------------------------------

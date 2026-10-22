@@ -304,7 +304,7 @@ function renderTheoryOverview() {
 
         const glossaryLink = document.createElement('a');
         glossaryLink.className = 'theory-dochub-link theory-glossary-link';
-        glossaryLink.href = generateTheoryHash(GLOSSARY_ROUTE);
+        glossaryLink.href = generateGlossaryHash(null, null);
         glossaryLink.textContent =
             `Glossary — ${collectGlossaryEntries().length} terms defined across the path`;
         header.appendChild(glossaryLink);
@@ -632,7 +632,7 @@ function renderTheoryGlossary() {
 
         container.classList.remove('topic-transitioning');
         if (typeof setActiveTheory === 'function') setActiveTheory(GLOSSARY_ROUTE);
-        history.replaceState(null, '', generateTheoryHash(GLOSSARY_ROUTE));
+        history.replaceState(null, '', generateGlossaryHash(null, null));
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, TOPIC_TRANSITION_MS);
 }
@@ -645,7 +645,7 @@ function renderGlossaryIndex(letters) {
     letters.forEach((letter) => {
         const link = document.createElement('a');
         link.className = 'theory-rail-item';
-        link.href = `#${THEORY_ROUTE}/${GLOSSARY_ROUTE}`;
+        link.href = generateGlossaryHash(null, null);
         link.textContent = letter;
         link.addEventListener('click', (event) => {
             event.preventDefault();
