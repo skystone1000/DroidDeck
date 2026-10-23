@@ -20,23 +20,37 @@ declaration:
 ```
 three.js, gsap, ScrollTrigger      (CDN, all optional)
 data/*.js                          (14 topic files, each declaring one global)
-data/index.js                      (assembles them into `topics`)
+data/index.js                      (assembles them into `topics` and `topicTracks`)
 data/theory/*.js                   (57 module files, each declaring one global)
 data/theory/index.js               (assembles them into `theoryModules`/`theoryTracks`)
+data/modes.js                      (the five modes; after both corpora)
 js/code-highlight.js               (no dependencies)
 js/diagrams.js                     (no dependencies)
 js/theme.js                        (no dependencies)
-js/progress.js                     (no dependencies)
+js/progress.js                     (reads appModes at runtime)
 js/three-bg.js                     (optional: THREE)
-js/navigation.js                   (calls renderTopic from app.js at runtime)
+js/navigation.js                   (routing; calls the renderers at runtime)
+js/sidebar.js                      (the four sidebar shapes)
+js/rail.js                         (the rail and the mode header)
 js/theory.js                       (uses renderCodeBlock, renderDiagram)
-js/search.js                       (calls generateHash, generateTheoryHash, toggleAnswer)
+js/synthesis.js                    (uses renderCodeBlock, renderProgressBar)
+js/predict.js                      (uses renderCodeBlock, renderCodeOutput)
+js/glossary.js                     (harvests from theoryModules)
+js/search.js                       (calls every hash generator, toggleAnswer)
 js/app.js                          (uses everything; must be last)
 ```
 
-The forward references from `navigation.js` and `search.js` into `app.js` are
-safe because they are only ever called from event handlers, long after every
-script has been parsed.
+Forward references are pervasive and safe. `navigation.js` calls seven
+renderers that are defined in four files below it; `rail.js` calls
+`renderSidebar` from `sidebar.js`; `progress.js` reads `collectGlossaryEntries`
+from `glossary.js`, which loads six files later. All of them run from event
+handlers or from `initApp`, long after every script has been parsed.
+
+There is one exception, and it is in `index.html` rather than in `js/`: a short
+inline script in `<head>` reads the stored theme and mode and applies them to
+`documentElement` before the body is parsed. A deferred script is by definition
+too late to prevent a flash of the wrong theme, which is why that one is not in
+a file with the others.
 
 ## Colour lives in exactly one file
 
@@ -47,7 +61,7 @@ rather than an accident.
 
 The file has two layers, and the distinction matters when adding to it. The
 **design system primitives** are read verbatim off
-`docs/design/DroidDeck-Design-System.html`: surfaces, the violet ramp, the three
+`docs/design/Design System/DroidDeck-Design-System.html`: surfaces, the violet ramp, the three
 priority tiers, the nine category hues, the 4pt scale, four semantic radii and
 two durations. The **semantic layer** below them names the meanings this
 codebase needs that a palette does not — shadows, the syntax colours, the
@@ -65,33 +79,76 @@ Category hue is carried on a `data-hue` attribute rather than passed down as a
 colour, so one attribute on a sidebar row, a track section or a page header
 tints the tile, the heading, the progress bar and the count beneath it together.
 
-## Two corpora, two modes
+## Two corpora, five modes
 
 The app holds two bodies of content with different shapes and different
 purposes. **Questions** are organised for lookup: fourteen topics, each a place
-to file a question. **Theory** is organised for comprehension: nine tracks of
-57 modules of 203 chapters, in one reading order where each idea arrives after
-the ideas it depends on.
+to file a question. **Theory** is organised for comprehension: 57 modules of
+203 chapters across nine tracks, in one reading order where each idea arrives
+after the ideas it depends on.
 
-The ninth track is not a subject but an exercise. *Predict the Output* holds 80
-snippets that ask what the code prints and withhold the answer until the reader
-commits; 63 of them are compiled and run on every check, and the 17 that cannot
-be run say so in the data rather than by choosing a quieter kind.
+Two of those nine tracks are not subjects but exercises, and they are now modes
+rather than tracks. *Interview Synthesis* holds 24 drills — one question apiece
+that pulls several subjects at once, timed the way the round is timed.
+*Predict the Output* holds 80 snippets that ask what the code prints and
+withhold the answer until the reader commits; 63 of them are compiled and run
+on every check, and the 17 that cannot be run say so in the data rather than by
+choosing a quieter kind.
+
+Neither promotion moved any content. The corpus is still 57 modules on nine
+tracks; what changed is which of them a track list is allowed to show.
 
 Neither is a view of the other. They are cross-linked — a chapter lists
 questions to test yourself against, and search covers both — but they are
 separately structured on purpose, and the module ids are independent of the
 topic ids.
 
-The reading mode is derived from the hash, not stored, so arriving on a theory
-deep link puts the sidebar in theory mode with nothing to synchronise.
+The reading mode is derived from the hash, not stored, so arriving on a deep
+link puts the sidebar in the right mode with nothing to synchronise.
+
+## The mode registry
+
+Five modes sit side by side in the rail: Questions, Theory, Interview
+Synthesis, Predict the Output, Glossary. The last three used to live inside
+Theory — as its eighth and ninth tracks, and as a reference page at
+`#theory/glossary`.
+
+`data/modes.js` is the whole declaration. Before it, four of the five answers
+about a mode lived in a different file: the router knew the routes, the sidebar
+switch knew the labels and knew there were exactly two, `progress.js` held five
+differently shaped counters, and `theory.js` privately owned the glossary
+route. Now the rail, the contextual sidebar, the mode header, the keyboard map,
+search grouping and the persistence keys all read one array, and a sixth mode
+is a sixth record rather than a fifth set of branches.
+
+Two fields carry more weight than they look. `progressNoun` exists because the
+five modes do not share a unit — questions are known, chapters read, prompts
+rehearsed, snippets solved, terms seen — and there is deliberately **no
+function that adds them together**. An average over five incompatible units
+would be a sixth number true of nothing, printed somewhere a reader cannot
+check it. `accentVar` holds a token name rather than a colour, because the rail
+is the only place accent appears outside body content and a literal there would
+break the rule that `themes.css` holds every colour in the app.
+
+The two promoted tracks were **not** deleted from `theoryTracks`. They gained
+`scope: 'mode'` while the other seven gained `scope: 'subject'`, so no module
+was re-tracked and the prerequisite ordering the validator enforces is
+untouched. The field says where a track is *shown*, not what it contains.
+Theory is seven tracks, 43 modules and 154 chapters; the other 14 modules and
+49 chapters are counted by the modes that own them.
+
+Question topics gained a `trackId` in `data/index.js`. That mapping was already
+in the codebase, encoded as a hue, under a comment saying a topic takes the hue
+of the theory track its subject belongs to. Writing it as an id is what lets
+the Questions sidebar group by track and the Glossary filter by one; the hue is
+now derived from it, so the colour and the kinship cannot drift apart.
 
 ## Hand-written validation stands in for tests
 
-There is no test framework, and a hand-authored corpus of 179 chapters and 465
-questions with 553 outbound documentation links would rot silently. Four Node
-scripts in `tools/` are the whole safety net. Two of them run before every
-commit that touches either corpus:
+There is no test framework, and a hand-authored corpus of 203 chapters and 465
+questions with 553 outbound documentation links would rot silently. Five Node
+scripts in `tools/` are the whole safety net. Three of them run before every
+commit that touches either corpus or the navigation:
 
 - `validate-theory.js` enforces the theory schema — importance tiers, block
   shapes, unique ids, prerequisites that resolve to *earlier* modules, and the
@@ -110,6 +167,16 @@ commit that touches either corpus:
   is `stdout` or `trace` and never claims `stdout` for a language the runner
   cannot execute; snippet languages are ones the highlighter knows; and
   authored HTML stays inside the allowed tag subset.
+
+- `validate-nav.js` checks the structure the navigation is built on rather than
+  the content: that every track declares a scope, that every question topic
+  names a subject track or an explicit `null`, that the five mode routes are
+  reserved against both id spaces, and that the two study modes stay contiguous
+  above the three drill modes so the divider between them still separates
+  something. Its most valuable checks are the least clever ones — it holds the
+  five totals the mode header prints, and Theory's post-promotion shape, as
+  hard numbers. A refactor that quietly halves the Predict total is precisely
+  what it exists to catch, and "a number appeared" is not a check.
 
 Two more are slower and run per phase rather than per commit:
 
@@ -164,6 +231,17 @@ failure costs the reader a single question.
 | Theme | `localStorage.theme` | falls back to `prefers-color-scheme` |
 | Read modules | `localStorage['droiddeck:theory:read']` | explicit marks only; wrapped in try/catch |
 | Revealed answers | `localStorage['droiddeck:predict:revealed']` | keyed on the bare block id, which the validator keeps unique corpus-wide |
+| Active mode | `localStorage['droiddeck:mode']` | read by an inline `<head>` script, before first paint |
+| Where you were, per mode | `localStorage['droiddeck:mode:last']` | one slot each: returning to Questions restores the track you left, not track one |
+| Rehearsed prompts | `localStorage['droiddeck:synthesis:rehearsed']` | a set of drill ids — a drill has nothing to grade |
+| Snippet verdicts | `localStorage['droiddeck:predict:verdicts']` | a **map**, not a set: the sidebar strip shows right, wrong and unanswered |
+| Terms seen | `localStorage['droiddeck:glossary:seen']` | set by an IntersectionObserver on the cards |
+
+The first two are read by an inline script in `<head>` rather than by
+`js/theme.js` or `js/rail.js`. Everything in `js/` runs at the foot of the
+body, which is after the first paint — which is why the theme used to flash
+dark before turning light, and why restoring the mode from a file would have
+flashed Questions before every other mode.
 
 Everything else is derived. There is no store, no observable, no cache of
 rendered output. `renderTopic()` clears its container and rebuilds from the data
@@ -196,11 +274,24 @@ through `window.location.hash` and triggers a re-render.
 
 ## Rendering
 
-`handleRouteChange()` dispatches on the parsed mode to one of four renderers:
-`renderTopic`, `renderTheoryOverview`, `renderTheoryModule` and
-`renderTheoryGlossary`. Each owns the container completely — clear, rebuild,
-sync the sidebar, `replaceState` — so no two of them can leave state behind for
-the next.
+`handleRouteChange()` dispatches on the parsed mode to one of seven renderers:
+`renderTopic`, `renderTheoryOverview`, `renderTheoryModule`,
+`renderSynthesisOverview`, `renderSynthesisPrompt`, `renderPredictOverview`,
+`renderPredictSnippet` and `renderGlossary`. Each owns the container completely
+— clear, rebuild, sync the sidebar, `replaceState` — so no two of them can
+leave state behind for the next. `resetContainer()` in `js/synthesis.js` is
+that clearing step, shared by the three newest.
+
+Before any of them runs, the router checks whether the hash it parsed is the
+canonical one. Five reserved first segments replaced the one, and a bare first
+segment is still a question topic, so every `#android` link ever shared is
+normalised to `#questions/android` rather than broken. The three promoted
+sections redirect from their old `#theory/<module>` addresses, and the redirect
+is **derived from the module's trackId** rather than listed — a module added to
+either promoted track redirects without anybody remembering a table.
+`generateTheoryHash` performs the same derivation in the other direction, which
+is how every theory link in the app followed the promotion without a single
+call site learning that anything had changed.
 
 The theory renderers reuse the question bank's `renderCodeBlock()` and
 `renderDiagram()` wholesale, so a snippet looks and behaves identically in both
@@ -222,7 +313,16 @@ revealed block survives a cram toggle and a re-filter.
 
 The glossary is **harvested at render time** from every `definition` block
 rather than authored. A hand-maintained list would drift from the chapters
-within a month; a derived one cannot.
+within a month; a derived one cannot — and every term arrives with the chapter
+that owns it already attached, which is what makes its backlink a property of
+the data rather than a link somebody has to remember to write.
+
+The 24 drills and the 80 predict blocks are reached the same way, through
+`blocksOfTypeInTrack()`. A track never had to produce a flat list before: the
+theory renderer walks modules and chapters, and a block was only ever reached
+from inside its chapter. A mode that shows one prompt or one snippet per screen
+needs the whole track as an ordered sequence, so that "next" can cross a module
+boundary instead of stopping at the end of a file.
 
 `renderTopic()` is the single entry point for the question bank:
 

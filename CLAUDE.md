@@ -62,11 +62,11 @@ A static, build-free single-page app: no bundler, no package manager, no server.
 `index.html` loads every script in a fixed order and each file declares a global.
 See `docs/ARCHITECTURE.md` before changing how anything loads.
 
-Two validators stand in for a test suite, and both must pass before a commit
-that touches the corpus:
+Three validators stand in for a test suite, and all three must pass before a
+commit that touches the corpus or the navigation:
 
 ```bash
-node tools/validate-theory.js
+node tools/validate-theory.js && node tools/validate-questions.js && node tools/validate-nav.js
 ```
 
 `node tools/check-doc-links.js` hits the network, so it runs per-phase rather
