@@ -48,6 +48,63 @@ function collectGlossaryEntries() {
     return entries.sort((a, b) => sortKey(a.term).localeCompare(sortKey(b.term)));
 }
 
+/* --------------------------------------------------------------------------
+   Which terms an interviewer actually says
+
+   The ASKED chip used to be the definition block's `important` flag, which
+   fires on fifty-two of the sixty-eight terms. A chip on three quarters of the
+   cards is not a distinction, it is decoration — and `important` never meant
+   "asked verbatim" anyway. It means the author thought the term mattered,
+   which is true of most terms in a curriculum.
+
+   So the chip is derived from the question bank instead, and now means exactly
+   what it says: this word appears by name in a question somebody is asked.
+   Thirty-one of the sixty-eight qualify, and the chip earns its place.
+
+   Matching is on a word boundary rather than on `includes`, because "Job"
+   inside "JobScheduler" is a different word and "State" inside "StateFlow" is
+   a different concept. Built once and cached: it walks 465 questions against
+   68 terms, which is cheap once and wasteful on every render.
+   -------------------------------------------------------------------------- */
+
+let askedTermIndex = null;
+
+function askedTerms() {
+    if (askedTermIndex) return askedTermIndex;
+
+    askedTermIndex = new Map();
+    const questions = [];
+    (typeof topics === 'undefined' ? [] : topics).forEach((topic) => {
+        (topic.questions || []).forEach((question) => {
+            questions.push({
+                topicId: topic.id,
+                id: question.id,
+                subsection: question.subsection || null,
+                text: question.question,
+                haystack: String(question.question).toLowerCase()
+            });
+        });
+    });
+
+    collectGlossaryEntries().forEach((entry) => {
+        const names = [entry.term].concat(entry.aka ? [entry.aka] : []);
+        const patterns = names.map((name) =>
+            new RegExp(`(^|[^a-z0-9])${escapeRegExp(String(name).toLowerCase())}([^a-z0-9]|$)`));
+
+        const matches = questions.filter((question) =>
+            patterns.some((pattern) => pattern.test(question.haystack)));
+
+        if (matches.length) askedTermIndex.set(entry.term, matches);
+    });
+
+    return askedTermIndex;
+}
+
+/** The questions that name a term, or an empty array. */
+function questionsAsking(term) {
+    return askedTerms().get(term) || [];
+}
+
 /* Sorts on the first alphanumeric character, so `@Composable` files under C
    rather than ahead of everything. */
 function sortKey(term) {
@@ -133,7 +190,7 @@ function buildGlossaryHeader(all, entries, trackFilter) {
     stats.className = 'topic-stats';
     stats.appendChild(makeStat(`${entries.length} terms`));
     stats.appendChild(makeStat(`${new Set(all.map((e) => e.trackId)).size} tracks`));
-    stats.appendChild(makeStat(`${all.filter((e) => e.important).length} asked verbatim`));
+    stats.appendChild(makeStat(`${all.filter((e) => questionsAsking(e.term).length).length} asked verbatim`));
 
     header.appendChild(title);
     header.appendChild(blurb);
@@ -222,14 +279,19 @@ function renderGlossaryEntry(entry) {
     term.className = 'theory-definition-term';
     term.textContent = entry.term;
 
-    // The chip is the block's own `important` flag. It is the nearest thing
-    // the corpus records to "an interviewer will say this word at you", and
-    // inventing a second field to mean the same thing would have left two
-    // that could disagree.
-    if (entry.important) {
-        const chip = document.createElement('span');
+    // Derived from the question bank rather than authored, so the chip means
+    // what it says: this word is in a question somebody is asked. It links to
+    // the first of them, because a reader who sees it wants the question more
+    // than they want the count.
+    const asking = questionsAsking(entry.term);
+    if (asking.length) {
+        const chip = document.createElement('a');
         chip.className = 'glossary-asked';
         chip.textContent = 'ASKED';
+        chip.href = generateHash(asking[0].topicId, asking[0].subsection);
+        chip.title = asking.length === 1
+            ? asking[0].text
+            : `${asking.length} questions name this term — ${asking[0].text}`;
         term.appendChild(chip);
     }
 

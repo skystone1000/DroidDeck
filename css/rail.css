@@ -797,6 +797,8 @@
     margin-top: var(--space-4);
 }
 
+/* A link, not a label. The chip means a question in the bank names this term,
+   so the useful thing to do with it is go and read that question. */
 .glossary-asked {
     display: inline-flex;
     align-items: center;
@@ -808,8 +810,12 @@
     letter-spacing: 0.06em;
     color: var(--tier-must-ink);
     background: var(--tier-must-bg);
+    text-decoration: none;
     vertical-align: middle;
+    transition: filter var(--transition-hover);
 }
+.glossary-asked:hover { filter: brightness(1.15); }
+.glossary-asked:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-glow); }
 
 .theory-glossary-source {
     display: inline-flex;
