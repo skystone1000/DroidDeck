@@ -970,16 +970,7 @@ function setupEventListeners() {
         });
     }
 
-    document.addEventListener('keydown', (event) => {
-        if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
-
-        const tag = (event.target.tagName || '').toLowerCase();
-        if (tag === 'input' || tag === 'textarea' || event.target.isContentEditable) return;
-
-        event.preventDefault();
-        const input = document.getElementById('searchInput');
-        if (input) input.focus();
-    });
+    document.addEventListener('keydown', handleShortcut);
 
     // One tick moves three counters — the row, the bar in the page header and
     // the count in the sidebar. Re-rendering the topic would achieve that and
@@ -1000,6 +991,141 @@ function setupEventListeners() {
 
         refreshProgressReadouts(topicId);
     });
+}
+
+/* --------------------------------------------------------------------------
+   Keyboard
+
+   One handler, because these keys have to agree about when they are off. Every
+   one of them is ignored while focus is in a field, and a reader typing "just"
+   into search must not be sent to Predict on the j.
+
+   `g` then a letter is the only two-key sequence. It arms for exactly one
+   keypress and disarms on anything else, so a stray g cannot swallow the key
+   after it.
+   -------------------------------------------------------------------------- */
+
+let pendingLetterJump = false;
+
+function handleShortcut(event) {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+    const tag = (event.target.tagName || '').toLowerCase();
+    const inField = tag === 'input' || tag === 'textarea' || event.target.isContentEditable;
+
+    if (inField) {
+        // Escape is the one key that still means something in a field: it
+        // clears the search and gives the page back.
+        if (event.key === 'Escape') {
+            event.target.blur();
+            hideSearchResults();
+        }
+        return;
+    }
+
+    if (pendingLetterJump) {
+        pendingLetterJump = false;
+        if (activeMode === 'glossary' && /^[a-z]$/i.test(event.key)) {
+            event.preventDefault();
+            window.location.hash = generateGlossaryHash(event.key.toUpperCase(), null);
+            return;
+        }
+    }
+
+    const mode = modeForKey(event.key);
+    if (mode) {
+        event.preventDefault();
+        goToMode(mode.id);
+        return;
+    }
+
+    switch (event.key) {
+        case '/': {
+            event.preventDefault();
+            const input = document.getElementById('searchInput');
+            if (input) input.focus();
+            return;
+        }
+        case 'g':
+            if (activeMode === 'glossary') {
+                pendingLetterJump = true;
+                event.preventDefault();
+            }
+            return;
+        case 'j':
+            event.preventDefault();
+            moveFocusInList(1);
+            return;
+        case 'k':
+            event.preventDefault();
+            moveFocusInList(-1);
+            return;
+        case 'Enter':
+            if (activateFocusedItem()) event.preventDefault();
+            return;
+        case 'Escape':
+            // Search first, then the page. Escape means "undo the most recent
+            // thing I opened", and an open panel is more recent than a row.
+            if (!hideSearchResults()) collapseFocusedItem();
+            return;
+        default:
+    }
+}
+
+/* What j and k move through depends on the mode, because each one has a
+   different thing that counts as a list. The selector is the only per-mode
+   knowledge in the keyboard layer. */
+function focusableRows() {
+    const selector = {
+        questions: '.question-card',
+        theory: '.theory-chapter',
+        synthesis: '.synthesis-prompt',
+        predict: '.predict-verdict',
+        glossary: '.theory-glossary-entry'
+    }[activeMode] || '.question-card';
+
+    return [...document.querySelectorAll(selector)];
+}
+
+function moveFocusInList(delta) {
+    const rows = focusableRows();
+    if (!rows.length) return;
+
+    const current = rows.findIndex((row) => row.contains(document.activeElement) || row === document.activeElement);
+    // Clamped rather than wrapped. Wrapping from the last row to the first is
+    // a jump the reader did not ask for and cannot see coming.
+    const next = Math.min(rows.length - 1, Math.max(0, current === -1 ? 0 : current + delta));
+
+    const row = rows[next];
+    if (!row.hasAttribute('tabindex')) row.tabIndex = -1;
+    row.focus({ preventScroll: true });
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/** Returns whether there was anything to activate. */
+function activateFocusedItem() {
+    const focused = document.activeElement;
+    if (!focused || focused === document.body) return false;
+
+    const card = focused.closest ? focused.closest('.question-card') : null;
+    if (card) {
+        toggleAnswer(card);
+        return true;
+    }
+
+    const reveal = document.querySelector('.predict-reveal');
+    if (reveal && activeMode === 'predict') {
+        reveal.click();
+        return true;
+    }
+
+    return false;
+}
+
+function collapseFocusedItem() {
+    const focused = document.activeElement;
+    const card = focused && focused.closest ? focused.closest('.question-card.expanded') : null;
+    if (card) toggleAnswer(card);
 }
 
 function refreshProgressReadouts(topicId) {
