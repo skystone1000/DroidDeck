@@ -31,23 +31,30 @@
 
    That kinship used to be written down twice: once here as a colour, and once
    in nobody's file as the reason for the colour. It now lives in `topicTracks`
-   (data/index.js) as a track id, and the hue is derived from it — so these
-   marks carry only the thing that is genuinely per-topic, the monogram. */
+   (data/index.js) as a track id, and the hue is derived from it.
+
+   Three topics keep an explicit hue anyway, and each is a case where the track
+   is the wrong answer. Flow API takes teal so it is not the same colour as
+   Coroutines directly above it — the two sit adjacent in the list, and a shared
+   hue between neighbours is the one place the monogram is not enough on its
+   own. System Design and Data Structures take fuchsia because their theory
+   lives in a track that is now a mode, so deriving would file them under a
+   subject chosen for want of a better one. */
 const topicMarks = {
     'kotlin-coroutines':          { monogram: 'Co' },
-    'kotlin-flow-api':            { monogram: 'Fl' },
+    'kotlin-flow-api':            { monogram: 'Fl', hue: 'teal' },
     'kotlin':                     { monogram: 'Kt' },
     'android':                    { monogram: 'An' },
     'android-libraries':          { monogram: 'Lb' },
     'android-architecture':       { monogram: 'Ar' },
     'design-pattern':             { monogram: 'Dp' },
-    'android-system-design':      { monogram: 'Sd' },
+    'android-system-design':      { monogram: 'Sd', hue: 'fuchsia' },
     'android-unit-testing':       { monogram: 'Ut' },
     'android-tools-technologies': { monogram: 'Tt' },
     'jetpack-compose':            { monogram: 'Jc' },
     'java':                       { monogram: 'Jv' },
     'other-topics':               { monogram: 'Ot' },
-    'data-structures-algorithms': { monogram: 'Ds' }
+    'data-structures-algorithms': { monogram: 'Ds', hue: 'fuchsia' }
 };
 
 /* The theory tracks are the set the design system names directly. */
@@ -85,6 +92,9 @@ function trackHue(trackId) {
     track heading, the progress bar, the count that follows it. Derived from
     the topic's track, so the colour and the kinship cannot disagree. */
 function topicHue(topicId) {
+    const mark = topicMarks[topicId];
+    if (mark && mark.hue) return mark.hue;
+
     const trackId = (typeof topicTracks === 'undefined') ? null : topicTracks[topicId];
     return trackId ? trackHue(trackId) : GLOSSARY_MARK.hue;
 }

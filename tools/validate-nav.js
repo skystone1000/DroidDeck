@@ -87,7 +87,7 @@ function checkTopicTracks(topics, theoryTracks, topicTracks) {
    -------------------------------------------------------------------------- */
 
 const RESERVED = ['questions', 'theory', 'synthesis', 'predict', 'glossary'];
-const SIDEBAR_KINDS = ['tracks', 'rounds', 'sets', 'alphabet'];
+const SIDEBAR_KINDS = ['topics', 'tracks', 'rounds', 'sets', 'alphabet'];
 const GROUPS = ['study', 'drill'];
 
 function checkModes(appModes, topics, theoryModules) {

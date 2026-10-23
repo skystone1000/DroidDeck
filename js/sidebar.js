@@ -6,8 +6,9 @@
    shapes rather than two — declared per mode as `sidebar` in data/modes.js,
    dispatched once here, and never asked about again.
 
-       tracks    Questions and Theory — the seven subject tracks, each opening
-                 to its topics or its modules
+       topics    Questions — the fourteen topics, flat, subsections beneath
+                 the two that have them
+       tracks    Theory — the seven subject tracks, each opening to its modules
        rounds    Interview Synthesis — seven rounds in loop order
        sets      Predict the Output — seven snippet sets, and a verdict strip
                  for the active one
@@ -31,10 +32,11 @@ function renderSidebar(topicsList) {
     nav.innerHTML = '';
 
     switch (currentMode().sidebar) {
-        case 'rounds':   buildRoundNav(nav); return;
+        case 'tracks':   buildTrackNav(nav); return;
+        case 'rounds':   buildDrillSetNav(nav); return;
         case 'sets':     buildSetNav(nav); return;
         case 'alphabet': buildAlphabetNav(nav); return;
-        default:         buildTrackNav(nav);
+        default:         buildQuestionNav(nav);
     }
 }
 
@@ -64,38 +66,31 @@ function questionsInTiers(questions, keys) {
 }
 
 /* --------------------------------------------------------------------------
-   tracks — Questions and Theory
+   topics — Questions
 
-   One builder for both, because after the promotion they organise the same
-   seven subject tracks and differ only in what hangs off each one: topics in
-   Questions, modules in Theory. Two near-identical builders drifted apart once
-   already, which is how the theory sidebar ended up with counts the question
-   sidebar did not have.
+   The flat list, restored. It was briefly grouped under the seven subject
+   tracks, which read well in a mock and badly in use: fourteen topics behind
+   seven collapsed rows is one more click to reach anything, and Android and
+   Java already open onto subsections beneath that.
+
+   `topicTracks` still exists in data/index.js. The grouping is a rendering
+   decision and the mapping is a fact about the corpus, so losing one did not
+   have to mean losing the other.
    -------------------------------------------------------------------------- */
 
-function buildTrackNav(nav) {
-    const questions = activeMode === 'questions';
-    const tracks = subjectTracks();
+function buildQuestionNav(nav) {
+    sidebarTopics.forEach((topic) => {
+        const mark = topicMarks[topic.id];
+        // The count follows the filter, so the sidebar answers "how much is
+        // left to revise" rather than "how much exists".
+        const count = topicCount(topic);
 
-    nav.appendChild(sidebarHeading(questions ? 'Tracks' : 'Reading path', tracks.length));
-
-    tracks.forEach((track) => {
-        const children = questions ? topicsInTrack(track.id) : modulesInTrack(track.id);
-        if (!children.length) return;
-        nav.appendChild(buildTrackGroup(track, children, questions));
+        if (topic.subsections && topic.subsections.length) {
+            nav.appendChild(buildTopicGroup(topic, mark, count));
+        } else {
+            nav.appendChild(buildTopicLink(topic, mark, count));
+        }
     });
-
-    // Topics belonging to no subject track. One rule rather than an invented
-    // eighth track, and `other-topics` is exactly what it is for.
-    const strays = questions ? topicsInTrack(null) : [];
-    if (strays.length) {
-        nav.appendChild(sidebarHeading('Everything else', strays.length));
-        strays.forEach((topic) => {
-            nav.appendChild(topic.subsections && topic.subsections.length
-                ? buildTopicGroup(topic, topicMarks[topic.id], topicCount(topic))
-                : buildTopicLink(topic, topicMarks[topic.id], topicCount(topic)));
-        });
-    }
 }
 
 /* The count follows the tier filter, so the sidebar answers "how much is left
@@ -104,7 +99,24 @@ function topicCount(topic) {
     return questionsInTiers(topic.questions || [], questionTiers).length;
 }
 
-function buildTrackGroup(track, children, questions) {
+/* --------------------------------------------------------------------------
+   tracks — Theory
+
+   The seven subject tracks, each opening onto its modules in reading order.
+   -------------------------------------------------------------------------- */
+
+function buildTrackNav(nav) {
+    const tracks = subjectTracks();
+    nav.appendChild(sidebarHeading('Reading path', tracks.length));
+
+    tracks.forEach((track) => {
+        const modules = modulesInTrack(track.id);
+        if (!modules.length) return;
+        nav.appendChild(buildTrackGroup(track, modules));
+    });
+}
+
+function buildTrackGroup(track, modules) {
     const group = document.createElement('div');
     group.className = 'nav-item-group';
     group.dataset.trackId = track.id;
@@ -115,18 +127,10 @@ function buildTrackGroup(track, children, questions) {
     parent.dataset.trackId = track.id;
     parent.setAttribute('aria-expanded', 'false');
     parent.dataset.hue = trackHue(track.id);
-
-    // What the number on a track means depends on the mode, and saying so is
-    // the whole reason the two modes can share this row. Questions counts
-    // questions left to revise; Theory counts chapters read against written.
-    const count = questions
-        ? children.reduce((n, topic) => n + topicCount(topic), 0)
-        : trackChapterReadout(children);
-
     parent.innerHTML =
         markTile(trackMarks[track.id], trackHue(track.id)) +
         `<span class="nav-label">${escapeAttr(track.title)}</span>` +
-        `<span class="nav-count">${count}</span>` +
+        `<span class="nav-count">${trackChapterReadout(modules)}</span>` +
         CHEVRON_SVG;
 
     parent.addEventListener('click', () => {
@@ -137,16 +141,14 @@ function buildTrackGroup(track, children, questions) {
     const list = document.createElement('div');
     list.className = 'nav-subsections';
 
-    if (!children.length) {
+    if (!modules.length) {
         const empty = document.createElement('span');
         empty.className = 'nav-subsection nav-subsection-empty';
         empty.textContent = 'Not written yet';
         list.appendChild(empty);
     }
 
-    children.forEach((child) => {
-        list.appendChild(questions ? buildTopicRow(child) : buildModuleRow(child));
-    });
+    modules.forEach((mod) => list.appendChild(buildModuleRow(mod)));
 
     group.appendChild(parent);
     group.appendChild(list);
@@ -178,35 +180,6 @@ function buildModuleRow(mod) {
     label.textContent = `${mod.order}. ${mod.title}`;
 
     const progress = moduleProgress(mod);
-    const count = document.createElement('span');
-    count.className = 'nav-subsection-count';
-    count.textContent = `${progress.done}/${progress.total}`;
-    if (progress.total && progress.done === progress.total) count.classList.add('is-complete');
-
-    link.appendChild(label);
-    link.appendChild(count);
-    link.addEventListener('click', closeMobileMenu);
-    return link;
-}
-
-/* A topic inside a track. Topics with subsections keep their third level —
-   Android has twenty and Java eight, and flattening them would have made this
-   refactor cost the reader something. */
-function buildTopicRow(topic) {
-    if (topic.subsections && topic.subsections.length) {
-        return buildTopicGroup(topic, topicMarks[topic.id], topicCount(topic));
-    }
-
-    const link = document.createElement('a');
-    link.className = 'nav-subsection';
-    link.href = generateHash(topic.id);
-    link.dataset.topicId = topic.id;
-
-    const label = document.createElement('span');
-    label.className = 'nav-subsection-label';
-    label.textContent = topic.title;
-
-    const progress = topicProgress(topic);
     const count = document.createElement('span');
     count.className = 'nav-subsection-count';
     count.textContent = `${progress.done}/${progress.total}`;
@@ -363,16 +336,22 @@ function setActiveTopic(topicId, subsectionId) {
 
 
 /* --------------------------------------------------------------------------
-   rounds — Interview Synthesis
+   rounds — Interview Synthesis (the registry's name for this shape)
 
-   Seven rounds in loop order, each a module in the synthesis track. The tick
-   appears when every prompt in a round has been rehearsed, because a round is
-   done when its prompts are and there is nothing else in it to finish.
+   Seven sets of drills, each a module in the synthesis track. They are not
+   interview rounds, whatever the reference design called them: The Spine,
+   Feature Drills and Data Structures and Algorithms are subject areas that
+   prompts are grouped under, not stages of a loop somebody sits. Calling them
+   rounds would have had the sidebar assert a structure the content does not
+   have.
+
+   The tick appears when every prompt in a set has been rehearsed, because a
+   set is done when its prompts are and there is nothing else in it to finish.
    -------------------------------------------------------------------------- */
 
-function buildRoundNav(nav) {
+function buildDrillSetNav(nav) {
     const rounds = modulesInTrack('synthesis');
-    nav.appendChild(sidebarHeading('Interview rounds', rounds.length));
+    nav.appendChild(sidebarHeading('Drill sets', rounds.length));
 
     const drills = allDrills();
     const rehearsed = rehearsedDrills();
@@ -396,13 +375,20 @@ function buildRoundNav(nav) {
         label.className = 'nav-subsection-label';
         label.textContent = mod.title;
 
+        // A set with no drills is read rather than rehearsed, so its count is
+        // chapters. Four of the seven are like this — they describe what a
+        // round is instead of asking you to sit one.
+        const progress = mine.length
+            ? { done, total: mine.length }
+            : moduleProgress(mod);
+
         const count = document.createElement('span');
         count.className = 'nav-subsection-count';
-        if (mine.length && done === mine.length) {
+        if (progress.total && progress.done === progress.total) {
             count.textContent = '✓';
             count.classList.add('is-complete');
         } else {
-            count.textContent = `${done}/${mine.length}`;
+            count.textContent = `${progress.done}/${progress.total}`;
         }
 
         link.appendChild(ordinal);

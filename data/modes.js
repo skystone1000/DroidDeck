@@ -39,7 +39,13 @@ const appModes = [
         shortLabel: 'Questions',
         icon: '?',
         accentVar: '--accent-500',
-        sidebar: 'tracks',
+        /* Not 'tracks'. Grouping the fourteen topics under the seven subject
+           tracks put a third level into a sidebar that was already two deep
+           where Android and Java carry subsections, and made the common case —
+           find a topic, open it — slower than the flat list it replaced. The
+           track ids stay in data/index.js for whatever restructuring comes
+           next; the sidebar is the flat list again. */
+        sidebar: 'topics',
         progressNoun: 'KNOWN',
         storageKey: 'droiddeck:questions:done'
     },
