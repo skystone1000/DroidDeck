@@ -21,10 +21,21 @@ let searchDebounceId = null;
    Index
    -------------------------------------------------------------------------- */
 
+/* Five modes, five kinds of result. A glossary term and a snippet are
+   different actions and cannot share one flat list, which is why every entry
+   now carries the mode it belongs to and the panel groups on it.
+
+   Two of the five were never indexed at all. A search for a term found the
+   chapter that defines it but not the term, and a search for a snippet found
+   the chapter it sits in but not the snippet — both of which are now places
+   the reader can actually go. */
 function buildSearchIndex(topicsList, modulesList) {
     return [
         ...indexQuestions(topicsList),
-        ...indexChapters(modulesList)
+        ...indexChapters(modulesList),
+        ...indexDrills(),
+        ...indexSnippets(),
+        ...indexTerms()
     ];
 }
 
@@ -43,6 +54,7 @@ function indexQuestions(topicsList) {
 
             index.push({
                 kind: 'question',
+                mode: 'questions',
                 title: question.question,
                 context: subsectionTitle ? `${topic.title} › ${subsectionTitle}` : topic.title,
                 topicId: topic.id,
@@ -69,11 +81,17 @@ function indexChapters(modulesList) {
     const index = [];
 
     modules.forEach((mod) => {
+        // A chapter belongs to whichever mode now owns its track. Leaving all
+        // fifty-seven modules under Theory would have put a Predict chapter in
+        // the Theory group and then navigated somewhere else entirely.
+        const owner = modeForModule(mod.id);
+
         (mod.chapters || []).forEach((chapter) => {
             index.push({
                 kind: 'chapter',
+                mode: owner.id,
                 title: chapter.title,
-                context: `${trackTitles[mod.trackId] || 'Theory'} › ${mod.order}. ${mod.title}`,
+                context: `${trackTitles[mod.trackId] || owner.title} › ${mod.order}. ${mod.title}`,
                 moduleId: mod.id,
                 chapterId: chapter.id,
                 importance: chapter.importance,
@@ -93,6 +111,77 @@ function indexChapters(modulesList) {
     });
 
     return index;
+}
+
+/* The twenty-four prompts, addressable directly now that each one is a page.
+   Their text is the prompt and the mistakes that lose marks — the two things a
+   reader searching for "pagination" or "flicker" is actually looking for. */
+function indexDrills() {
+    return allDrills().map((drill) => ({
+        kind: 'prompt',
+        mode: 'synthesis',
+        title: drill.title,
+        context: `Interview Synthesis › ${drill.moduleTitle}`,
+        moduleId: drill.moduleId,
+        itemId: drill.id,
+        // A prompt has no tags of its own; its round is the nearest thing to
+        // one, so searching for "machine coding" surfaces its drills.
+        tags: [drill.moduleTitle],
+        searchText: [
+            drill.title,
+            stripHtml(drill.prompt),
+            (drill.watchFor || []).join(' ')
+        ].join(' ').toLowerCase()
+    }));
+}
+
+/* The eighty snippets. Deliberately indexed on the prompt and the code and
+   NOT on the output or the explanation: a search panel that prints what a
+   snippet prints has given away the answer before the reader opened it. */
+function indexSnippets() {
+    return allPredicts().map((snippet) => ({
+        kind: 'snippet',
+        mode: 'predict',
+        // The prompt, not the chapter title. Most predict blocks carry no
+        // title of their own, and eleven results all reading "launch, and when
+        // its body actually runs" is a list the reader cannot choose from.
+        // The prompt is the question the snippet asks, which is the one line
+        // that tells them apart.
+        title: firstSentence(stripHtml(snippet.prompt)) || snippet.chapterTitle,
+        context: `Predict the Output › ${snippet.moduleTitle}`,
+        moduleId: snippet.moduleId,
+        itemId: snippet.id,
+        tags: [snippet.moduleTitle, snippet.language],
+        searchText: [
+            snippet.title,
+            stripHtml(snippet.prompt),
+            snippet.code
+        ].join(' ').toLowerCase()
+    }));
+}
+
+function indexTerms() {
+    return collectGlossaryEntries().map((entry) => ({
+        kind: 'term',
+        mode: 'glossary',
+        title: entry.term,
+        context: `Glossary › ${entry.chapterTitle}`,
+        term: entry.term,
+        letter: glossaryLetter(entry.term),
+        moduleId: entry.moduleId,
+        chapterId: entry.chapterId,
+        tags: entry.aka ? [entry.aka] : [],
+        searchText: [entry.term, entry.aka, stripHtml(entry.html)].join(' ').toLowerCase()
+    }));
+}
+
+/** One sentence, for a result row that has to fit on one line. */
+function firstSentence(text) {
+    const trimmed = String(text || '').trim();
+    if (!trimmed) return '';
+    const stop = trimmed.search(/[.?!](\s|$)/);
+    const sentence = stop === -1 ? trimmed : trimmed.slice(0, stop + 1);
+    return sentence.length > 110 ? `${sentence.slice(0, 107)}…` : sentence;
 }
 
 /** Everything readable in a chapter's blocks, flattened for matching. */
@@ -175,7 +264,7 @@ function search(query) {
                 if (new RegExp(`\\b${escapeRegex(term)}`).test(titleText)) score += 3;
             }
             if (inBody !== -1) score += 1;
-            if (entry.tags.some((tag) => tag.toLowerCase().includes(term))) score += 4;
+            if ((entry.tags || []).some((tag) => String(tag).toLowerCase().includes(term))) score += 4;
         }
 
         // Deliberately no per-kind weighting. Chapters already place well on
@@ -199,6 +288,17 @@ function escapeRegex(value) {
    Rendering
    -------------------------------------------------------------------------- */
 
+/**
+ * Results grouped by mode, in rail order.
+ *
+ * A flat list was fine when everything in it was a question or a chapter. It
+ * stopped being fine the moment a term, a prompt and a snippet could all match
+ * the same word: those are four different actions, and a reader choosing
+ * between them needs to see which is which before they click.
+ *
+ * Groups come out in rail order rather than by relevance, so the panel has the
+ * same shape every time and the eye learns where to look.
+ */
 function renderSearchResults(results, query) {
     const container = document.getElementById('searchResults');
     if (!container) return;
@@ -214,58 +314,84 @@ function renderSearchResults(results, query) {
         return;
     }
 
+    const byMode = {};
     results.forEach((entry) => {
-        const item = document.createElement('div');
-        item.className = `search-result-item search-result-${entry.kind}`;
-        item.setAttribute('role', 'option');
-        item.tabIndex = 0;
+        const mode = entry.mode || 'questions';
+        (byMode[mode] = byMode[mode] || []).push(entry);
+    });
 
-        const label = document.createElement('div');
-        label.className = 'search-result-topic';
+    appModes.forEach((mode) => {
+        const group = byMode[mode.id];
+        if (!group || !group.length) return;
 
-        if (entry.kind === 'chapter') {
-            const badge = document.createElement('span');
-            badge.className = 'search-result-badge';
-            badge.textContent = 'Theory';
-            label.appendChild(badge);
-        }
+        const heading = document.createElement('div');
+        heading.className = 'search-group';
+        heading.style.setProperty('--rail-accent', `var(${mode.accentVar})`);
 
-        // Questions carry their tier here too, so a search result can be judged
-        // as worth opening before it is opened.
-        if (entry.kind === 'question' && entry.importance) {
-            const tier = IMPORTANCE[entry.importance];
-            if (tier) {
-                const badge = document.createElement('span');
-                badge.className = `search-result-badge importance-${tier.modifier}`;
-                badge.textContent = tier.label;
-                label.appendChild(badge);
-            }
-        }
+        const name = document.createElement('span');
+        name.className = 'search-group-name';
+        // The full name. "Synthesis" is a rail label, and a result heading is
+        // not the rail.
+        name.textContent = mode.title;
 
-        const context = document.createElement('span');
-        context.textContent = entry.context;
-        label.appendChild(context);
+        const count = document.createElement('span');
+        count.className = 'search-group-count';
+        count.textContent = String(group.length);
 
-        const text = document.createElement('div');
-        text.className = 'search-result-question';
-        text.innerHTML = highlightTerms(entry.title, query);
+        heading.appendChild(name);
+        heading.appendChild(count);
+        container.appendChild(heading);
 
-        item.appendChild(label);
-        item.appendChild(text);
-
-        const go = () => navigateToResult(entry);
-        item.addEventListener('click', go);
-        item.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                go();
-            }
-        });
-
-        container.appendChild(item);
+        group.forEach((entry) => container.appendChild(buildSearchResult(entry, query)));
     });
 
     showSearchResults();
+}
+
+function buildSearchResult(entry, query) {
+    const item = document.createElement('div');
+    item.className = `search-result-item search-result-${entry.kind}`;
+    item.setAttribute('role', 'option');
+    item.tabIndex = 0;
+
+    const label = document.createElement('div');
+    label.className = 'search-result-topic';
+
+    // Questions carry their tier here, so a result can be judged as worth
+    // opening before it is opened. The mode badge that used to sit beside it
+    // is gone — the group heading says the same thing once instead of once
+    // per row.
+    if (entry.kind === 'question' && entry.importance) {
+        const tier = IMPORTANCE[entry.importance];
+        if (tier) {
+            const badge = document.createElement('span');
+            badge.className = `search-result-badge importance-${tier.modifier}`;
+            badge.textContent = tier.label;
+            label.appendChild(badge);
+        }
+    }
+
+    const context = document.createElement('span');
+    context.textContent = entry.context;
+    label.appendChild(context);
+
+    const text = document.createElement('div');
+    text.className = 'search-result-question';
+    text.innerHTML = highlightTerms(entry.title, query);
+
+    item.appendChild(label);
+    item.appendChild(text);
+
+    const go = () => navigateToResult(entry);
+    item.addEventListener('click', go);
+    item.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            go();
+        }
+    });
+
+    return item;
 }
 
 /** Wraps matched terms in <mark>. Input is escaped first — it is user text. */
@@ -281,28 +407,49 @@ function highlightTerms(text, query) {
     return escaped.replace(new RegExp(`(${terms.join('|')})`, 'gi'), '<mark>$1</mark>');
 }
 
+/* One builder per mode, because the five destinations are five different
+   shapes of address. Reading the mode off the entry rather than guessing from
+   the kind is what keeps this in step with the grouping above. */
 function navigateToResult(entry) {
     const input = document.getElementById('searchInput');
     hideSearchResults();
     if (input) input.value = '';
 
-    if (entry.kind === 'chapter') {
-        // The chapter route scrolls to the chapter itself, so there is nothing
-        // to do after the hash change.
-        window.location.hash = generateTheoryHash(entry.moduleId, entry.chapterId);
-        return;
+    switch (entry.mode) {
+        case 'theory':
+            // The chapter route scrolls to the chapter itself, so there is
+            // nothing to do after the hash change.
+            window.location.hash = generateTheoryHash(entry.moduleId, entry.chapterId);
+            return;
+
+        case 'synthesis':
+        case 'predict':
+            window.location.hash = entry.itemId
+                ? generateModeHash(entry.mode, entry.moduleId, entry.itemId)
+                : generateTheoryHash(entry.moduleId, entry.chapterId);
+            return;
+
+        case 'glossary':
+            // The letter, not the term: the glossary has no per-term route,
+            // and landing on the right letter puts the card on screen with its
+            // neighbours, which is how a glossary is read.
+            window.location.hash = generateGlossaryHash(entry.letter, null);
+            return;
+
+        default:
+            window.location.hash = generateHash(entry.topicId, entry.subsectionId);
+
+            // The card only exists after renderTopic has run, so scroll on the
+            // next frame rather than immediately.
+            setTimeout(() => {
+                const card = document.querySelector(
+                    `.question-card[data-id="${entry.questionId}"]`
+                );
+                if (!card) return;
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (!card.classList.contains('expanded')) toggleAnswer(card);
+            }, 320);
     }
-
-    window.location.hash = generateHash(entry.topicId, entry.subsectionId);
-
-    // The card only exists after renderTopic has run, so scroll on the next
-    // frame rather than immediately.
-    setTimeout(() => {
-        const card = document.querySelector(`.question-card[data-id="${entry.questionId}"]`);
-        if (!card) return;
-        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        if (!card.classList.contains('expanded')) toggleAnswer(card);
-    }, 320);
 }
 
 function showSearchResults() {
@@ -310,9 +457,12 @@ function showSearchResults() {
     if (container) container.hidden = false;
 }
 
+/** Returns whether there was anything to hide, so Escape can fall through. */
 function hideSearchResults() {
     const container = document.getElementById('searchResults');
-    if (container) container.hidden = true;
+    if (!container || container.hidden) return false;
+    container.hidden = true;
+    return true;
 }
 
 /* --------------------------------------------------------------------------

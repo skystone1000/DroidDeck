@@ -823,3 +823,41 @@
     transition: color var(--transition-hover);
 }
 .theory-glossary-source:hover { color: var(--ds-text); }
+
+/* --------------------------------------------------------------------------
+   Search results, grouped by mode
+   -------------------------------------------------------------------------- */
+
+.search-group {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--ds-raised);
+    border-bottom: 1px solid var(--ds-border);
+    /* The accent is the group's only colour. One rule per mode is enough to
+       tell five groups apart while scrolling, and more would compete with the
+       tier badges inside them. */
+    border-left: 2px solid var(--rail-accent);
+}
+
+.search-group-name {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ds-muted);
+    white-space: nowrap;
+}
+
+.search-group-count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ds-faint);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
