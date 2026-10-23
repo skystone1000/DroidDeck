@@ -476,11 +476,11 @@
     display: none;
 }
 
-/* The chapter rail is filtered with its chapters. The glossary's A–Z bar
-   shares the rail's markup but carries no tier, so it is excluded explicitly —
-   otherwise cram mode empties the jump bar it needs most. */
-#topicContainer.cram-mode .theory-rail:not(.theory-glossary-index)
-    .theory-rail-item:not(.importance-must) {
+/* The chapter rail is filtered with its chapters. The exclusion that used to
+   sit here protected the glossary's own A–Z bar, which shared this markup and
+   carried no tier; that bar is the sidebar's letter grid now and is outside
+   #topicContainer entirely, so the rule no longer needs the exception. */
+#topicContainer.cram-mode .theory-rail .theory-rail-item:not(.importance-must) {
     display: none;
 }
 
@@ -973,24 +973,16 @@
 }
 
 /* --------------------------------------------------------------------------
-   Glossary — #theory/glossary
+   Glossary — #glossary
 
    Reuses the definition card wholesale, so a term looks the same here as it
-   does in the chapter that introduced it. The only addition is the back-link.
+   does in the chapter that introduced it. The card's own additions — the ASKED
+   chip, the backlink, the grid — live in css/rail.css with the rest of the
+   mode. What is left here is the card, which Theory still uses.
+
+   The in-page A–Z jump bar went with the move: the sidebar's letter grid does
+   that job now, and two alphabets on one screen is one too many.
    -------------------------------------------------------------------------- */
-
-.theory-glossary-link {
-    margin-top: 14px;
-}
-
-/* A–Z jump bar. The rail's own layout already wraps and scrolls; letters just
-   need to stop stretching to fill it. */
-.theory-glossary-index .theory-rail-item {
-    min-width: 30px;
-    justify-content: center;
-    font-family: var(--font-mono);
-    font-weight: 600;
-}
 
 .theory-glossary-entry {
     margin: 12px 0;

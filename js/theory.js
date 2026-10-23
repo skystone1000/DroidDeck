@@ -274,8 +274,12 @@ function renderTheoryOverview() {
         // stops one mode's state from surviving into the next.
         container.classList.remove('tier-filtered', 'show-must', 'show-should', 'show-good');
 
-        const modules = (typeof theoryModules === 'undefined') ? [] : theoryModules;
-        const tracks = (typeof theoryTracks === 'undefined') ? [] : theoryTracks;
+        // Seven tracks, not nine. The other two are modes now, and their
+        // modules are counted by the modes that own them — a Theory header
+        // still reading "57 modules" would be counting fourteen pages the
+        // reader cannot reach from this one.
+        const modules = subjectTrackModules();
+        const tracks = subjectTracks();
 
         const totalMinutes = modules.reduce((n, m) => n + (m.estimatedMinutes || 0), 0);
         const totalChapters = modules.reduce((n, m) => n + (m.chapters || []).length, 0);
@@ -304,12 +308,9 @@ function renderTheoryOverview() {
         header.appendChild(blurb);
         header.appendChild(stats);
 
-        const glossaryLink = document.createElement('a');
-        glossaryLink.className = 'theory-dochub-link theory-glossary-link';
-        glossaryLink.href = generateGlossaryHash(null, null);
-        glossaryLink.textContent =
-            `Glossary — ${collectGlossaryEntries().length} terms defined across the path`;
-        header.appendChild(glossaryLink);
+        // No glossary link. It is reached from the rail now, and from the
+        // digit 5; a second door in this header would say it is still a room
+        // inside Theory.
         header.appendChild(renderCramToggle({ collapseAll: false }));
 
         container.appendChild(header);
@@ -321,10 +322,8 @@ function renderTheoryOverview() {
             ));
         }
 
-        tracks
-            .slice()
-            .sort((a, b) => a.order - b.order)
-            .forEach((track) => container.appendChild(renderTrackSection(track, modules, read)));
+        // subjectTracks() is already in reading order.
+        tracks.forEach((track) => container.appendChild(renderTrackSection(track, modules, read)));
 
         container.classList.remove('topic-transitioning');
         if (typeof setActiveTheory === 'function') setActiveTheory(null);

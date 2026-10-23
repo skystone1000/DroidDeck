@@ -285,6 +285,34 @@ function checkGlossaryBacklinks(theoryModules) {
 }
 
 /* --------------------------------------------------------------------------
+   Theory's new size
+
+   Seven tracks, not nine. The two that became modes still own their modules —
+   nothing was re-tracked — but nothing in Theory may render them, and this is
+   the check that says so in numbers rather than in a comment.
+   -------------------------------------------------------------------------- */
+
+const THEORY_SHAPE = { tracks: 7, modules: 43, chapters: 154 };
+
+function checkTheoryShape(theoryModules, theoryTracks) {
+    const subjects = theoryTracks.filter((t) => t.scope === SUBJECT).map((t) => t.id);
+    const mods = theoryModules.filter((m) => subjects.includes(m.trackId));
+
+    const actual = {
+        tracks: subjects.length,
+        modules: mods.length,
+        chapters: mods.reduce((n, m) => n + (m.chapters || []).length, 0)
+    };
+
+    Object.keys(THEORY_SHAPE).forEach((key) => {
+        if (actual[key] !== THEORY_SHAPE[key]) {
+            fail('theory', `${key} is ${actual[key]}, expected ${THEORY_SHAPE[key]} — ` +
+                'if the corpus grew on purpose, update THEORY_SHAPE in tools/validate-nav.js');
+        }
+    });
+}
+
+/* --------------------------------------------------------------------------
    Wiring
    -------------------------------------------------------------------------- */
 
@@ -297,6 +325,7 @@ function main() {
     checkTotals(topics, theoryModules, theoryTracks);
     checkDrillExtras(theoryModules);
     checkGlossaryBacklinks(theoryModules);
+    checkTheoryShape(theoryModules, theoryTracks);
 
     if (errors.length) {
         console.error(`\n${errors.length} problem(s):\n`);
