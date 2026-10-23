@@ -151,7 +151,7 @@ function modeMeta(modeId) {
             return `${subjectTracks().length} tracks · ${mods.length} modules · ${chapters} chapters`;
         }
         case 'synthesis':
-            return `${modulesInTrack('synthesis').length} rounds · ${allDrills().length} prompts`;
+            return `${modulesInTrack('synthesis').length} sets · ${allDrills().length} prompts`;
         case 'predict':
             return `${modulesInTrack('output').length} sets · ${allPredicts().length} snippets`;
         case 'glossary': {

@@ -8,7 +8,7 @@
    material they had already read.
 
    Here a drill is the page. Prev and next walk the flat list across module
-   boundaries, so finishing the last prompt of one round opens the first of the
+   boundaries, so finishing the last prompt of one set opens the first of the
    next rather than dead-ending.
 
    Three of the blocks the specification asks for — the answer spine, the
@@ -46,11 +46,11 @@ function renderSynthesisOverview() {
         blurb.className = 'theory-overview-blurb';
         blurb.textContent =
             'Where the tracks stop being separate. Each prompt is one question ' +
-            'that pulls several of them at once, timed the way the round is timed.';
+            'that pulls several of them at once, on the clock the real thing runs on.';
 
         const stats = document.createElement('div');
         stats.className = 'topic-stats';
-        stats.appendChild(makeStat(`${rounds.length} rounds`));
+        stats.appendChild(makeStat(`${rounds.length} sets`));
         stats.appendChild(makeStat(`${drills.length} prompts`));
         stats.appendChild(makeStat(`${drills.reduce((n, d) => n + (d.minutes || 0), 0)} min`));
 
@@ -63,7 +63,7 @@ function renderSynthesisOverview() {
         container.appendChild(header);
 
         rounds.forEach((mod, index) => {
-            container.appendChild(renderRoundCard(mod, index, drills, rehearsed));
+            container.appendChild(renderSetCardSynthesis(mod, index, drills, rehearsed));
         });
 
         container.classList.remove('topic-transitioning');
@@ -72,9 +72,13 @@ function renderSynthesisOverview() {
     }, TOPIC_TRANSITION_MS);
 }
 
-function renderRoundCard(mod, index, drills, rehearsed) {
+function renderSetCardSynthesis(mod, index, drills, rehearsed) {
     const mine = drills.filter((drill) => drill.moduleId === mod.id);
     const done = mine.filter((drill) => rehearsed.has(drill.id)).length;
+    // A set with no drills is read rather than rehearsed, and its card has to
+    // say so — a card reading "0 prompts" over a bar that can never move is a
+    // card nobody clicks.
+    const isReading = !mine.length;
 
     const card = document.createElement('a');
     card.className = 'theory-card synthesis-round-card';
@@ -83,7 +87,9 @@ function renderRoundCard(mod, index, drills, rehearsed) {
 
     const eyebrow = document.createElement('span');
     eyebrow.className = 'theory-card-eyebrow';
-    eyebrow.textContent = `Round ${String(index + 1).padStart(2, '0')}`;
+    eyebrow.textContent = isReading
+        ? `Set ${String(index + 1).padStart(2, '0')} · ${(mod.chapters || []).length} chapters`
+        : `Set ${String(index + 1).padStart(2, '0')} · ${mine.length} prompts`;
 
     const title = document.createElement('h3');
     title.className = 'theory-card-title';
@@ -96,7 +102,11 @@ function renderRoundCard(mod, index, drills, rehearsed) {
     card.appendChild(eyebrow);
     card.appendChild(title);
     if (mod.tagline) card.appendChild(tagline);
-    card.appendChild(renderProgressBar(done, mine.length, 'rehearsed'));
+
+    const progress = isReading ? moduleProgress(mod) : { done, total: mine.length };
+    card.appendChild(renderProgressBar(
+        progress.done, progress.total, isReading ? 'read' : 'rehearsed'
+    ));
 
     return card;
 }
@@ -110,13 +120,25 @@ function renderSynthesisPrompt(moduleId, drillId) {
     if (!container) return;
 
     const all = allDrills();
-    // Landing on a round with no prompt named opens the first one not yet
-    // rehearsed — the reader's actual position, not the top of the list.
     const inModule = all.filter((drill) => drill.moduleId === moduleId);
+
+    /* Four of the seven sets carry no drills at all — Data Structures, the
+       Spine, Mobile System Design and The Rest of the Loop are fourteen
+       chapters of prose about how the rounds work, with nothing to attempt
+       against a clock. They are read, not rehearsed, so they render as reading
+       modules.
+
+       This is not a special case bolted on. It is the difference between a set
+       that asks you to do something and a set that tells you what the round
+       is, and a mode that only knew how to show prompts left those fourteen
+       chapters with no way in at all. */
     if (!inModule.length) {
-        renderSynthesisOverview();
+        renderTheoryModule(moduleId, drillId);
         return;
     }
+
+    // Landing on a set with no prompt named opens the first one not yet
+    // rehearsed — the reader's actual position, not the top of the list.
 
     const rehearsed = rehearsedDrills();
     const drill = (drillId && inModule.find((d) => d.id === drillId))
@@ -143,14 +165,17 @@ function buildPromptScreen(drill, index, all) {
     article.className = 'synthesis-prompt';
     article.dataset.drillId = drill.id;
 
-    const rounds = modulesInTrack('synthesis');
-    const roundNumber = rounds.findIndex((mod) => mod.id === drill.moduleId) + 1;
+    // Set, position within it, timebox. The position is the part a reader
+    // working through a set actually wants — "which of these am I on" — and it
+    // replaces an ordinal that only restated the set they had just clicked.
+    const inSet = allDrills().filter((d) => d.moduleId === drill.moduleId);
+    const position = inSet.findIndex((d) => d.id === drill.id) + 1;
 
     const eyebrow = document.createElement('div');
     eyebrow.className = 'synthesis-eyebrow';
     eyebrow.textContent = [
-        `Round ${String(roundNumber).padStart(2, '0')}`,
         drill.moduleTitle,
+        `${position} of ${inSet.length}`,
         `${drill.minutes} min`
     ].join(' · ');
     article.appendChild(eyebrow);
